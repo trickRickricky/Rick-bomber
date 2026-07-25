@@ -1,0 +1,2044 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Rickボンバー</title>
+<style>
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: linear-gradient(160deg,#1b2a4a,#0d1524);
+    color: #fff;
+    font-family: 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    padding: 6px;
+  }
+  h1 {
+    font-size: 17px;
+    margin: 4px 0;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 4px rgba(0,0,0,.5);
+  }
+  #skipToBossBtn {
+    cursor: pointer;
+    display: inline-block;
+    transition: transform 0.15s;
+    touch-action: none;
+  }
+  #skipToBossBtn:active { transform: scale(1.3); }
+  #muteBtn {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    z-index: 50;
+    cursor: pointer;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.12);
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s;
+    padding: 0;
+    touch-action: none;
+  }
+  #muteBtn:active { transform: scale(1.2); }
+  #hud {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px 14px;
+    font-size: 12.5px;
+    margin-bottom: 6px;
+    background: rgba(255,255,255,0.08);
+    padding: 5px 14px;
+    border-radius: 14px;
+    max-width: 92vw;
+  }
+  #hud span.val { font-weight: bold; color: #ffce6b; }
+  #stage {
+    position: relative;
+    line-height: 0;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5), 0 0 0 4px #3a2b1a, 0 0 0 8px #5a3d20;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: 92vw;
+    max-height: 42vh;
+    image-rendering: pixelated;
+    background: #2f5233;
+    touch-action: none;
+  }
+  #overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,.72);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    text-align: center;
+    padding: 16px;
+    box-sizing: border-box;
+    overflow-y: auto;
+  }
+  #overlay.show { display: flex; }
+  #bossBanner {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    background: rgba(60,0,0,0.35);
+  }
+  #bossBanner.show { display: flex; }
+  #bossBanner span {
+    font-size: 22px;
+    font-weight: bold;
+    color: #ff5a5a;
+    text-shadow: 0 0 10px rgba(255,0,0,0.9), 0 2px 4px rgba(0,0,0,.6);
+    animation: bossPulse 0.6s ease-in-out infinite alternate;
+  }
+  @keyframes bossPulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.15); }
+  }
+  #overlay h2 { margin: 0; font-size: 24px; line-height: 1.3; }
+  #overlayText { margin: 0; opacity: .85; font-size: 13px; line-height: 1.5; max-width: 280px; }
+  button.bigbtn {
+    padding: 10px 22px;
+    font-size: 15px;
+    border: none;
+    border-radius: 24px;
+    background: linear-gradient(180deg,#ff8a3d,#e85d1f);
+    color: #fff;
+    font-weight: bold;
+    box-shadow: 0 4px 10px rgba(0,0,0,.4);
+    touch-action: none;
+  }
+  #controls {
+    margin-top: 8px;
+    width: 100%;
+    max-width: 500px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    padding: 0 6px;
+  }
+  #joyBase {
+    position: relative;
+    width: 128px;
+    height: 128px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, rgba(255,255,255,0.16), rgba(255,255,255,0.05) 70%);
+    border: 2px solid rgba(255,255,255,0.25);
+    touch-action: none;
+    flex-shrink: 0;
+  }
+  #joyKnob {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 58px; height: 58px;
+    margin-left: -29px; margin-top: -29px;
+    border-radius: 50%;
+    background: linear-gradient(180deg,#5fa8ff,#2f6fe0);
+    box-shadow: 0 4px 10px rgba(0,0,0,.5);
+    pointer-events: none;
+  }
+  #bombBtn {
+    width: 104px; height: 104px;
+    border-radius: 50%;
+    border: none;
+    background: radial-gradient(circle at 35% 30%, #666,#111 70%);
+    color: #ffb347;
+    font-size: 15px;
+    font-weight: bold;
+    box-shadow: 0 4px 12px rgba(0,0,0,.5), inset 0 0 0 3px #333;
+    touch-action: none;
+    flex-shrink: 0;
+  }
+  #bombBtn:active { transform: scale(0.94); }
+  #actionBtns {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
+  }
+  #invincibleBtn {
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    border: none;
+    background: radial-gradient(circle at 35% 30%, #ffe066, #d4a017 70%);
+    color: #3a2a00;
+    font-size: 10.5px;
+    font-weight: bold;
+    box-shadow: 0 4px 10px rgba(0,0,0,.5), inset 0 0 0 3px #a97a0f;
+    touch-action: none;
+  }
+  #invincibleBtn:active { transform: scale(0.94); }
+  #invincibleBtn:disabled {
+    background: radial-gradient(circle at 35% 30%, #777, #444 70%);
+    color: #aaa;
+    box-shadow: 0 4px 10px rgba(0,0,0,.5), inset 0 0 0 3px #333;
+  }
+  #hint { font-size: 10.5px; opacity: .6; margin-top: 4px; text-align:center; }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>Rickボンバー <span id="skipToBossBtn" title="真のラスボスへスキップ">💣</span></h1>
+  <button id="muteBtn" title="サウンドON/OFF">🔊</button>
+  <div id="hud">
+    <div>タイム <span class="val" id="elapsedTime">0:00.0</span></div>
+    <div>敵 <span class="val" id="enemyCount">0</span></div>
+    <div>爆弾 <span class="val" id="bombCount">3/3</span></div>
+    <div>火力 <span class="val" id="fireStat">2</span></div>
+    <div>速度 <span class="val" id="speedStat">1</span></div>
+    <div>キック <span class="val" id="kickStat">○</span></div>
+  </div>
+  <div id="stage">
+    <canvas id="game" width="480" height="352"></canvas>
+    <div id="bossBanner"><span>⚠️ ボス登場 ⚠️</span></div>
+    <div id="overlay">
+      <h2 id="overlayTitle">GAME OVER</h2>
+      <p id="overlayText">もう一度挑戦しよう！</p>
+      <button class="bigbtn" id="screenshotBtn">📸 スクリーンショット</button>
+      <button class="bigbtn" id="restartBtn">リスタート</button>
+    </div>
+  </div>
+  <div id="controls">
+    <div id="joyBase">
+      <div id="joyKnob"></div>
+    </div>
+    <div id="actionBtns">
+      <button id="bombBtn">爆弾<br>設置</button>
+      <button id="invincibleBtn">無敵<br>5秒</button>
+    </div>
+  </div>
+  <div id="hint">スマホ: 左のパッドをスライドで移動 / 爆弾設置と無敵ボタン(1回だけ)。PC: 矢印キー・WASD+スペース(設置)/Z(無敵)</div>
+</div>
+
+
+<script>
+(function(){
+  const COLS = 15, ROWS = 11, TILE = 32;
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  canvas.width = COLS*TILE;
+  canvas.height = ROWS*TILE;
+
+  // ---------- iOS Safari zoom prevention ----------
+  // iOS Safari can still trigger pinch-zoom and double-tap-zoom even with
+  // user-scalable=no in the viewport meta tag (it's ignored in some
+  // versions), so these are handled directly in JS as a backstop.
+  document.addEventListener('gesturestart', e=>e.preventDefault());
+  document.addEventListener('gesturechange', e=>e.preventDefault());
+  document.addEventListener('touchmove', e=>{
+    if(e.touches.length>1) e.preventDefault();
+  }, { passive:false });
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', e=>{
+    const now = Date.now();
+    if(now - lastTouchEnd <= 350) e.preventDefault();
+    lastTouchEnd = now;
+  }, { passive:false });
+
+  // ---------- Audio (procedural - no external files needed) ----------
+  let audioCtx = null;
+  let audioEnabled = true;
+  let bgmPlaying = false;
+  let bgmIndex = 0;
+  let bgmNextTime = 0;
+
+  function ensureAudio(){
+    if(!audioCtx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return null;
+      audioCtx = new AC();
+    }
+    if(audioCtx.state==='suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playTone(freq, duration, type, volume, startDelay){
+    if(!audioEnabled) return;
+    const ac = ensureAudio();
+    if(!ac) return;
+    type = type || 'square';
+    volume = volume===undefined ? 0.15 : volume;
+    startDelay = startDelay || 0;
+    const t0 = ac.currentTime + startDelay;
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    gain.gain.setValueAtTime(volume, t0);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0+duration);
+    osc.connect(gain).connect(ac.destination);
+    osc.start(t0);
+    osc.stop(t0+duration+0.02);
+  }
+
+  function playSlide(freqFrom, freqTo, duration, type, volume, startDelay){
+    if(!audioEnabled) return;
+    const ac = ensureAudio();
+    if(!ac) return;
+    startDelay = startDelay || 0;
+    const t0 = ac.currentTime + startDelay;
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.type = type || 'sawtooth';
+    osc.frequency.setValueAtTime(freqFrom, t0);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(20,freqTo), t0+duration);
+    gain.gain.setValueAtTime(volume===undefined?0.15:volume, t0);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0+duration);
+    osc.connect(gain).connect(ac.destination);
+    osc.start(t0);
+    osc.stop(t0+duration+0.02);
+  }
+
+  function playNoise(duration, volume, startDelay){
+    if(!audioEnabled) return;
+    const ac = ensureAudio();
+    if(!ac) return;
+    volume = volume===undefined ? 0.2 : volume;
+    startDelay = startDelay || 0;
+    const t0 = ac.currentTime + startDelay;
+    const bufferSize = Math.max(1, Math.floor(ac.sampleRate*duration));
+    const buffer = ac.createBuffer(1, bufferSize, ac.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i=0;i<bufferSize;i++){ data[i] = (Math.random()*2-1) * (1-i/bufferSize); }
+    const noise = ac.createBufferSource();
+    noise.buffer = buffer;
+    const gain = ac.createGain();
+    gain.gain.setValueAtTime(volume, t0);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0+duration);
+    noise.connect(gain).connect(ac.destination);
+    noise.start(t0);
+  }
+
+  const sfx = {
+    bombPlace(){ playTone(220, 0.07, 'square', 0.12); },
+    kick(){ playTone(140, 0.05, 'square', 0.1); },
+    stepItem(){ playTone(660, 0.08, 'square', 0.14); playTone(880, 0.09, 'square', 0.14, 0.08); },
+    explosion(){ playNoise(0.32, 0.22); playSlide(180, 40, 0.3, 'sawtooth', 0.14); },
+    enemyDeath(){ playTone(320, 0.12, 'triangle', 0.16); playTone(160, 0.14, 'triangle', 0.13, 0.06); },
+    playerDeath(){ playSlide(440, 90, 0.6, 'sawtooth', 0.18); },
+    bossHit(){ playNoise(0.12, 0.18); playTone(140, 0.1, 'square', 0.1); },
+    bossDeath(){
+      playNoise(0.5, 0.25);
+      playSlide(300, 50, 0.6, 'sawtooth', 0.18);
+      playTone(80, 0.5, 'square', 0.15, 0.15);
+    },
+    trueBossDeath(){
+      playNoise(0.8, 0.3);
+      playSlide(400, 40, 0.9, 'sawtooth', 0.2);
+      playTone(60, 0.8, 'square', 0.18, 0.2);
+      playNoise(0.5, 0.22, 0.35);
+    },
+    win(){
+      playTone(523,0.14,'square',0.15,0);
+      playTone(659,0.14,'square',0.15,0.13);
+      playTone(784,0.14,'square',0.15,0.26);
+      playTone(1047,0.28,'square',0.16,0.39);
+    },
+    gameOver(){
+      playTone(220,0.2,'triangle',0.15,0);
+      playTone(196,0.2,'triangle',0.15,0.15);
+      playTone(147,0.35,'triangle',0.15,0.3);
+    },
+    bombKickStop(){ playTone(300,0.06,'square',0.1); },
+    bossWarning(){
+      playTone(880,0.18,'square',0.16,0);
+      playTone(880,0.18,'square',0.16,0.28);
+      playTone(880,0.24,'square',0.18,0.56);
+    },
+    desperationCharge(){
+      playSlide(80, 900, 2.0, 'sawtooth', 0.1);
+    },
+    desperationHit(){
+      playNoise(0.6, 0.3);
+      playSlide(500, 30, 0.6, 'square', 0.22);
+      playTone(50, 0.6, 'square', 0.2, 0.05);
+    },
+    invincibleActivate(){
+      playTone(440,0.1,'square',0.16,0);
+      playTone(660,0.1,'square',0.16,0.09);
+      playTone(880,0.16,'square',0.18,0.18);
+    },
+    invinciblePulse(){ playTone(1000, 0.05, 'sine', 0.06); },
+    bossFire(){
+      playSlide(700, 200, 0.22, 'square', 0.16);
+      playNoise(0.15, 0.12);
+    },
+    trueBossWarning(){
+      // darker, longer, and layered with noise hits - meant to feel far more
+      // dire than the regular boss's simple triple-beep
+      playSlide(120, 45, 1.1, 'sawtooth', 0.16, 0);
+      playNoise(0.18, 0.22, 0);
+      playNoise(0.18, 0.24, 0.35);
+      playNoise(0.22, 0.28, 0.7);
+      playTone(55, 0.5, 'square', 0.2, 0.7);
+      playSlide(100, 40, 1.0, 'sawtooth', 0.14, 1.1);
+      playNoise(0.25, 0.3, 1.4);
+    },
+    trueBossBombPlace(){
+      // a slightly darker/lower variant of the normal bomb-place blip so its
+      // bombs are audibly distinguishable from your own
+      playTone(160, 0.08, 'sawtooth', 0.13);
+      playTone(110, 0.09, 'square', 0.1, 0.05);
+    },
+  };
+
+  const BGM_PATTERNS = {
+    // regular exploration theme
+    normal: {
+      notes: [220,220,262,294, 330,294,262,220, 196,196,220,262, 247,220,196,175],
+      noteDuration: 0.24,
+      wave: 'triangle',
+    },
+    // first boss: a bit brighter and quicker, more "on guard"
+    boss1: {
+      notes: [294,294,349,392, 440,392,349,294, 262,262,311,349, 330,311,262,247],
+      noteDuration: 0.2,
+      wave: 'triangle',
+    },
+    // true boss: fast, low, and driving - meant to feel like the final showdown
+    trueBoss: {
+      notes: [131,131,175,131, 156,131,117,131, 175,175,196,175, 220,196,175,156,
+              131,147,175,131, 156,175,196,220, 233,220,196,175, 156,175,196,131],
+      noteDuration: 0.135,
+      wave: 'sawtooth',
+    },
+  };
+  let currentBgmKey = null;
+
+  function bgmKeyForStage(){
+    if(stage>=4) return 'trueBoss';
+    if(stage===3) return 'boss1';
+    return 'normal';
+  }
+
+  function updateBGM(){
+    if(!audioEnabled || !bgmPlaying) return;
+    const ac = ensureAudio();
+    if(!ac) return;
+    const key = bgmKeyForStage();
+    if(key!==currentBgmKey){
+      currentBgmKey = key;
+      bgmIndex = 0;
+      bgmNextTime = 0; // let the new theme's first note play immediately
+    }
+    const pattern = BGM_PATTERNS[key];
+    if(ac.currentTime >= bgmNextTime){
+      const freq = pattern.notes[bgmIndex % pattern.notes.length];
+      const vol = key==='trueBoss' ? 0.06 : 0.11;
+      playTone(freq, pattern.noteDuration*0.85, pattern.wave, vol);
+      if(bgmIndex % 4===0) playTone(freq/2, pattern.noteDuration*0.85, 'sine', vol*0.8);
+      bgmIndex++;
+      bgmNextTime = ac.currentTime + pattern.noteDuration;
+    }
+  }
+
+  function startBGMOnce(){
+    if(bgmPlaying) return;
+    ensureAudio();
+    bgmPlaying = true;
+    bgmNextTime = 0;
+    currentBgmKey = null;
+  }
+  window.addEventListener('pointerdown', startBGMOnce, { once:true });
+  window.addEventListener('keydown', startBGMOnce, { once:true });
+
+  const ENTITY_SIZE = 26;
+  const PAD = 2;
+  const BASE_SPEED = 195;
+  const SPEED_STEP = 28;
+  const MAX_SPEED_LEVEL = 5;
+  const MAX_FIRE = 6;
+  const MAX_BOMBS = 6;
+  const ENEMY_SPEED = 70;
+  const ENEMY_COUNT = 3;
+  const BOMB_FUSE = 1.8;
+  const EXPLOSION_DURATION = 0.45;
+  const SAFE_GRACE = 0.6; // how long a just-destroyed block's tile stays guaranteed-safe
+  const ROLL_SPEED = 230;
+  const ITEM_DROP_CHANCE = 0.35;
+  const ITEM_TYPES = ['bombUp','fireUp','speedUp'];
+  const ITEM_ICON = { bombUp:'💣', fireUp:'🔥', speedUp:'🛼' };
+
+  let grid, bombs, explosions, enemies, player, items, safeCells, projectiles;
+  let deathEffects = [];
+  let shakeTimer = 0, shakeMagnitude = 0;
+  let pendingEnd = null; // { isWin, timer } - delays the end screen until the death animation finishes
+  // 1 = clearing normal enemies, 2 = boss intro, 3 = boss fight,
+  // 4 = true-boss intro, 5 = true-boss fight
+  let stage = 1;
+  let stageTimer = 0;
+  let boss = null;
+  let trueBoss = null;
+  const BOSS_HP = 3;
+  const BOSS_SPEED = 105;
+  const BOSS_SIZE = 40; // purely visual - collision still uses ENTITY_SIZE so it still fits corridors
+  const BOSS_INTRO_TIME = 2.0;
+  const PROJECTILE_SPEED = 210;
+  const PROJECTILE_SIZE = 12;
+  const PROJECTILE_BURST_COUNT = 14;
+  const TRUEBOSS_HP = 5;
+  const TRUEBOSS_FIRE_RANGE = MAX_FIRE; // safe to max out now that it's fully immune to its own bombs
+  const TRUEBOSS_MAX_BOMBS = 20; // way more than the player's own cap - it can really carpet the map
+  const TRUEBOSS_SIZE = 30; // close to the player's own size - it basically *is* a player
+  let score = 0;
+  let gameStartTime = 0;
+  let clearElapsedMs = 0;
+  let gameOver = false, gameWin = false;
+  let lastTime = 0;
+
+  const elapsedTimeEl = document.getElementById('elapsedTime');
+  const enemyCountEl = document.getElementById('enemyCount');
+  const bombCountEl = document.getElementById('bombCount');
+  const fireStatEl = document.getElementById('fireStat');
+  const speedStatEl = document.getElementById('speedStat');
+  const kickStatEl = document.getElementById('kickStat');
+  const overlay = document.getElementById('overlay');
+  const overlayTitle = document.getElementById('overlayTitle');
+  const overlayText = document.getElementById('overlayText');
+  const bossBanner = document.getElementById('bossBanner');
+  const screenshotBtn = document.getElementById('screenshotBtn');
+
+  function clearCell(gx,gy){ if(grid[gy] && grid[gy][gx]!==undefined) grid[gy][gx]=0; }
+
+  function buildGrid(){
+    grid = [];
+    for(let y=0;y<ROWS;y++){
+      const row = [];
+      for(let x=0;x<COLS;x++){
+        if(x===0||y===0||x===COLS-1||y===ROWS-1) row.push(1);
+        else if(x%2===0 && y%2===0) row.push(1);
+        else row.push(Math.random()<0.62 ? 2 : 0);
+      }
+      grid.push(row);
+    }
+    const safeZones = [
+      [1,1],[2,1],[1,2],
+      [COLS-2,1],[COLS-3,1],[COLS-2,2],
+      [1,ROWS-2],[2,ROWS-2],[1,ROWS-3],
+      [COLS-2,ROWS-2],[COLS-3,ROWS-2],[COLS-2,ROWS-3]
+    ];
+    safeZones.forEach(([x,y])=>clearCell(x,y));
+  }
+
+  function makeEntity(gx,gy,speed){
+    return {
+      x: gx*TILE + (TILE-ENTITY_SIZE)/2,
+      y: gy*TILE + (TILE-ENTITY_SIZE)/2,
+      speed, alive:true, dir:{dx:0,dy:1}, changeTimer:0
+    };
+  }
+
+  // Entities that use the classic grid-locked movement system (the player,
+  // and later the true boss, who moves and bombs exactly like a player).
+  function makeGridEntity(gx,gy,speed){
+    const e = makeEntity(gx,gy,speed);
+    e.gx = gx; e.gy = gy;
+    e.moveDir = { dx:0, dy:0 };
+    e.progress = 0;
+    e.canKick = false;
+    return e;
+  }
+
+  function resetGame(){
+    buildGrid();
+    player = makeGridEntity(1,1,BASE_SPEED);
+    player.maxBombs = 3;
+    player.bombsAvailable = 3;
+    player.fireRange = 2;
+    player.speedLevel = 1;
+    player.canKick = true;
+    player.facing = 'down';
+    player.invincibleTimer = 0;
+    player.invincibleUsed = false;
+    player.invinciblePulseTimer = 0;
+    pendingEnd = null;
+    const spots = [[COLS-2,1],[1,ROWS-2],[COLS-2,ROWS-2]];
+    enemies = spots.slice(0,ENEMY_COUNT).map(([x,y])=>makeEntity(x,y,ENEMY_SPEED));
+    bombs = [];
+    explosions = [];
+    projectiles = [];
+    items = [];
+    safeCells = [];
+    deathEffects = [];
+    shakeTimer = 0;
+    shakeMagnitude = 0;
+    stage = 1;
+    stageTimer = 0;
+    boss = null;
+    trueBoss = null;
+    bossBanner.classList.remove('show');
+    score = 0;
+    gameOver = false;
+    gameWin = false;
+    gameStartTime = performance.now();
+    clearElapsedMs = 0;
+    overlay.classList.remove('show');
+    invincibleBtn.disabled = false;
+    invincibleBtn.innerHTML = '無敵<br>5秒';
+    if(audioCtx) bgmPlaying = true;
+    updateHUD();
+  }
+
+  function formatShortTime(ms){
+    const totalSec = ms/1000;
+    const min = Math.floor(totalSec/60);
+    const sec = totalSec - min*60;
+    return `${min}:${sec.toFixed(1).padStart(4,'0')}`;
+  }
+
+  function updateHUD(){
+    elapsedTimeEl.textContent = formatShortTime(performance.now() - gameStartTime);
+    if(stage>=5 && trueBoss) enemyCountEl.textContent = `真ボスHP${trueBoss.hp}`;
+    else if(stage>=3 && boss) enemyCountEl.textContent = `ボスHP${boss.hp}`;
+    else enemyCountEl.textContent = enemies.filter(e=>e.alive).length;
+    bombCountEl.textContent = player.bombsAvailable + '/' + player.maxBombs;
+    fireStatEl.textContent = player.fireRange;
+    speedStatEl.textContent = player.speedLevel;
+    kickStatEl.textContent = player.canKick ? '○' : '✕';
+  }
+
+  function isSolidTile(gx,gy){
+    if(gx<0||gy<0||gx>=COLS||gy>=ROWS) return true;
+    return grid[gy][gx]===1 || grid[gy][gx]===2;
+  }
+  function bombAtCell(gx,gy){
+    return bombs.find(b=>!b.exploded && b.gx===gx && b.gy===gy);
+  }
+
+  // Rough "is this cell about to be in a blast" check, used by the true
+  // boss's flee AI. It doesn't bother tracing through walls/blocks (that
+  // would be overkill for an AI safety check) - being a little overly
+  // cautious about a same-row/column bomb is fine and just makes it dodge
+  // a bit more than strictly necessary.
+  // Mirrors the real explosion algorithm (stops dead at a hard wall, absorbed
+  // by one destructible block) so that a cell genuinely protected by a wall
+  // is correctly seen as safe - the previous version checked whole rows/
+  // columns ignoring walls entirely, which (especially at max fire range)
+  // made almost the entire map look "dangerous" with nowhere actually safe
+  // to flee to, so the true boss kept dying no matter what it did.
+  function isCellDangerous(gx,gy){
+    for(const b of bombs){
+      if(b.exploded) continue;
+      if(b.gx===gx && b.gy===gy) return true;
+      const range = (b.owner && b.owner.fireRange) || 2;
+      const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+      for(const [dx,dy] of dirs){
+        for(let r=1; r<=range; r++){
+          const cx = b.gx+dx*r, cy = b.gy+dy*r;
+          if(cx<0||cy<0||cx>=COLS||cy>=ROWS) break;
+          if(!grid[cy]) break;
+          if(grid[cy][cx]===1) break; // hard wall stops the blast completely
+          if(cx===gx && cy===gy) return true;
+          if(grid[cy][cx]===2) break; // block absorbs the blast, same as a real explosion
+        }
+      }
+    }
+    return false;
+  }
+
+  // ---- continuous collision (used by enemies only) ----
+  function collides(x,y){
+    const pts = [
+      [x+PAD, y+PAD],
+      [x+ENTITY_SIZE-PAD, y+PAD],
+      [x+PAD, y+ENTITY_SIZE-PAD],
+      [x+ENTITY_SIZE-PAD, y+ENTITY_SIZE-PAD]
+    ];
+    for(const [px,py] of pts){
+      const gx = Math.floor(px/TILE), gy = Math.floor(py/TILE);
+      if(isSolidTile(gx,gy)) return true;
+      if(bombAtCell(gx,gy)) return true;
+    }
+    return false;
+  }
+  function tryMoveEnemy(entity, dx, dy){
+    if(dx!==0){
+      const nx = entity.x + dx;
+      if(!collides(nx, entity.y)) entity.x = nx;
+    }
+    if(dy!==0){
+      const ny = entity.y + dy;
+      if(!collides(entity.x, ny)) entity.y = ny;
+    }
+  }
+  function centerTile(e){
+    return {
+      gx: Math.floor((e.x+ENTITY_SIZE/2)/TILE),
+      gy: Math.floor((e.y+ENTITY_SIZE/2)/TILE)
+    };
+  }
+
+  // Continuously-moving entities (enemies, the first boss) can be straddling
+  // two tiles at once. Checking only their single "center tile" against the
+  // blast cells can miss a hit if their center happens to be a hair over the
+  // boundary into the *next* tile while their body still overlaps the
+  // burning one. This checks real rectangle overlap against every blast
+  // cell instead, so a partial overlap still counts.
+  function tileOverlapsEntity(gx, gy, e){
+    const left = gx*TILE, top = gy*TILE;
+    return e.x < left+TILE && e.x+ENTITY_SIZE > left &&
+           e.y < top+TILE && e.y+ENTITY_SIZE > top;
+  }
+
+  function overlaps(a,b){
+    return a.x < b.x+ENTITY_SIZE && a.x+ENTITY_SIZE > b.x &&
+           a.y < b.y+ENTITY_SIZE && a.y+ENTITY_SIZE > b.y;
+  }
+
+  function triggerShake(duration, magnitude){
+    shakeTimer = Math.max(shakeTimer, duration);
+    shakeMagnitude = Math.max(shakeMagnitude, magnitude);
+  }
+
+  // A generic "died" burst: a ring of particles flying outward plus a quick
+  // flash, scaled by `intensity` so the same system can be a small pop for a
+  // grunt enemy or a screen-shaking spectacle for the true boss.
+  function spawnDeathEffect(x, y, color, intensity){
+    const count = Math.round(7 * intensity) + 4;
+    const particles = [];
+    for(let i=0; i<count; i++){
+      const angle = (i/count)*Math.PI*2 + Math.random()*0.4;
+      const speed = (55 + Math.random()*70) * Math.min(intensity, 2.2);
+      particles.push({
+        x, y,
+        dx: Math.cos(angle)*speed,
+        dy: Math.sin(angle)*speed,
+        size: (2.5 + Math.random()*2.5) * Math.min(intensity, 2),
+      });
+    }
+    const duration = 0.45 + 0.18*intensity;
+    deathEffects.push({ particles, timer:duration, maxTimer:duration, x, y, color, intensity });
+    if(intensity>=2.5){
+      triggerShake(0.4, 6);
+    } else if(intensity>=1.6){
+      triggerShake(0.25, 3);
+    }
+  }
+
+  function updateDeathEffects(dt){
+    for(const fx of deathEffects){
+      fx.timer -= dt;
+      for(const p of fx.particles){
+        p.x += p.dx*dt;
+        p.y += p.dy*dt;
+        p.dx *= 0.94;
+        p.dy *= 0.94;
+      }
+    }
+    deathEffects = deathEffects.filter(fx=>fx.timer>0);
+    if(shakeTimer>0) shakeTimer -= dt;
+  }
+
+  function drawDeathEffects(){
+    for(const fx of deathEffects){
+      const life = Math.max(0, fx.timer/fx.maxTimer);
+      for(const p of fx.particles){
+        ctx.beginPath();
+        ctx.fillStyle = fx.color;
+        ctx.globalAlpha = life;
+        ctx.arc(p.x, p.y, p.size*life, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+    if(deathEffects.some(fx=>fx.intensity>=2.5)){
+      const flashFx = deathEffects.find(fx=>fx.intensity>=2.5);
+      const t = flashFx.timer/flashFx.maxTimer;
+      ctx.fillStyle = `rgba(255,255,255,${0.5*t})`;
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+    }
+  }
+
+  // ---- classic grid-locked movement for the player ----
+  // The player always occupies a grid cell, or is smoothly interpolating
+  // between two adjacent cells. At any moment there is exactly ONE intended
+  // direction (whichever axis of the stick/keys is stronger) - no ambiguous
+  // "two candidate directions" to referee, which is what made turning feel
+  // unpredictable before. A turn can be accepted at any point during travel,
+  // snapping to whichever grid line (the cell you're leaving or the one
+  // you're arriving at) is nearest, so it responds immediately instead of
+  // needing to reach a certain point first.
+  function occupiedCell(entity){
+    if(entity.progress>0.5){
+      return { gx: entity.gx+entity.moveDir.dx, gy: entity.gy+entity.moveDir.dy };
+    }
+    return { gx: entity.gx, gy: entity.gy };
+  }
+
+  function dominantDirection(dx,dy){
+    const DEADZONE = 0.2;
+    const ax = Math.abs(dx), ay = Math.abs(dy);
+    if(ax<DEADZONE && ay<DEADZONE) return { dx:0, dy:0 };
+    if(ax>=ay) return { dx:Math.sign(dx), dy:0 };
+    return { dx:0, dy:Math.sign(dy) };
+  }
+
+  function canEnterOrKick(entity, fromGx, fromGy, dx, dy){
+    const tgx = fromGx+dx, tgy = fromGy+dy;
+    if(isSolidTile(tgx,tgy)) return false;
+    const b = bombAtCell(tgx,tgy);
+    if(b){
+      if(entity.canKick && !b.rolling){
+        const beyondX=tgx+dx, beyondY=tgy+dy;
+        if(!isSolidTile(beyondX,beyondY) && !bombAtCell(beyondX,beyondY)){
+          b.rolling = true;
+          b.rollDx = dx; b.rollDy = dy;
+          if(entity===player) sfx.kick();
+        }
+      }
+      return false;
+    }
+    return true;
+  }
+
+  function tryStartMove(entity, c){
+    if(canEnterOrKick(entity, entity.gx, entity.gy, c.dx, c.dy)){
+      entity.moveDir = { dx:c.dx, dy:c.dy };
+      return true;
+    }
+    return false;
+  }
+
+  function updateGridMovement(entity, dt, rawDx, rawDy){
+    const desired = dominantDirection(rawDx, rawDy);
+    const speedFrac = entity.speed*dt/TILE;
+
+    if(entity.moveDir.dx===0 && entity.moveDir.dy===0){
+      // idle at a cell boundary: try to start moving in the pressed direction
+      if(desired.dx!==0 || desired.dy!==0) tryStartMove(entity, desired);
+    } else {
+      const cur = entity.moveDir;
+      const isTurn = (desired.dx!==0 || desired.dy!==0) &&
+                     !(desired.dx===cur.dx && desired.dy===cur.dy) &&
+                     !(desired.dx===-cur.dx && desired.dy===-cur.dy);
+
+      if(isTurn){
+        // Snap-turn at whichever grid line is nearer: if we're less than
+        // halfway into this tile, treat the cell we started from as the
+        // pivot; otherwise treat the cell we're arriving at as the pivot.
+        // Either way, turning becomes available immediately rather than
+        // only very early or very late in the crossing.
+        const nearOrigin = entity.progress < 0.5;
+        const pivotGx = nearOrigin ? entity.gx : entity.gx + cur.dx;
+        const pivotGy = nearOrigin ? entity.gy : entity.gy + cur.dy;
+        if(canEnterOrKick(entity, pivotGx, pivotGy, desired.dx, desired.dy)){
+          entity.gx = pivotGx; entity.gy = pivotGy;
+          entity.moveDir = { dx:desired.dx, dy:desired.dy };
+          entity.progress = 0;
+        }
+        // if the turn isn't actually open, we just keep going straight below
+      }
+    }
+
+    if(entity.moveDir.dx!==0 || entity.moveDir.dy!==0){
+      const cur = entity.moveDir;
+      if(desired.dx===0 && desired.dy===0){
+        // input released - freeze exactly where we are, don't auto-finish the tile
+      } else if(desired.dx===-cur.dx && desired.dy===-cur.dy){
+        // pressing directly backward - retreat smoothly back into the previous cell
+        entity.progress -= speedFrac;
+        if(entity.progress<=0){
+          entity.progress = 0;
+          entity.moveDir = { dx:0, dy:0 };
+        }
+      } else {
+        // continuing forward (this also covers a turn attempt that failed,
+        // in which case we just keep going the way we were already headed)
+        entity.progress += speedFrac;
+        if(entity.progress>=1){
+          const leftover = Math.min(entity.progress-1, 0.99);
+          entity.gx += cur.dx; entity.gy += cur.dy;
+          entity.progress = 0;
+          entity.moveDir = { dx:0, dy:0 };
+          if(desired.dx!==0 || desired.dy!==0){
+            if(tryStartMove(entity, desired)) entity.progress = leftover;
+          }
+        }
+      }
+    }
+
+    entity.x = (entity.gx + entity.moveDir.dx*entity.progress)*TILE + (TILE-ENTITY_SIZE)/2;
+    entity.y = (entity.gy + entity.moveDir.dy*entity.progress)*TILE + (TILE-ENTITY_SIZE)/2;
+  }
+
+  // ---------- Input: virtual joystick + keyboard ----------
+  const keys = { up:false, down:false, left:false, right:false };
+  let joyActive = false;
+  let joyVec = { x:0, y:0 };
+  let joyPointerId = null;
+
+  const joyBase = document.getElementById('joyBase');
+  const joyKnob = document.getElementById('joyKnob');
+  const JOY_MAX = 46;
+
+  function updateJoyFromEvent(e){
+    const rect = joyBase.getBoundingClientRect();
+    const cx = rect.left + rect.width/2;
+    const cy = rect.top + rect.height/2;
+    let dx = e.clientX - cx;
+    let dy = e.clientY - cy;
+    const dist = Math.hypot(dx,dy);
+    const clamped = Math.min(dist, JOY_MAX);
+    const nx = dist>0 ? dx/dist : 0;
+    const ny = dist>0 ? dy/dist : 0;
+    joyVec.x = nx * (clamped/JOY_MAX);
+    joyVec.y = ny * (clamped/JOY_MAX);
+    joyKnob.style.transform = `translate(${nx*clamped}px, ${ny*clamped}px)`;
+  }
+
+  function resetJoy(){
+    joyActive = false;
+    joyVec.x = 0; joyVec.y = 0;
+    joyKnob.style.transform = 'translate(0,0)';
+  }
+
+  joyBase.addEventListener('pointerdown', e=>{
+    e.preventDefault();
+    joyActive = true;
+    joyPointerId = e.pointerId;
+    joyBase.setPointerCapture(e.pointerId);
+    updateJoyFromEvent(e);
+  });
+  joyBase.addEventListener('pointermove', e=>{
+    if(!joyActive || e.pointerId!==joyPointerId) return;
+    e.preventDefault();
+    updateJoyFromEvent(e);
+  });
+  function endJoy(e){
+    if(e.pointerId!==joyPointerId) return;
+    resetJoy();
+  }
+  joyBase.addEventListener('pointerup', endJoy);
+  joyBase.addEventListener('pointercancel', endJoy);
+
+  function activateInvincibility(){
+    if(gameOver || gameWin || !player.alive) return;
+    if(player.invincibleUsed || player.invincibleTimer>0) return;
+    player.invincibleUsed = true;
+    player.invincibleTimer = 5.0;
+    player.invinciblePulseTimer = 0;
+    invincibleBtn.disabled = true;
+    invincibleBtn.innerHTML = '使用済み';
+    sfx.invincibleActivate();
+  }
+
+  function placeBombFor(entity){
+    if(!entity.alive || entity.bombsAvailable<=0) return false;
+    const {gx,gy} = occupiedCell(entity);
+    if(bombAtCell(gx,gy)) return false;
+    bombs.push({
+      gx,gy,timer:BOMB_FUSE,exploded:false,settled:false,
+      rolling:false, rollDx:0, rollDy:0,
+      cx:gx*TILE+TILE/2, cy:gy*TILE+TILE/2,
+      owner: entity
+    });
+    entity.bombsAvailable--;
+    return true;
+  }
+
+  function placeBomb(){
+    if(gameOver || gameWin || !player.alive) return;
+    if(placeBombFor(player)){ updateHUD(); sfx.bombPlace(); }
+  }
+
+  window.addEventListener('keydown', e=>{
+    switch(e.key){
+      case 'ArrowUp': case 'w': case 'W': keys.up=true; break;
+      case 'ArrowDown': case 's': case 'S': keys.down=true; break;
+      case 'ArrowLeft': case 'a': case 'A': keys.left=true; break;
+      case 'ArrowRight': case 'd': case 'D': keys.right=true; break;
+      case ' ': if(!e.repeat) placeBomb(); e.preventDefault(); break;
+      case 'z': case 'Z': if(!e.repeat) activateInvincibility(); e.preventDefault(); break;
+    }
+  });
+  window.addEventListener('keyup', e=>{
+    switch(e.key){
+      case 'ArrowUp': case 'w': case 'W': keys.up=false; break;
+      case 'ArrowDown': case 's': case 'S': keys.down=false; break;
+      case 'ArrowLeft': case 'a': case 'A': keys.left=false; break;
+      case 'ArrowRight': case 'd': case 'D': keys.right=false; break;
+    }
+  });
+
+  const bombBtn = document.getElementById('bombBtn');
+  bombBtn.addEventListener('pointerdown', e=>{ e.preventDefault(); placeBomb(); });
+
+  const invincibleBtn = document.getElementById('invincibleBtn');
+  invincibleBtn.addEventListener('pointerdown', e=>{ e.preventDefault(); activateInvincibility(); });
+
+  document.getElementById('restartBtn').addEventListener('click', resetGame);
+
+  function skipToTrueBoss(){
+    if(gameOver || gameWin) return;
+    enemies.forEach(en=>en.alive=false);
+    boss = null;
+    bombs = [];
+    explosions = [];
+    projectiles = [];
+    safeCells = [];
+    // fully gear up since we're skipping straight to the final fight
+    player.maxBombs = MAX_BOMBS;
+    player.bombsAvailable = MAX_BOMBS;
+    player.fireRange = MAX_FIRE;
+    player.speedLevel = MAX_SPEED_LEVEL;
+    player.speed = BASE_SPEED + (MAX_SPEED_LEVEL-1)*SPEED_STEP;
+    player.canKick = true;
+    stage = 4;
+    stageTimer = BOSS_INTRO_TIME;
+    bossBanner.innerHTML = '<span>💀 真のボス降臨 💀</span>';
+    bossBanner.classList.add('show');
+    updateHUD();
+  }
+  document.getElementById('skipToBossBtn').addEventListener('click', skipToTrueBoss);
+
+  const muteBtn = document.getElementById('muteBtn');
+  muteBtn.addEventListener('click', ()=>{
+    audioEnabled = !audioEnabled;
+    muteBtn.textContent = audioEnabled ? '🔊' : '🔇';
+  });
+
+  function livingBlockerAtCell(gx,gy){
+    for(const en of enemies){
+      if(!en.alive) continue;
+      const t = centerTile(en);
+      if(t.gx===gx && t.gy===gy) return true;
+    }
+    if(stage===3 && boss && boss.alive){
+      const t = centerTile(boss);
+      if(t.gx===gx && t.gy===gy) return true;
+    }
+    if(stage===5 && trueBoss && trueBoss.alive){
+      const t = occupiedCell(trueBoss);
+      if(t.gx===gx && t.gy===gy) return true;
+    }
+    return false;
+  }
+
+  function updateRollingBombs(dt){
+    for(const b of bombs){
+      if(b.exploded || !b.rolling) continue;
+      b.cx += b.rollDx*ROLL_SPEED*dt;
+      b.cy += b.rollDy*ROLL_SPEED*dt;
+      const newGx = Math.floor(b.cx/TILE), newGy = Math.floor(b.cy/TILE);
+      if(newGx!==b.gx || newGy!==b.gy){
+        const blocked = isSolidTile(newGx,newGy) ||
+          bombs.some(o=>o!==b && !o.exploded && o.gx===newGx && o.gy===newGy) ||
+          livingBlockerAtCell(newGx,newGy);
+        if(blocked){
+          b.cx = b.gx*TILE+TILE/2;
+          b.cy = b.gy*TILE+TILE/2;
+          b.rolling = false;
+        } else {
+          b.gx = newGx; b.gy = newGy;
+        }
+      }
+    }
+  }
+
+  // ---------- Items ----------
+  function checkItemPickup(){
+    const {gx,gy} = occupiedCell(player);
+    for(let i=items.length-1;i>=0;i--){
+      const it = items[i];
+      if(it.gx===gx && it.gy===gy){
+        applyItem(it.type);
+        sfx.stepItem();
+        items.splice(i,1);
+      }
+    }
+  }
+
+  function applyItem(type){
+    switch(type){
+      case 'bombUp':
+        player.maxBombs = Math.min(player.maxBombs+1, MAX_BOMBS);
+        player.bombsAvailable = Math.min(player.bombsAvailable+1, player.maxBombs);
+        break;
+      case 'fireUp':
+        player.fireRange = Math.min(player.fireRange+1, MAX_FIRE);
+        break;
+      case 'speedUp':
+        player.speedLevel = Math.min(player.speedLevel+1, MAX_SPEED_LEVEL);
+        player.speed = BASE_SPEED + (player.speedLevel-1)*SPEED_STEP;
+        break;
+    }
+    updateHUD();
+  }
+
+  // ---------- Explosions ----------
+  function resolveExplosion(bomb, gridSnapshot){
+    bomb.exploded = true;
+    const owner = bomb.owner || player;
+    owner.bombsAvailable = Math.min(owner.bombsAvailable+1, owner.maxBombs);
+    const range = owner.fireRange;
+    const cells = [{gx:bomb.gx, gy:bomb.gy}];
+    const newItems = [];
+    const triggered = [];
+    // If the player is still standing right on the bomb when it goes off,
+    // that tile must stay a real hazard - only grant the "safe to walk back
+    // through" grace to the bomb's own tile if the player has already left it.
+    const playerCell = occupiedCell(player);
+    const playerOnBombOrigin = playerCell.gx===bomb.gx && playerCell.gy===bomb.gy;
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    for(const [dx,dy] of dirs){
+      const armCells = [];
+      for(let r=1; r<=range; r++){
+        const gx = bomb.gx + dx*r, gy = bomb.gy + dy*r;
+        if(gx<0||gy<0||gx>=COLS||gy>=ROWS) break;
+        // Reach is decided from a snapshot of the grid taken *before* this
+        // whole chain reaction started, not the live grid. Otherwise, once
+        // one bomb in a chain clears a block, every other bomb detonating in
+        // the same instant would "see" that path as already open and punch
+        // straight through it - letting a connected line of bombs blow past
+        // a block that should have stopped them.
+        if(gridSnapshot[gy][gx]===1) break;
+        if(gridSnapshot[gy][gx]===2){
+          // the block absorbs the blast: it's destroyed, and this whole arm
+          // (from the bomb's own tile up through the block) becomes
+          // guaranteed-safe for a short grace period.
+          if(grid[gy][gx]===2){
+            grid[gy][gx]=0;
+            score += 10;
+            if(Math.random()<ITEM_DROP_CHANCE){
+              const type = ITEM_TYPES[Math.floor(Math.random()*ITEM_TYPES.length)];
+              newItems.push({gx,gy,type});
+            }
+          }
+          if(!playerOnBombOrigin) safeCells.push({gx:bomb.gx, gy:bomb.gy, timer:SAFE_GRACE});
+          for(const ac of armCells){
+            if(!(playerCell.gx===ac.gx && playerCell.gy===ac.gy)){
+              safeCells.push({gx:ac.gx, gy:ac.gy, timer:SAFE_GRACE});
+            }
+          }
+          safeCells.push({gx,gy,timer:SAFE_GRACE});
+          break;
+        }
+        cells.push({gx,gy});
+        armCells.push({gx,gy});
+        const chained = bombAtCell(gx,gy);
+        if(chained && chained!==bomb && !chained.exploded){
+          triggered.push(chained);
+        }
+      }
+    }
+    // explosion burns any *pre-existing* item caught in the blast (not the ones it just dropped)
+    items = items.filter(it=>!cells.some(c=>c.gx===it.gx && c.gy===it.gy));
+    items.push(...newItems);
+    explosions.push({cells, timer:EXPLOSION_DURATION, owner});
+    sfx.explosion();
+    updateHUD();
+    return triggered;
+  }
+
+  // ---------- Main update ----------
+  function update(dt){
+    if(gameOver || gameWin) return;
+
+    // Let the death animation actually play before showing the end screen,
+    // instead of instantly covering it up.
+    if(pendingEnd){
+      pendingEnd.timer -= dt;
+      if(pendingEnd.timer<=0){
+        if(pendingEnd.isWin){ gameWin = true; showOverlay(true); }
+        else { gameOver = true; showOverlay(false); }
+        pendingEnd = null;
+      }
+      return;
+    }
+
+    // stage 2 is a short frozen "boss incoming" intro - nothing moves
+    if(stage===2){
+      stageTimer -= dt;
+      if(stageTimer<=0){
+        bossBanner.classList.remove('show');
+        spawnBoss();
+        stage = 3;
+        updateHUD();
+      }
+      return;
+    }
+
+    // stage 4 is the "true boss" reveal intro - also frozen
+    if(stage===4){
+      stageTimer -= dt;
+      if(stageTimer<=0){
+        bossBanner.classList.remove('show');
+        spawnTrueBoss();
+        stage = 5;
+        updateHUD();
+      }
+      return;
+    }
+
+    // determine raw movement input: joystick takes priority, keyboard as fallback
+    let rawDx=0, rawDy=0;
+    if(joyActive && (Math.abs(joyVec.x)>0.15 || Math.abs(joyVec.y)>0.15)){
+      rawDx = joyVec.x; rawDy = joyVec.y;
+    } else {
+      if(keys.left) rawDx=-1; else if(keys.right) rawDx=1;
+      if(keys.up) rawDy=-1; else if(keys.down) rawDy=1;
+    }
+
+    if(Math.abs(rawDx)>0.1 || Math.abs(rawDy)>0.1){
+      if(Math.abs(rawDx)>Math.abs(rawDy)) player.facing = rawDx<0 ? 'left' : 'right';
+      else player.facing = rawDy<0 ? 'up' : 'down';
+    }
+
+    if(player.invincibleTimer>0){
+      player.invincibleTimer -= dt;
+      player.invinciblePulseTimer = (player.invinciblePulseTimer||0) - dt;
+      if(player.invinciblePulseTimer<=0){
+        sfx.invinciblePulse();
+        player.invinciblePulseTimer = 0.35;
+      }
+      if(player.invincibleTimer<=0){
+        player.invincibleTimer = 0;
+        if(!gameOver && !gameWin){
+          invincibleBtn.innerHTML = '使用済み';
+        }
+      }
+    }
+
+    updateGridMovement(player, dt, rawDx, rawDy);
+
+    // a bomb becomes solid to the player only once they've fully left its cell
+    for(const b of bombs){
+      if(!b.settled && (player.gx!==b.gx || player.gy!==b.gy)) b.settled = true;
+    }
+
+    updateRollingBombs(dt);
+    checkItemPickup();
+
+    // bombs countdown - resolve any bombs (and their chain reactions) that
+    // go off this frame together, against a single frozen snapshot of the
+    // grid so a chain of bombs can't punch through a block just because a
+    // sibling explosion in the same instant already cleared it.
+    for(const b of bombs){
+      if(!b.exploded) b.timer -= dt;
+    }
+    let detonating = bombs.filter(b=>!b.exploded && b.timer<=0);
+    if(detonating.length){
+      const gridSnapshot = grid.map(row=>row.slice());
+      const queued = new Set(detonating);
+      while(detonating.length){
+        const next = [];
+        for(const bomb of detonating){
+          const followUps = resolveExplosion(bomb, gridSnapshot);
+          for(const fb of followUps){
+            if(!queued.has(fb)){
+              queued.add(fb);
+              next.push(fb);
+            }
+          }
+        }
+        detonating = next;
+      }
+    }
+    bombs = bombs.filter(b=>!b.exploded);
+
+    // enemies AI + movement
+    for(const en of enemies){
+      if(!en.alive) continue;
+      en.changeTimer -= dt;
+      const moved = tryEnemyStep(en, dt, ENEMY_SPEED);
+      if(!moved || en.changeTimer<=0){
+        pickNewDirection(en);
+        en.changeTimer = 1 + Math.random()*2;
+      }
+    }
+
+    // boss AI + movement
+    if(stage===3 && boss && boss.alive){
+      if(boss.invuln>0) boss.invuln -= dt;
+      boss.changeTimer -= dt;
+      const moved = tryEnemyStep(boss, dt, BOSS_SPEED);
+      if(!moved || boss.changeTimer<=0){
+        pickNewDirection(boss);
+        boss.changeTimer = 0.6 + Math.random()*1.2;
+      }
+      // ranged attack: unleash a ring of projectiles in every direction at
+      // once. They pierce straight through both hard walls and destructible
+      // blocks - only the edge of the map stops them.
+      boss.attackTimer -= dt;
+      if(boss.attackTimer<=0){
+        const cx = boss.x+ENTITY_SIZE/2, cy = boss.y+ENTITY_SIZE/2;
+        const count = PROJECTILE_BURST_COUNT;
+        for(let i=0;i<count;i++){
+          const angle = (i/count)*Math.PI*2;
+          projectiles.push({ x:cx, y:cy, dx:Math.cos(angle), dy:Math.sin(angle) });
+        }
+        boss.attackTimer = 2.6 + Math.random()*1.2;
+        sfx.bossFire();
+      }
+    }
+
+    // true boss AI: chases the player while dropping bombs, but safety always
+    // comes first - it never steps toward a cell in a blast's path, and if
+    // literally nothing safe is reachable it just stops in place rather than
+    // wander into danger like the old random-walk AI did. Once its HP drops
+    // to 1, it breaks off into a one-time last-stand sequence: march to the
+    // center, charge up, then unleash an attack nothing but invincibility
+    // can save you from - afterward it goes right back to normal.
+    if(stage===5 && trueBoss && trueBoss.alive){
+      if(trueBoss.invuln>0) trueBoss.invuln -= dt;
+
+      if(trueBoss.hp<=1 && !trueBoss.desperationTriggered){
+        trueBoss.desperationTriggered = true;
+        trueBoss.phase = 'moving';
+        // fully invulnerable for the whole last-stand sequence so it can't
+        // die to a stray leftover bomb before the attack actually lands
+        trueBoss.invuln = 30;
+        // clear the board of any pending bombs so nothing can ever block its
+        // path to the center (this was causing it to pace forever, stuck
+        // invincible, if a bomb happened to be sitting on the way there)
+        bombs = [];
+      }
+
+      if(trueBoss.phase==='moving'){
+        const centerGx = Math.floor(COLS/2), centerGy = Math.floor(ROWS/2);
+        const arrived = marchStep(trueBoss, centerGx, centerGy, dt);
+        if(arrived){
+          trueBoss.phase = 'charging';
+          trueBoss.phaseTimer = 2.2;
+          sfx.desperationCharge();
+        }
+      } else if(trueBoss.phase==='charging'){
+        trueBoss.phaseTimer -= dt;
+        if(trueBoss.phaseTimer<=0){
+          trueBoss.phase = 'attacking';
+          trueBoss.phaseTimer = 0.5;
+          sfx.desperationHit();
+          // the unavoidable hit - only invincibility can save you here
+          if(player.alive && player.invincibleTimer<=0){
+            player.alive = false;
+            spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, '#3d7bff', 1.6);
+            sfx.playerDeath();
+          }
+        }
+      } else if(trueBoss.phase==='attacking'){
+        trueBoss.phaseTimer -= dt;
+        if(trueBoss.phaseTimer<=0){
+          trueBoss.phase = 'normal'; // back to business as usual
+          trueBoss.invuln = 0.6; // damageable again from here on
+        }
+      } else {
+        // stall detection: if it hasn't actually changed cells in a while
+        // (e.g. stuck in a corner surrounded by its own bombs), force a
+        // plain random open direction, ignoring the chase bias. If truly
+        // nothing is open at all - fully boxed in by its own clutter -
+        // forcibly clear one adjacent bomb so it can never be trapped for
+        // real, no matter how it got there.
+        if(trueBoss.stallGx===undefined){
+          trueBoss.stallGx = trueBoss.gx;
+          trueBoss.stallGy = trueBoss.gy;
+          trueBoss.stallTimer = 0;
+        }
+        if(trueBoss.gx!==trueBoss.stallGx || trueBoss.gy!==trueBoss.stallGy){
+          trueBoss.stallGx = trueBoss.gx;
+          trueBoss.stallGy = trueBoss.gy;
+          trueBoss.stallTimer = 0;
+        } else {
+          trueBoss.stallTimer += dt;
+        }
+        const stalled = trueBoss.stallTimer > 0.6;
+
+        const inDanger = isCellDangerous(trueBoss.gx, trueBoss.gy);
+        trueBoss.changeTimer -= dt;
+        if(stalled){
+          const cardinal = [[1,0],[-1,0],[0,1],[0,-1]];
+          const openDirs = cardinal.filter(([dx,dy])=>{
+            const ngx=trueBoss.gx+dx, ngy=trueBoss.gy+dy;
+            return !isSolidTile(ngx,ngy) && !bombAtCell(ngx,ngy);
+          });
+          if(openDirs.length){
+            const [dx,dy] = openDirs[Math.floor(Math.random()*openDirs.length)];
+            trueBoss.dir = { dx, dy };
+          } else {
+            // completely boxed in, even by its own bombs - clear one so
+            // there's always a real way out
+            const nonWall = cardinal.filter(([dx,dy])=>!isSolidTile(trueBoss.gx+dx, trueBoss.gy+dy));
+            if(nonWall.length){
+              const [dx,dy] = nonWall[Math.floor(Math.random()*nonWall.length)];
+              const b = bombAtCell(trueBoss.gx+dx, trueBoss.gy+dy);
+              if(b) b.exploded = true;
+              trueBoss.dir = { dx, dy };
+            }
+          }
+          trueBoss.changeTimer = 0.3;
+          trueBoss.stallTimer = 0;
+        } else if(inDanger || trueBoss.changeTimer<=0 || (trueBoss.moveDir.dx===0 && trueBoss.moveDir.dy===0)){
+          trueBoss.dir = chooseTrueBossDirection(trueBoss);
+          trueBoss.changeTimer = inDanger ? 0.2 : (0.35 + Math.random()*0.4);
+        }
+
+        updateGridMovement(trueBoss, dt, trueBoss.dir.dx, trueBoss.dir.dy);
+
+        // never drop a bomb unless at least 2 escape routes remain open -
+        // this is what stops it from slowly bricking itself into a corner
+        // with a wall of its own bombs over several placements
+        const openEscapeRoutes = [[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy])=>{
+          const ngx=trueBoss.gx+dx, ngy=trueBoss.gy+dy;
+          return !isSolidTile(ngx,ngy) && !bombAtCell(ngx,ngy);
+        }).length;
+
+        trueBoss.bombTimer -= dt;
+        if(trueBoss.bombTimer<=0 && !inDanger && !stalled && openEscapeRoutes>=2){
+          if(placeBombFor(trueBoss)) sfx.trueBossBombPlace();
+          trueBoss.bombTimer = 0.3 + Math.random()*0.4;
+        }
+      }
+
+      // a bomb it dropped becomes solid to it only once it has left that cell
+      for(const b of bombs){
+        if(!b.settled && b.owner===trueBoss && (trueBoss.gx!==b.gx || trueBoss.gy!==b.gy)) b.settled = true;
+      }
+    }
+
+    // boss projectiles: fly straight through everything, only despawning
+    // once they leave the map, and kill the player on contact
+    for(const p of projectiles){
+      p.x += p.dx*PROJECTILE_SPEED*dt;
+      p.y += p.dy*PROJECTILE_SPEED*dt;
+      if(p.x<-20 || p.x>canvas.width+20 || p.y<-20 || p.y>canvas.height+20){
+        p.dead = true;
+        continue;
+      }
+      if(player.alive && player.invincibleTimer<=0){
+        const half = PROJECTILE_SIZE/2;
+        if(p.x+half>player.x && p.x-half<player.x+ENTITY_SIZE &&
+           p.y+half>player.y && p.y-half<player.y+ENTITY_SIZE){
+          player.alive = false;
+          spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, '#3d7bff', 1.6);
+          sfx.playerDeath();
+          p.dead = true;
+        }
+      }
+    }
+    projectiles = projectiles.filter(p=>!p.dead);
+
+    // direct collision with an enemy (or a boss) ends the game
+    if(player.alive && player.invincibleTimer<=0){
+      for(const en of enemies){
+        if(en.alive && overlaps(player, en)){
+          player.alive = false;
+          spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, '#3d7bff', 1.6);
+          sfx.playerDeath();
+          break;
+        }
+      }
+      if(player.alive && stage===3 && boss && boss.alive && boss.invuln<=0 && overlaps(player, boss)){
+        player.alive = false;
+        spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, '#3d7bff', 1.6);
+        sfx.playerDeath();
+      }
+      // the true boss only threatens through its bombs - touching it directly is safe
+    }
+
+    // age out the "just cleared a block" grace period
+    for(const s of safeCells) s.timer -= dt;
+    safeCells = safeCells.filter(s=>s.timer>0);
+    const isSafeCell = (gx,gy)=>safeCells.some(s=>s.gx===gx && s.gy===gy);
+
+    // explosions countdown + collision
+    for(const ex of explosions){
+      ex.timer -= dt;
+      const et = occupiedCell(player);
+      if(player.alive && player.invincibleTimer<=0 && !isSafeCell(et.gx,et.gy) && ex.cells.some(c=>c.gx===et.gx && c.gy===et.gy)){
+        player.alive = false;
+        spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, '#3d7bff', 1.6);
+        sfx.playerDeath();
+      }
+      for(const en of enemies){
+        if(!en.alive) continue;
+        // note: safeCells is a player-fairness mechanic only - enemies must
+        // still die from any real fire, even in a cell currently marked
+        // "safe" for the player's benefit
+        const hitCell = ex.cells.find(c=>tileOverlapsEntity(c.gx,c.gy,en));
+        if(hitCell){
+          en.alive = false;
+          spawnDeathEffect(en.x+ENTITY_SIZE/2, en.y+ENTITY_SIZE/2, '#e64545', 1);
+          sfx.enemyDeath();
+          score += 100;
+        }
+      }
+      if(stage===3 && boss && boss.alive && boss.invuln<=0){
+        const hitCell = ex.cells.find(c=>tileOverlapsEntity(c.gx,c.gy,boss));
+        if(hitCell){
+          boss.hp--;
+          boss.invuln = 0.6;
+          if(boss.hp<=0){
+            boss.alive = false;
+            spawnDeathEffect(boss.x+ENTITY_SIZE/2, boss.y+ENTITY_SIZE/2, '#7a1fa2', 2.2);
+            sfx.bossDeath();
+            score += 500;
+          } else {
+            sfx.bossHit();
+          }
+        }
+      }
+      if(stage===5 && trueBoss && trueBoss.alive && trueBoss.invuln<=0 && ex.owner!==trueBoss){
+        const tCell = occupiedCell(trueBoss);
+        if(ex.cells.some(c=>c.gx===tCell.gx && c.gy===tCell.gy)){
+          trueBoss.hp--;
+          trueBoss.invuln = 0.6;
+          if(trueBoss.hp<=0){
+            trueBoss.alive = false;
+            // an especially violent send-off for the true final boss
+            spawnDeathEffect(trueBoss.x+ENTITY_SIZE/2, trueBoss.y+ENTITY_SIZE/2, '#ff3b3b', 3.5);
+            spawnDeathEffect(trueBoss.x+ENTITY_SIZE/2, trueBoss.y+ENTITY_SIZE/2, '#111111', 3);
+            sfx.trueBossDeath();
+            score += 1000;
+          } else {
+            sfx.bossHit();
+          }
+        }
+      }
+    }
+    explosions = explosions.filter(ex=>ex.timer>0);
+
+    if(!player.alive){
+      if(!pendingEnd) pendingEnd = { isWin:false, timer: 0.9 };
+    } else if(stage===1 && enemies.every(e=>!e.alive)){
+      // regular enemies cleared - trigger the first boss's intro
+      stage = 2;
+      stageTimer = BOSS_INTRO_TIME;
+      bossBanner.textContent = '';
+      bossBanner.innerHTML = '<span>⚠️ ボス登場 ⚠️</span>';
+      bossBanner.classList.add('show');
+      sfx.bossWarning();
+    } else if(stage===3 && boss && !boss.alive){
+      // first boss defeated - it was a decoy; the true boss appears
+      stage = 4;
+      stageTimer = BOSS_INTRO_TIME + 0.5;
+      projectiles = [];
+      bossBanner.innerHTML = '<span>💀 真のボス降臨 💀</span>';
+      bossBanner.classList.add('show');
+      sfx.trueBossWarning();
+    } else if(stage===5 && trueBoss && !trueBoss.alive){
+      if(!pendingEnd) pendingEnd = { isWin:true, timer: 1.3 };
+    }
+    updateHUD();
+  }
+
+  function tryEnemyStep(en, dt, speed){
+    const before = {x:en.x, y:en.y};
+    const mx = en.dir.dx*speed*dt;
+    const my = en.dir.dy*speed*dt;
+    tryMoveEnemy(en, mx, my);
+    return en.x!==before.x || en.y!==before.y;
+  }
+
+  function pickNewDirection(en){
+    const options = [[1,0],[-1,0],[0,1],[0,-1]];
+    const {gx,gy} = centerTile(en);
+    const valid = options.filter(([dx,dy])=>{
+      const ngx = gx+dx, ngy = gy+dy;
+      return !isSolidTile(ngx,ngy) && !bombAtCell(ngx,ngy);
+    });
+    const pool = valid.length ? valid : options;
+    const [dx,dy] = pool[Math.floor(Math.random()*pool.length)];
+    en.dir = {dx,dy};
+  }
+
+  // Decide the true boss's next step: always rule out any adjacent cell that
+  // would put it in a blast's path first, then among what's left prefer
+  // whichever direction closes the distance to the player. If nothing
+  // adjacent is both open and safe, it stands still rather than wander into
+  // danger - this is the "learn to stop" behavior that was missing before.
+  function chooseTrueBossDirection(entity){
+    const options = [[1,0],[-1,0],[0,1],[0,-1]];
+    const openOptions = options.filter(([dx,dy])=>{
+      const ngx = entity.gx+dx, ngy = entity.gy+dy;
+      return !isSolidTile(ngx,ngy) && !bombAtCell(ngx,ngy);
+    });
+    if(!openOptions.length) return { dx:0, dy:0 }; // truly boxed in by walls/bombs
+
+    const safeOptions = openOptions.filter(([dx,dy])=>!isCellDangerous(entity.gx+dx, entity.gy+dy));
+    const selfDangerous = isCellDangerous(entity.gx, entity.gy);
+
+    if(!safeOptions.length && !selfDangerous){
+      // already safe where it is, and no neighboring cell is *also* fully
+      // safe - better to just hold position than wander into a blast for
+      // no reason. This is the "learn to stop" behavior.
+      return { dx:0, dy:0 };
+    }
+
+    if(!safeOptions.length){
+      // currently IN danger with no fully-safe neighbor either - standing
+      // still here would mean certain self-destruction, so it must move:
+      // pick whichever open direction gets it farthest from the nearest
+      // live bomb, even if not perfectly safe. Moving beats freezing.
+      let nearest = null, nearestDist = Infinity;
+      for(const b of bombs){
+        if(b.exploded) continue;
+        const d = Math.abs(b.gx-entity.gx) + Math.abs(b.gy-entity.gy);
+        if(d<nearestDist){ nearestDist = d; nearest = b; }
+      }
+      if(nearest){
+        openOptions.sort((a,b2)=>{
+          const da = Math.abs((entity.gx+a[0])-nearest.gx) + Math.abs((entity.gy+a[1])-nearest.gy);
+          const db = Math.abs((entity.gx+b2[0])-nearest.gx) + Math.abs((entity.gy+b2[1])-nearest.gy);
+          return db - da;
+        });
+      }
+      return { dx:openOptions[0][0], dy:openOptions[0][1] };
+    }
+
+    const dx = player.gx - entity.gx;
+    const dy = player.gy - entity.gy;
+    // rank the safe options by how much closer they'd bring it to the player
+    safeOptions.sort((a,b)=>{
+      const scoreA = a[0]*Math.sign(dx||0) + a[1]*Math.sign(dy||0);
+      const scoreB = b[0]*Math.sign(dx||0) + b[1]*Math.sign(dy||0);
+      return scoreB - scoreA;
+    });
+    const best = safeOptions[0];
+    return { dx:best[0], dy:best[1] };
+  }
+
+  // Marches straight toward a fixed target cell (used for the last-stand
+  // walk to the center) - ignores blast danger since this is a short,
+  // deliberate cutscene-like move, but still won't walk into a solid wall.
+  // Guaranteed pathfinding for the last-stand march to the center: a real
+  // breadth-first search around walls only (bombs are ignored here - any
+  // bomb in the way gets swept aside separately, see below) so it can never
+  // get permanently stuck the way a simple greedy "walk toward it" AI can
+  // in a dead-end or a crowded corner.
+  function bfsFirstStep(fromGx, fromGy, toGx, toGy){
+    if(fromGx===toGx && fromGy===toGy) return { dx:0, dy:0 };
+    const key = (x,y)=>x+','+y;
+    const visited = new Set([key(fromGx,fromGy)]);
+    let frontier = [{gx:fromGx, gy:fromGy, first:null}];
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    let guard = 0;
+    while(frontier.length && guard<400){
+      const next = [];
+      for(const node of frontier){
+        for(const [dx,dy] of dirs){
+          const ngx = node.gx+dx, ngy = node.gy+dy;
+          if(ngx<0||ngy<0||ngx>=COLS||ngy>=ROWS) continue;
+          const k = key(ngx,ngy);
+          if(visited.has(k)) continue;
+          if(isSolidTile(ngx,ngy)) continue;
+          const first = node.first || {dx,dy};
+          if(ngx===toGx && ngy===toGy) return first;
+          visited.add(k);
+          next.push({gx:ngx, gy:ngy, first});
+        }
+        guard++;
+      }
+      frontier = next;
+    }
+    return { dx:0, dy:0 }; // no path found (shouldn't happen in a connected maze)
+  }
+
+  // Dedicated stepper for the last-stand march, deliberately separate from
+  // the normal momentum-carrying movement system. That system keeps auto-
+  // continuing in whatever direction it was last given as long as the path
+  // stays open, which meant the BFS direction only ever got computed once
+  // and it would then sail straight past the center, wandering forever
+  // instead of actually arriving. This steps exactly one tile at a time and
+  // recalculates the path fresh after every single tile, guaranteeing it
+  // converges on the target and stops there for real.
+  function marchStep(entity, tgx, tgy, dt){
+    if(entity.gx===tgx && entity.gy===tgy && entity.moveDir.dx===0 && entity.moveDir.dy===0){
+      return true;
+    }
+    if(entity.moveDir.dx===0 && entity.moveDir.dy===0){
+      const dir = bfsFirstStep(entity.gx, entity.gy, tgx, tgy);
+      if(dir.dx===0 && dir.dy===0) return false;
+      const ngx = entity.gx+dir.dx, ngy = entity.gy+dir.dy;
+      const blocking = bombAtCell(ngx, ngy);
+      if(blocking) blocking.exploded = true; // sweep any bomb out of the way
+      entity.moveDir = dir;
+    }
+    const speedFrac = entity.speed*dt/TILE;
+    entity.progress += speedFrac;
+    if(entity.progress>=1){
+      entity.gx += entity.moveDir.dx;
+      entity.gy += entity.moveDir.dy;
+      entity.progress = 0;
+      entity.moveDir = { dx:0, dy:0 }; // stop for real - next call re-plans from here
+    }
+    entity.x = (entity.gx + entity.moveDir.dx*entity.progress)*TILE + (TILE-ENTITY_SIZE)/2;
+    entity.y = (entity.gy + entity.moveDir.dy*entity.progress)*TILE + (TILE-ENTITY_SIZE)/2;
+    return (entity.gx===tgx && entity.gy===tgy && entity.moveDir.dx===0 && entity.moveDir.dy===0);
+  }
+
+  // Clears a boss room but only removes destructible blocks - the
+  // indestructible pillar walls that give the maze its structure must stay.
+  function clearAllSoftBlocks(){
+    for(let y=0; y<ROWS; y++){
+      for(let x=0; x<COLS; x++){
+        if(grid[y][x]===2) grid[y][x] = 0;
+      }
+    }
+  }
+
+  function spawnBoss(){
+    const bx = Math.floor(COLS/2), by = Math.floor(ROWS/2);
+    clearAllSoftBlocks();
+    boss = makeEntity(bx, by, BOSS_SPEED);
+    boss.hp = BOSS_HP;
+    // brief spawn grace: protects the player from an instant death if they
+    // happened to be standing right where the boss materializes, and
+    // protects the boss from taking damage from any explosion still
+    // lingering at that spot at the moment it appears.
+    boss.invuln = 1.0;
+    boss.changeTimer = 0;
+    boss.attackTimer = 2 + Math.random();
+  }
+
+  // The true boss is basically a player: fully upgraded (max bombs, max
+  // fire power, max speed) and equipped with bomb kick, wandering the map,
+  // dropping bombs, and kicking any it runs into - just like you can.
+  function spawnTrueBoss(){
+    const bx = Math.floor(COLS/2), by = Math.floor(ROWS/2);
+    clearAllSoftBlocks();
+    trueBoss = makeGridEntity(bx, by, BASE_SPEED + (MAX_SPEED_LEVEL-1)*SPEED_STEP);
+    trueBoss.hp = TRUEBOSS_HP;
+    trueBoss.invuln = 1.0; // same spawn-grace reasoning as the first boss
+    trueBoss.maxBombs = TRUEBOSS_MAX_BOMBS;
+    trueBoss.bombsAvailable = TRUEBOSS_MAX_BOMBS;
+    trueBoss.fireRange = TRUEBOSS_FIRE_RANGE;
+    trueBoss.canKick = true;
+    trueBoss.changeTimer = 0;
+    trueBoss.bombTimer = 1 + Math.random();
+    trueBoss.dir = { dx:0, dy:1 };
+    // last-stand desperation attack, triggered once when HP first hits 1
+    trueBoss.phase = 'normal';
+    trueBoss.desperationTriggered = false;
+    trueBoss.phaseTimer = 0;
+  }
+
+  function formatClearTime(ms){
+    const totalSec = ms/1000;
+    const min = Math.floor(totalSec/60);
+    const sec = totalSec - min*60;
+    return `${min}分${sec.toFixed(2)}秒`;
+  }
+
+  function showOverlay(win){
+    overlayTitle.textContent = win ? 'YOU WIN! 🎉' : 'GAME OVER 💥';
+    bgmPlaying = false;
+    if(win){
+      clearElapsedMs = performance.now() - gameStartTime;
+      overlayText.textContent = `真のボスを倒した！ クリアタイム: ${formatClearTime(clearElapsedMs)}`;
+      sfx.win();
+    } else {
+      overlayText.textContent = 'もう一度挑戦しよう！';
+      sfx.gameOver();
+    }
+    overlay.classList.add('show');
+  }
+
+  function captureScreenshotDataUrl(){
+    // draw onto a separate offscreen canvas so we don't disturb the live
+    // game rendering loop, then bake the result banner + clear time (or
+    // game-over) right into the exported image itself
+    const shot = document.createElement('canvas');
+    shot.width = canvas.width;
+    shot.height = canvas.height;
+    const sctx = shot.getContext('2d');
+    sctx.drawImage(canvas, 0, 0);
+
+    sctx.textAlign = 'center';
+    sctx.textBaseline = 'middle';
+    if(gameWin){
+      sctx.fillStyle = 'rgba(0,0,0,0.6)';
+      sctx.fillRect(0, shot.height/2-42, shot.width, 84);
+      sctx.font = 'bold 26px sans-serif';
+      sctx.fillStyle = '#ffd54f';
+      sctx.fillText('CLEAR!', shot.width/2, shot.height/2-16);
+      sctx.font = 'bold 17px sans-serif';
+      sctx.fillStyle = '#ffffff';
+      sctx.fillText(`クリアタイム: ${formatClearTime(clearElapsedMs)}`, shot.width/2, shot.height/2+16);
+    } else if(gameOver){
+      sctx.fillStyle = 'rgba(0,0,0,0.6)';
+      sctx.fillRect(0, shot.height/2-32, shot.width, 64);
+      sctx.font = 'bold 24px sans-serif';
+      sctx.fillStyle = '#ff6b6b';
+      sctx.fillText('GAME OVER', shot.width/2, shot.height/2);
+    }
+    return shot.toDataURL('image/png');
+  }
+
+  screenshotBtn.addEventListener('click', ()=>{
+    try{
+      const dataUrl = captureScreenshotDataUrl();
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `bomberman_${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch(err){
+      // some mobile browsers block programmatic downloads - open the image
+      // in a new tab instead so the player can long-press to save it
+      const dataUrl = captureScreenshotDataUrl();
+      window.open(dataUrl, '_blank');
+    }
+  });
+
+  // ---------- Rendering ----------
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.save();
+    if(shakeTimer>0){
+      const sx = (Math.random()*2-1)*shakeMagnitude*(shakeTimer);
+      const sy = (Math.random()*2-1)*shakeMagnitude*(shakeTimer);
+      ctx.translate(sx, sy);
+    }
+    for(let y=0;y<ROWS;y++){
+      for(let x=0;x<COLS;x++){
+        const px=x*TILE, py=y*TILE;
+        ctx.fillStyle = (x+y)%2===0 ? '#3d6b41' : '#356038';
+        ctx.fillRect(px,py,TILE,TILE);
+        const cell = grid[y][x];
+        if(cell===1){
+          ctx.fillStyle = '#7a7a7a';
+          ctx.fillRect(px+1,py+1,TILE-2,TILE-2);
+          ctx.fillStyle = '#5c5c5c';
+          ctx.fillRect(px+1,py+1,TILE-2,6);
+        } else if(cell===2){
+          ctx.fillStyle = '#a5682f';
+          ctx.fillRect(px+2,py+2,TILE-4,TILE-4);
+          ctx.fillStyle = '#8a5324';
+          ctx.fillRect(px+2,py+2,TILE-4,4);
+          ctx.fillRect(px+2,py+TILE/2,TILE-4,4);
+        }
+      }
+    }
+
+    // items
+    ctx.font = '18px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for(const it of items){
+      const px = it.gx*TILE+TILE/2, py = it.gy*TILE+TILE/2;
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath();
+      ctx.arc(px,py,13,0,Math.PI*2);
+      ctx.fill();
+      ctx.fillText(ITEM_ICON[it.type], px, py+1);
+    }
+
+    // explosions
+    for(const ex of explosions){
+      for(const c of ex.cells){
+        const px=c.gx*TILE, py=c.gy*TILE;
+        const alpha = Math.max(0, ex.timer/EXPLOSION_DURATION);
+        ctx.fillStyle = `rgba(255,150,30,${0.55*alpha+0.2})`;
+        ctx.fillRect(px+2,py+2,TILE-4,TILE-4);
+        ctx.fillStyle = `rgba(255,230,120,${0.7*alpha})`;
+        ctx.fillRect(px+8,py+8,TILE-16,TILE-16);
+      }
+    }
+
+    // bombs
+    for(const b of bombs){
+      const px = b.cx, py = b.cy;
+      const pulse = 1 + 0.15*Math.sin(performance.now()/100);
+      const isTrueBossBomb = b.owner===trueBoss;
+      ctx.beginPath();
+      ctx.fillStyle = isTrueBossBomb ? '#a11212' : '#222';
+      ctx.arc(px,py,TILE*0.32*pulse,0,Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle = isTrueBossBomb ? '#e05555' : '#666';
+      ctx.beginPath();
+      ctx.arc(px-4,py-6,3,0,Math.PI*2);
+      ctx.fill();
+    }
+
+    // boss projectiles
+    for(const p of projectiles){
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(255,120,40,0.35)';
+      ctx.arc(p.x - p.dx*6, p.y - p.dy*6, PROJECTILE_SIZE*0.7, 0, Math.PI*2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.fillStyle = '#ffcf4d';
+      ctx.arc(p.x, p.y, PROJECTILE_SIZE/2, 0, Math.PI*2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.fillStyle = '#ff5a1f';
+      ctx.arc(p.x, p.y, PROJECTILE_SIZE/2-3, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    // enemies
+    for(const en of enemies){
+      if(!en.alive) continue;
+      drawCharacter(en, '#e64545', '#7a1f1f');
+    }
+
+    // boss
+    if(stage===3 && boss && boss.alive){
+      drawBoss(boss, BOSS_SIZE, BOSS_HP, '#7a1fa2');
+    }
+
+    // true boss - looks like a stylized player with a crown/menacing colors
+    if(stage===5 && trueBoss && trueBoss.alive){
+      drawBoss(trueBoss, TRUEBOSS_SIZE, TRUEBOSS_HP, '#111111');
+    }
+
+    // last-stand desperation attack telegraph / flash
+    if(stage===5 && trueBoss && trueBoss.alive && trueBoss.phase==='charging'){
+      const CHARGE_DURATION = 2.2;
+      const progress = Math.min(1, 1 - trueBoss.phaseTimer/CHARGE_DURATION); // 0 -> 1
+      const cx = trueBoss.x + ENTITY_SIZE/2, cy = trueBoss.y + ENTITY_SIZE/2;
+      const maxRadius = Math.hypot(canvas.width, canvas.height)/2 + 40;
+      const radius = progress*maxRadius;
+
+      // a single slow, growing red circle spreading out from the boss -
+      // easy to read at a glance: the bigger it gets, the less time is left
+      const grad = ctx.createRadialGradient(cx,cy, Math.max(0,radius*0.5), cx,cy, radius);
+      grad.addColorStop(0, `rgba(200,0,0,${0.15+0.55*progress})`);
+      grad.addColorStop(1, 'rgba(200,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI*2);
+      ctx.fill();
+
+      // once it's most of the way there, the whole screen starts bathing in
+      // red too, so the final moment is unmistakable
+      if(progress>0.65){
+        const t = (progress-0.65)/0.35;
+        ctx.fillStyle = `rgba(200,0,0,${0.55*t})`;
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+      }
+    } else if(stage===5 && trueBoss && trueBoss.phase==='attacking'){
+      const alpha = Math.max(0, trueBoss.phaseTimer/0.5);
+      ctx.fillStyle = `rgba(220,0,0,${0.9*alpha})`;
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+    }
+
+    // player
+    if(player.alive){
+      if(player.invincibleTimer>0){
+        const glowAlpha = 0.4 + 0.3*Math.sin(performance.now()/80);
+        ctx.save();
+        ctx.shadowColor = `rgba(255,230,80,${glowAlpha})`;
+        ctx.shadowBlur = 16;
+        drawCharacter(player, '#3d7bff', '#1c3f99');
+        ctx.restore();
+      } else {
+        drawCharacter(player, '#3d7bff', '#1c3f99');
+      }
+    }
+
+    drawDeathEffects();
+
+    if(!player.alive){
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+    }
+    ctx.restore();
+  }
+
+  function drawBoss(b, size, maxHp, normalColor){
+    const flashing = b.invuln>0 && Math.floor(performance.now()/80)%2===0;
+    const cx = b.x + ENTITY_SIZE/2, cy = b.y + ENTITY_SIZE/2;
+    const half = size/2;
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy+half*0.9, half*0.9, 6, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = flashing ? '#ffb3b3' : normalColor;
+    ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(cx-half, cy-half, size, size, 10);
+    else ctx.rect(cx-half, cy-half, size, size);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(cx-half*0.4, cy-half*0.15, 5, 0, Math.PI*2);
+    ctx.arc(cx+half*0.4, cy-half*0.15, 5, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#c0392b';
+    ctx.beginPath();
+    ctx.arc(cx-half*0.4, cy-half*0.15, 2.4, 0, Math.PI*2);
+    ctx.arc(cx+half*0.4, cy-half*0.15, 2.4, 0, Math.PI*2);
+    ctx.fill();
+    // hp pips above the boss
+    const pipW = 10, pipGap = 3;
+    const totalW = maxHp*pipW + (maxHp-1)*pipGap;
+    let px = cx - totalW/2;
+    for(let i=0;i<maxHp;i++){
+      ctx.fillStyle = i<b.hp ? '#ff5a5a' : 'rgba(255,255,255,0.25)';
+      ctx.fillRect(px, cy-half-14, pipW, 6);
+      px += pipW+pipGap;
+    }
+  }
+
+  function drawCharacter(e, color, dark){
+    const cx = e.x, cy = e.y;
+    ctx.fillStyle = dark;
+    ctx.fillRect(cx-1,cy+ENTITY_SIZE-4,ENTITY_SIZE+2,5);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(cx,cy,ENTITY_SIZE,ENTITY_SIZE,6);
+    else ctx.rect(cx,cy,ENTITY_SIZE,ENTITY_SIZE);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(cx+ENTITY_SIZE*0.32, cy+ENTITY_SIZE*0.4, 3, 0, Math.PI*2);
+    ctx.arc(cx+ENTITY_SIZE*0.68, cy+ENTITY_SIZE*0.4, 3, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(cx+ENTITY_SIZE*0.32, cy+ENTITY_SIZE*0.4, 1.4, 0, Math.PI*2);
+    ctx.arc(cx+ENTITY_SIZE*0.68, cy+ENTITY_SIZE*0.4, 1.4, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  function loop(now){
+    const dt = Math.min((now-lastTime)/1000, 0.05);
+    lastTime = now;
+    update(dt);
+    updateDeathEffects(dt);
+    updateBGM();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  resetGame();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

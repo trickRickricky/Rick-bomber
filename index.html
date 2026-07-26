@@ -68,14 +68,15 @@
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 6px 14px;
-    font-size: 12.5px;
+    gap: 5px 10px;
+    font-size: 12px;
     margin-bottom: 6px;
     background: rgba(255,255,255,0.08);
-    padding: 5px 14px;
+    padding: 5px 10px;
     border-radius: 14px;
     max-width: 92vw;
   }
+  #hud > div { white-space: nowrap; }
   #hud span.val { font-weight: bold; color: #ffce6b; }
   #stage {
     position: relative;
@@ -2028,9 +2029,9 @@
 
   function updateHUD(){
     elapsedTimeEl.textContent = formatShortTime(performance.now() - gameStartTime);
-    if(stage===9 && hiddenBoss) enemyCountEl.textContent = `裏ボスHP${hiddenBoss.hp}`;
-    else if(stage===5 && trueBoss) enemyCountEl.textContent = `真ボスHP${trueBoss.hp}`;
-    else if(stage===3 && boss) enemyCountEl.textContent = `ボスHP${boss.hp}`;
+    if(stage===9 && hiddenBoss) enemyCountEl.textContent = `HP${hiddenBoss.hp}`;
+    else if(stage===5 && trueBoss) enemyCountEl.textContent = `HP${trueBoss.hp}`;
+    else if(stage===3 && boss) enemyCountEl.textContent = `HP${boss.hp}`;
     else enemyCountEl.textContent = enemies.filter(e=>e.alive).length;
     bombCountEl.textContent = player.bombsAvailable + '/' + player.maxBombs;
     fireStatEl.textContent = player.fireRange;

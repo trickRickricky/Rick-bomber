@@ -288,6 +288,16 @@
       const AC = window.AudioContext || window.webkitAudioContext;
       if(!AC) return null;
       audioCtx = new AC();
+      // iOS Safari sometimes needs a played (even silent) buffer right at
+      // creation time, within the same user-gesture call stack, to fully
+      // unlock the audio hardware - just resuming isn't always enough.
+      try{
+        const buffer = audioCtx.createBuffer(1, 1, 22050);
+        const src = audioCtx.createBufferSource();
+        src.buffer = buffer;
+        src.connect(audioCtx.destination);
+        src.start(0);
+      } catch(e){}
     }
     if(audioCtx.state==='suspended') audioCtx.resume();
     return audioCtx;
@@ -480,8 +490,12 @@
     bgmNextTime = 0;
     currentBgmKey = null;
   }
-  window.addEventListener('pointerdown', startBGMOnce, { once:true });
-  window.addEventListener('keydown', startBGMOnce, { once:true });
+  // iOS Safari can be picky about which gesture events count as "user
+  // initiated" for unlocking audio, so listen for several kinds and only
+  // actually unlock once.
+  ['pointerdown','touchend','click','keydown'].forEach(evt=>{
+    window.addEventListener(evt, startBGMOnce, { once:true, passive:true });
+  });
 
   const ENTITY_SIZE = 26;
   const PAD = 2;

@@ -38,13 +38,9 @@
     letter-spacing: 1px;
     text-shadow: 0 2px 4px rgba(0,0,0,.5);
   }
-  #skipToBossBtn {
-    cursor: pointer;
+  #skipToBossBtn, #skipToFirstBossBtn {
     display: inline-block;
-    transition: transform 0.15s;
-    touch-action: none;
   }
-  #skipToBossBtn:active { transform: scale(1.3); }
   #muteBtn {
     position: fixed;
     top: 8px;
@@ -65,6 +61,9 @@
     touch-action: none;
   }
   #muteBtn:active { transform: scale(1.2); }
+  #skipToPortalBtn {
+    display: none;
+  }
   #hud {
     display: flex;
     flex-wrap: wrap;
@@ -98,6 +97,7 @@
   #overlay {
     position: absolute;
     inset: 0;
+    z-index: 60;
     background: rgba(0,0,0,.72);
     display: none;
     flex-direction: column;
@@ -110,6 +110,15 @@
     overflow-y: auto;
   }
   #overlay.show { display: flex; }
+  #whiteFlash {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+    z-index: 40;
+  }
   #bossBanner {
     position: absolute;
     inset: 0;
@@ -131,6 +140,24 @@
     from { transform: scale(1); }
     to { transform: scale(1.15); }
   }
+  #itemToast {
+    position: absolute;
+    left: 50%;
+    top: 24%;
+    transform: translate(-50%, 0);
+    padding: 5px 14px;
+    background: rgba(0,0,0,0.55);
+    border-radius: 8px;
+    color: #ffe066;
+    font-size: 13px;
+    font-weight: bold;
+    text-shadow: 0 0 6px rgba(255,224,102,0.8), 0 1px 3px rgba(0,0,0,.7);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    z-index: 41;
+  }
+  #itemToast.show { opacity: 1; transform: translate(-50%, -6px); }
   #overlay h2 { margin: 0; font-size: 24px; line-height: 1.3; }
   #overlayText { margin: 0; opacity: .85; font-size: 13px; line-height: 1.5; max-width: 280px; }
   button.bigbtn {
@@ -211,13 +238,37 @@
     color: #aaa;
     box-shadow: 0 4px 10px rgba(0,0,0,.5), inset 0 0 0 3px #333;
   }
+  #smallBtnRow {
+    display: flex;
+    flex-direction: row;
+    gap: 14px;
+    align-items: center;
+  }
+  #destroyRayBtn {
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    border: none;
+    background: radial-gradient(circle at 35% 30%, #ff6b6b, #a01818 70%);
+    color: #fff;
+    font-size: 10.5px;
+    font-weight: bold;
+    box-shadow: 0 4px 10px rgba(0,0,0,.5), inset 0 0 0 3px #7a1414;
+    touch-action: none;
+  }
+  #destroyRayBtn:active { transform: scale(0.94); }
+  #destroyRayBtn:disabled {
+    background: radial-gradient(circle at 35% 30%, #777, #444 70%);
+    color: #aaa;
+    box-shadow: 0 4px 10px rgba(0,0,0,.5), inset 0 0 0 3px #333;
+  }
   #hint { font-size: 10.5px; opacity: .6; margin-top: 4px; text-align:center; }
 </style>
 </head>
 <body>
 <div id="app">
-  <h1>Rickボンバー <span id="skipToBossBtn" title="真のラスボスへスキップ">💣</span></h1>
+  <h1><span id="skipToFirstBossBtn" title="最初のボスへスキップ">💣</span> Rickボンバー <span id="skipToBossBtn" title="真のラスボスへスキップ">💣</span></h1>
   <button id="muteBtn" title="サウンドON/OFF">🔊</button>
+  <button id="skipToPortalBtn" title="ワープゾーンへスキップ">🤖</button>
   <div id="hud">
     <div>タイム <span class="val" id="elapsedTime">0:00.0</span></div>
     <div>敵 <span class="val" id="enemyCount">0</span></div>
@@ -229,6 +280,8 @@
   <div id="stage">
     <canvas id="game" width="480" height="352"></canvas>
     <div id="bossBanner"><span>⚠️ ボス登場 ⚠️</span></div>
+    <div id="itemToast"></div>
+    <div id="whiteFlash"></div>
     <div id="overlay">
       <h2 id="overlayTitle">GAME OVER</h2>
       <p id="overlayText">もう一度挑戦しよう！</p>
@@ -242,20 +295,1118 @@
     </div>
     <div id="actionBtns">
       <button id="bombBtn">爆弾<br>設置</button>
-      <button id="invincibleBtn">無敵<br>5秒</button>
+      <div id="smallBtnRow">
+        <button id="destroyRayBtn" style="display:none;">破壊光線<br>1回のみ</button>
+        <button id="invincibleBtn">無敵<br>5秒</button>
+      </div>
     </div>
   </div>
   <div id="hint">スマホ: 左のパッドをスライドで移動 / 爆弾設置と無敵ボタン(1回だけ)。PC: 矢印キー・WASD+スペース(設置)/Z(無敵)</div>
 </div>
 
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (function(){
   const COLS = 15, ROWS = 11, TILE = 32;
   const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d');
-  canvas.width = COLS*TILE;
-  canvas.height = ROWS*TILE;
+  canvas.width = 480;
+  canvas.height = 352;
+
+  // ---------- 3D scene setup (Three.js) ----------
+  // The whole board is mapped into a small 3D world: each grid cell (gx,gy)
+  // sits at world position (gx - COLS/2 + 0.5, *, gy - ROWS/2 + 0.5). A
+  // pixel-based position px (as used throughout the existing 2D game logic,
+  // where a tile's center pixel is gx*TILE+TILE/2) converts the same way by
+  // dividing by TILE first - so both grid cells and continuously-moving
+  // entities share one consistent conversion.
+  function pixelToWorld(px, py){
+    return { x: px/TILE - COLS/2, z: py/TILE - ROWS/2 };
+  }
+  function cellCenterToWorld(gx, gy){
+    return pixelToWorld(gx*TILE+TILE/2, gy*TILE+TILE/2);
+  }
+  // converts the player's last-input-direction string into the same
+  // atan2(dx,dy) angle space used for every other entity's facing
+  function facingStringToAngle(f){
+    if(f==='up') return Math.PI;
+    if(f==='left') return -Math.PI/2;
+    if(f==='right') return Math.PI/2;
+    return 0; // 'down' (the default)
+  }
+
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, preserveDrawingBuffer:true });
+  renderer.setSize(canvas.width, canvas.height, false);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x8fd0ea, 0.018);
+
+  const camera = new THREE.PerspectiveCamera(35, canvas.width/canvas.height, 0.1, 100);
+  camera.position.set(0, 19.5, 2.6);
+  camera.lookAt(0, 0, 0);
+
+  // bright, warm daylight-style lighting for a clear, readable look
+  scene.add(new THREE.HemisphereLight(0xbfe3ff, 0x3d6b41, 1.05));
+  const keyLight = new THREE.DirectionalLight(0xfff4d6, 0.85);
+  keyLight.position.set(5, 12, 6);
+  scene.add(keyLight);
+  const fillLight = new THREE.DirectionalLight(0xcfe8ff, 0.35);
+  fillLight.position.set(-6, 6, -4);
+  scene.add(fillLight);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+
+  // reusable geometries/materials (shared across many mesh instances so we
+  // aren't allocating new GPU buffers every frame)
+  const geo = {
+    box: new THREE.BoxGeometry(1,1,1),
+    sphere: new THREE.SphereGeometry(0.5, 12, 10),
+    icosa: new THREE.IcosahedronGeometry(0.5, 0),
+    cylinder: new THREE.CylinderGeometry(0.5,0.5,1,10),
+    plane: new THREE.PlaneGeometry(1,1),
+    torus: new THREE.TorusGeometry(0.42, 0.07, 8, 20),
+    ring: new THREE.RingGeometry(0.5, 0.62, 24),
+  };
+  const boxEdges = new THREE.EdgesGeometry(geo.box);
+  function addGlowEdges(mesh, colorHex, opacity){
+    // a soft dark cel-shaded outline (rather than a neon glow) so shapes
+    // stay crisp and readable against the bright daytime scene
+    const line = new THREE.LineSegments(boxEdges, new THREE.LineBasicMaterial({
+      color: 0x1a1a1a, transparent: true, opacity: (opacity===undefined?0.9:opacity)*0.55
+    }));
+    mesh.add(line);
+    return line;
+  }
+  function stdMat(color, emissive, opts){
+    opts = opts || {};
+    return new THREE.MeshStandardMaterial(Object.assign({
+      color, emissive: emissive!==undefined?emissive:0x000000,
+      roughness: 0.5, metalness: 0.4
+    }, opts));
+  }
+  function basicMat(color, opts){
+    return new THREE.MeshBasicMaterial(Object.assign({ color }, opts));
+  }
+  const mat = {
+    floorA: stdMat(0x3d6b41, 0x0a1a0a, {roughness:0.85, metalness:0.05}),
+    floorB: stdMat(0x356038, 0x081408, {roughness:0.85, metalness:0.05}),
+    wall: stdMat(0x7a7a7a, 0x000000, {roughness:0.6, metalness:0.35}),
+    wallPanel: stdMat(0x5c5c5c, 0x000000, {roughness:0.55, metalness:0.4}),
+    wallRivet: stdMat(0x2a2a2a, 0x000000, {roughness:0.3, metalness:0.8}),
+    wallTrim: basicMat(0xdadada, {transparent:true, opacity:0.9}),
+    block: stdMat(0xa5682f, 0x140800, {roughness:0.7, metalness:0.1}),
+    blockPlank: stdMat(0x8a5324, 0x0a0400, {roughness:0.75, metalness:0.05}),
+    blockBolt: stdMat(0x4a2f14, 0x000000, {roughness:0.5, metalness:0.3}),
+    blockTrim: basicMat(0xf0c080, {transparent:true, opacity:0.95}),
+    playerBody: stdMat(0x3d7bff, 0x0a1a44, {metalness:0.55, roughness:0.35}),
+    playerVisor: basicMat(0xffffff),
+    enemyBody: stdMat(0xe64545, 0x2a0a0a, {metalness:0.55, roughness:0.35}),
+    enemyVisor: basicMat(0xffe4e4),
+    bossBody: stdMat(0x1fa8a0, 0x0a2c2a, {metalness:0.6, roughness:0.3}),
+    trueBossBody: stdMat(0x222222, 0x0a0a0a, {metalness:0.7, roughness:0.25}),
+    trueBossVisor: basicMat(0xff3b3b),
+    trueBossBomb: stdMat(0x3a0f0f, 0x1a0000, {metalness:0.5, roughness:0.4}),
+    bossEye: basicMat(0xffe4e4),
+    bomb: stdMat(0x222222, 0x000000, {metalness:0.5, roughness:0.4}),
+    bombRingP: basicMat(0xdddddd),
+    bombRingT: basicMat(0xff4d4d),
+    item: basicMat(0xffd54f),
+    explosionInner: basicMat(0xffe680, {transparent:true}),
+    explosionOuter: basicMat(0xff9a30, {transparent:true}),
+    projectile: basicMat(0xffcf4d),
+    debrisMetal: basicMat(0xffaa28),
+    debrisSpark: basicMat(0xa5682f),
+    deathParticle: basicMat(0xffffff, {transparent:true}),
+  };
+
+  // static board (floor + walls + blocks); rebuilt whenever the grid layout
+  // changes (new game, or a boss clears all blocks) and individual tiles are
+  // removed one at a time as they get destroyed by an explosion
+  // ---------- procedural textures (glow sprites, floor circuit pattern, sky) ----------
+  function makeGlowTexture(){
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = 64;
+    const c2 = cvs.getContext('2d');
+    const grad = c2.createRadialGradient(32,32,0,32,32,32);
+    grad.addColorStop(0,'rgba(255,255,255,1)');
+    grad.addColorStop(0.35,'rgba(255,255,255,0.55)');
+    grad.addColorStop(1,'rgba(255,255,255,0)');
+    c2.fillStyle = grad;
+    c2.fillRect(0,0,64,64);
+    return new THREE.CanvasTexture(cvs);
+  }
+  const glowTexture = makeGlowTexture();
+
+  function makeEmojiTexture(emoji){
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = 128;
+    const c2 = cvs.getContext('2d');
+    c2.font = '92px sans-serif';
+    c2.textAlign = 'center';
+    c2.textBaseline = 'middle';
+    c2.fillText(emoji, 64, 70);
+    return new THREE.CanvasTexture(cvs);
+  }
+  const itemTextures = {
+    bombUp: makeEmojiTexture('💣'),
+    fireUp: makeEmojiTexture('🔥'),
+    speedUp: makeEmojiTexture('🛼'),
+  };
+  function makeGlowSprite(colorHex, size){
+    const m = new THREE.SpriteMaterial({ map:glowTexture, color:colorHex, blending:THREE.AdditiveBlending, transparent:true, depthWrite:false });
+    const sprite = new THREE.Sprite(m);
+    sprite.scale.set(size,size,1);
+    return sprite;
+  }
+
+  // Small proper 3D models for the four warp-zone treasures, built the same
+  // way as the crown (real geometry, not a flat emoji sprite) so they read
+  // clearly as the actual item rather than a vaguely-similar stand-in icon.
+  function makeTreasureMesh(type){
+    const g = new THREE.Group();
+    const goldMat = basicMat(0xffd75e);
+    if(type==='ring'){
+      const band = new THREE.Mesh(geo.torus, goldMat);
+      band.scale.set(0.6,0.6,0.6);
+      band.rotation.x = Math.PI/2.3;
+      g.add(band);
+      const gem = new THREE.Mesh(geo.icosa, basicMat(0xff3b6b));
+      gem.scale.set(0.16,0.16,0.16);
+      gem.position.set(0, 0.15, 0.16);
+      g.add(gem);
+    } else if(type==='earring'){
+      const hoop = new THREE.Mesh(geo.torus, goldMat);
+      hoop.scale.set(0.4,0.4,0.4);
+      g.add(hoop);
+      const post = new THREE.Mesh(geo.cylinder, goldMat);
+      post.scale.set(0.05,0.14,0.05);
+      post.position.set(0, 0.18, 0);
+      g.add(post);
+      const gem = new THREE.Mesh(geo.icosa, basicMat(0xcdefff));
+      gem.scale.set(0.14,0.14,0.14);
+      gem.position.set(0, -0.36, 0);
+      g.add(gem);
+    } else if(type==='necklace'){
+      const loop = new THREE.Mesh(geo.torus, goldMat);
+      loop.scale.set(0.85,0.85,0.65);
+      loop.rotation.x = Math.PI/2.15;
+      g.add(loop);
+      const gem = new THREE.Mesh(geo.icosa, basicMat(0x2ecc71));
+      gem.scale.set(0.18,0.18,0.18);
+      gem.position.set(0, -0.06, 0.4);
+      g.add(gem);
+    } else if(type==='goldbar'){
+      const bar = new THREE.Mesh(geo.box, goldMat);
+      bar.scale.set(0.62,0.26,0.38);
+      addGlowEdges(bar, 0x7a5a10, 0.7);
+      g.add(bar);
+      const shine = new THREE.Mesh(geo.box, basicMat(0xfff3c0, {transparent:true, opacity:0.5}));
+      shine.scale.set(0.5,0.28,0.06);
+      shine.position.set(0, 0.005, 0.1);
+      g.add(shine);
+    }
+    return g;
+  }
+
+  function createWallTexture(){
+    const res = 128;
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = res;
+    const c2 = cvs.getContext('2d');
+    c2.fillStyle = '#8a8a8a';
+    c2.fillRect(0,0,res,res);
+    // brick courses
+    const rowH = res/5;
+    for(let row=0; row<5; row++){
+      const offset = (row%2===0) ? 0 : res/6;
+      c2.strokeStyle = 'rgba(0,0,0,0.35)';
+      c2.lineWidth = 2;
+      c2.beginPath();
+      c2.moveTo(0, row*rowH);
+      c2.lineTo(res, row*rowH);
+      c2.stroke();
+      for(let bx=-offset; bx<res+res/3; bx+=res/3){
+        c2.beginPath();
+        c2.moveTo(bx, row*rowH);
+        c2.lineTo(bx, (row+1)*rowH);
+        c2.stroke();
+      }
+    }
+    // shading variation per brick
+    for(let i=0;i<40;i++){
+      c2.fillStyle = `rgba(${Math.random()<0.5?0:255},${Math.random()<0.5?0:255},${Math.random()<0.5?0:255},${Math.random()*0.05})`;
+      c2.fillRect(Math.random()*res, Math.random()*res, res/3, rowH);
+    }
+    c2.strokeStyle = 'rgba(0,0,0,0.5)';
+    c2.lineWidth = 4;
+    c2.strokeRect(2,2,res-4,res-4);
+    const tex = new THREE.CanvasTexture(cvs);
+    return tex;
+  }
+  const wallTexture = createWallTexture();
+
+  function createSpaceWallTexture(){
+    // a scarred metal/asteroid-plate barrier, lit by thin cyan energy seams
+    const res = 128;
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = res;
+    const c2 = cvs.getContext('2d');
+    c2.fillStyle = '#2a2d3a';
+    c2.fillRect(0,0,res,res);
+    // panel courses, same layout language as the original brick wall
+    const rowH = res/5;
+    for(let row=0; row<5; row++){
+      const offset = (row%2===0) ? 0 : res/6;
+      c2.strokeStyle = 'rgba(150,220,255,0.18)';
+      c2.lineWidth = 2;
+      c2.beginPath();
+      c2.moveTo(0, row*rowH);
+      c2.lineTo(res, row*rowH);
+      c2.stroke();
+      for(let bx=-offset; bx<res+res/3; bx+=res/3){
+        c2.beginPath();
+        c2.moveTo(bx, row*rowH);
+        c2.lineTo(bx, (row+1)*rowH);
+        c2.stroke();
+      }
+    }
+    // scattered impact craters
+    for(let i=0;i<10;i++){
+      const cx = Math.random()*res, cy = Math.random()*res, r = 4+Math.random()*8;
+      const grad = c2.createRadialGradient(cx,cy,0,cx,cy,r);
+      grad.addColorStop(0,'rgba(0,0,0,0.5)');
+      grad.addColorStop(1,'rgba(0,0,0,0)');
+      c2.fillStyle = grad;
+      c2.beginPath(); c2.arc(cx,cy,r,0,Math.PI*2); c2.fill();
+    }
+    // shading variation per panel
+    for(let i=0;i<40;i++){
+      c2.fillStyle = `rgba(${Math.random()<0.5?0:180},${Math.random()<0.5?200:0},${Math.random()<0.5?255:0},${Math.random()*0.05})`;
+      c2.fillRect(Math.random()*res, Math.random()*res, res/3, rowH);
+    }
+    c2.strokeStyle = 'rgba(120,220,255,0.4)';
+    c2.lineWidth = 3;
+    c2.strokeRect(2,2,res-4,res-4);
+    return new THREE.CanvasTexture(cvs);
+  }
+  const spaceWallTexture = createSpaceWallTexture();
+
+  function createWallTopTexture(){
+    // designed to be looked at from directly above: a paneled armor plate
+    // with a raised center, corner rivets and diagonal hazard stripe
+    const res = 128;
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = res;
+    const c2 = cvs.getContext('2d');
+    c2.fillStyle = '#6f6f6f';
+    c2.fillRect(0,0,res,res);
+    c2.strokeStyle = 'rgba(0,0,0,0.55)';
+    c2.lineWidth = 5;
+    c2.strokeRect(3,3,res-6,res-6);
+    // raised inner panel with its own bevel shadow/highlight
+    const m = 20;
+    c2.fillStyle = '#8c8c8c';
+    c2.fillRect(m,m,res-m*2,res-m*2);
+    c2.strokeStyle = 'rgba(255,255,255,0.35)';
+    c2.lineWidth = 2;
+    c2.strokeRect(m,m,res-m*2,res-m*2);
+    c2.strokeStyle = 'rgba(0,0,0,0.4)';
+    c2.lineWidth = 3;
+    c2.strokeRect(m+3,m+3,res-m*2-6,res-m*2-6);
+    // diagonal hazard marking in the middle
+    c2.save();
+    c2.beginPath();
+    c2.rect(m,m,res-m*2,res-m*2);
+    c2.clip();
+    c2.strokeStyle = 'rgba(20,20,20,0.5)';
+    c2.lineWidth = 6;
+    for(let d=-res;d<res*2;d+=18){
+      c2.beginPath();
+      c2.moveTo(d,0);
+      c2.lineTo(d+res,res);
+      c2.stroke();
+    }
+    c2.restore();
+    // corner rivets
+    const rivets = [[14,14],[res-14,14],[14,res-14],[res-14,res-14]];
+    for(const [rx,ry] of rivets){
+      c2.fillStyle = '#333';
+      c2.beginPath(); c2.arc(rx,ry,6,0,Math.PI*2); c2.fill();
+      c2.fillStyle = 'rgba(255,255,255,0.4)';
+      c2.beginPath(); c2.arc(rx-1.5,ry-1.5,2,0,Math.PI*2); c2.fill();
+    }
+    return new THREE.CanvasTexture(cvs);
+  }
+  const wallTopTexture = createWallTopTexture();
+
+  function createSpaceWallTopTexture(){
+    // viewed from above: a raised metal panel with a glowing cyan hazard
+    // stripe and corner rivets, instead of the original's black/gray look
+    const res = 128;
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = res;
+    const c2 = cvs.getContext('2d');
+    c2.fillStyle = '#20222e';
+    c2.fillRect(0,0,res,res);
+    c2.strokeStyle = 'rgba(120,220,255,0.45)';
+    c2.lineWidth = 5;
+    c2.strokeRect(3,3,res-6,res-6);
+    const m = 20;
+    c2.fillStyle = '#31333f';
+    c2.fillRect(m,m,res-m*2,res-m*2);
+    c2.strokeStyle = 'rgba(180,235,255,0.35)';
+    c2.lineWidth = 2;
+    c2.strokeRect(m,m,res-m*2,res-m*2);
+    c2.strokeStyle = 'rgba(0,0,0,0.4)';
+    c2.lineWidth = 3;
+    c2.strokeRect(m+3,m+3,res-m*2-6,res-m*2-6);
+    // glowing diagonal energy stripe in the middle
+    c2.save();
+    c2.beginPath();
+    c2.rect(m,m,res-m*2,res-m*2);
+    c2.clip();
+    c2.strokeStyle = 'rgba(90,220,255,0.55)';
+    c2.lineWidth = 6;
+    for(let d=-res;d<res*2;d+=18){
+      c2.beginPath();
+      c2.moveTo(d,0);
+      c2.lineTo(d+res,res);
+      c2.stroke();
+    }
+    c2.restore();
+    const rivets = [[14,14],[res-14,14],[14,res-14],[res-14,res-14]];
+    for(const [rx,ry] of rivets){
+      c2.fillStyle = '#12141c';
+      c2.beginPath(); c2.arc(rx,ry,6,0,Math.PI*2); c2.fill();
+      c2.fillStyle = 'rgba(150,225,255,0.55)';
+      c2.beginPath(); c2.arc(rx-1.5,ry-1.5,2,0,Math.PI*2); c2.fill();
+    }
+    return new THREE.CanvasTexture(cvs);
+  }
+  const spaceWallTopTexture = createSpaceWallTopTexture();
+
+  function createBlockTexture(){
+    const res = 128;
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = res;
+    const c2 = cvs.getContext('2d');
+    c2.fillStyle = '#a5682f';
+    c2.fillRect(0,0,res,res);
+    // vertical wood grain streaks
+    for(let i=0;i<26;i++){
+      const gx = Math.random()*res;
+      c2.strokeStyle = `rgba(90,50,20,${0.12+Math.random()*0.18})`;
+      c2.lineWidth = 1+Math.random()*2;
+      c2.beginPath();
+      c2.moveTo(gx, 0);
+      c2.bezierCurveTo(gx+8,res*0.3, gx-8,res*0.6, gx+(Math.random()*10-5), res);
+      c2.stroke();
+    }
+    // crossed plank braces
+    c2.strokeStyle = '#6e3d18';
+    c2.lineWidth = 10;
+    c2.beginPath();
+    c2.moveTo(8,8); c2.lineTo(res-8,res-8);
+    c2.moveTo(res-8,8); c2.lineTo(8,res-8);
+    c2.stroke();
+    c2.strokeStyle = '#5a3010';
+    c2.lineWidth = 4;
+    c2.strokeRect(3,3,res-6,res-6);
+    // corner bolts baked into the texture
+    const bolts = [[16,16],[res-16,16],[16,res-16],[res-16,res-16]];
+    for(const [bx,by] of bolts){
+      c2.fillStyle = '#3a2410';
+      c2.beginPath(); c2.arc(bx,by,6,0,Math.PI*2); c2.fill();
+      c2.fillStyle = 'rgba(255,255,255,0.25)';
+      c2.beginPath(); c2.arc(bx-1.5,by-1.5,2,0,Math.PI*2); c2.fill();
+    }
+    return new THREE.CanvasTexture(cvs);
+  }
+  const blockTexture = createBlockTexture();
+
+  function createSpaceBlockTexture(){
+    // a rough meteorite/ice-asteroid chunk, veined with glowing cracks,
+    // standing in for the old wooden crate
+    const res = 128;
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = res;
+    const c2 = cvs.getContext('2d');
+    c2.fillStyle = '#4a4560';
+    c2.fillRect(0,0,res,res);
+    // mottled rock shading
+    for(let i=0;i<28;i++){
+      const gx = Math.random()*res, gy = Math.random()*res, r = 6+Math.random()*14;
+      c2.fillStyle = `rgba(${Math.random()<0.5?20:80},${Math.random()<0.5?15:70},${Math.random()<0.5?40:110},${0.15+Math.random()*0.2})`;
+      c2.beginPath(); c2.arc(gx,gy,r,0,Math.PI*2); c2.fill();
+    }
+    // glowing crack veins
+    c2.strokeStyle = 'rgba(140,255,220,0.55)';
+    c2.lineWidth = 2;
+    for(let i=0;i<5;i++){
+      let x = Math.random()*res, y = 0;
+      c2.beginPath();
+      c2.moveTo(x,y);
+      for(let s=0;s<5;s++){
+        x += (Math.random()*30-15);
+        y += res/5;
+        c2.lineTo(x,y);
+      }
+      c2.stroke();
+    }
+    c2.strokeStyle = 'rgba(0,0,0,0.5)';
+    c2.lineWidth = 4;
+    c2.strokeRect(3,3,res-6,res-6);
+    return new THREE.CanvasTexture(cvs);
+  }
+  const spaceBlockTexture = createSpaceBlockTexture();
+
+  function createBlockTopTexture(){
+    // a crate lid viewed from above: horizontal planks with visible grain,
+    // a metal strap across the middle, and nail heads at the plank ends
+    const res = 128;
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = res;
+    const c2 = cvs.getContext('2d');
+    c2.fillStyle = '#a5682f';
+    c2.fillRect(0,0,res,res);
+    const plankH = res/4;
+    for(let i=0;i<4;i++){
+      const py = i*plankH;
+      c2.fillStyle = i%2===0 ? '#a5682f' : '#9a5f2b';
+      c2.fillRect(0,py,res,plankH);
+      c2.strokeStyle = 'rgba(0,0,0,0.4)';
+      c2.lineWidth = 2;
+      c2.beginPath(); c2.moveTo(0,py); c2.lineTo(res,py); c2.stroke();
+      for(let g=0;g<5;g++){
+        const gy = py + Math.random()*plankH;
+        c2.strokeStyle = `rgba(80,45,15,${0.15+Math.random()*0.15})`;
+        c2.lineWidth = 1;
+        c2.beginPath();
+        c2.moveTo(0,gy);
+        c2.bezierCurveTo(res*0.3,gy+3,res*0.6,gy-3,res,gy+(Math.random()*4-2));
+        c2.stroke();
+      }
+      c2.fillStyle = '#3a2410';
+      c2.beginPath(); c2.arc(10, py+plankH/2, 3.5, 0, Math.PI*2); c2.fill();
+      c2.beginPath(); c2.arc(res-10, py+plankH/2, 3.5, 0, Math.PI*2); c2.fill();
+    }
+    c2.fillStyle = 'rgba(60,40,20,0.85)';
+    c2.fillRect(0, res/2-9, res, 18);
+    c2.strokeStyle = 'rgba(0,0,0,0.4)';
+    c2.lineWidth = 1.5;
+    c2.strokeRect(0, res/2-9, res, 18);
+    c2.strokeStyle = 'rgba(0,0,0,0.5)';
+    c2.lineWidth = 4;
+    c2.strokeRect(2,2,res-4,res-4);
+    return new THREE.CanvasTexture(cvs);
+  }
+  const blockTopTexture = createBlockTopTexture();
+
+  function createSpaceBlockTopTexture(){
+    // viewed from above: the same meteorite chunk, with a bright glowing
+    // fissure running across the middle
+    const res = 128;
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = res;
+    const c2 = cvs.getContext('2d');
+    c2.fillStyle = '#4a4560';
+    c2.fillRect(0,0,res,res);
+    for(let i=0;i<24;i++){
+      const gx = Math.random()*res, gy = Math.random()*res, r = 5+Math.random()*12;
+      c2.fillStyle = `rgba(${Math.random()<0.5?20:80},${Math.random()<0.5?15:70},${Math.random()<0.5?40:110},${0.15+Math.random()*0.2})`;
+      c2.beginPath(); c2.arc(gx,gy,r,0,Math.PI*2); c2.fill();
+    }
+    c2.fillStyle = 'rgba(140,255,220,0.5)';
+    c2.fillRect(0, res/2-6, res, 12);
+    c2.strokeStyle = 'rgba(140,255,220,0.7)';
+    c2.lineWidth = 1.5;
+    c2.strokeRect(0, res/2-6, res, 12);
+    c2.strokeStyle = 'rgba(0,0,0,0.5)';
+    c2.lineWidth = 4;
+    c2.strokeRect(2,2,res-4,res-4);
+    return new THREE.CanvasTexture(cvs);
+  }
+  const spaceBlockTopTexture = createSpaceBlockTopTexture();
+
+  function createArmorTexture(baseColor){
+    const res = 64;
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = res;
+    const c2 = cvs.getContext('2d');
+    c2.fillStyle = baseColor;
+    c2.fillRect(0,0,res,res);
+    c2.strokeStyle = 'rgba(0,0,0,0.25)';
+    c2.lineWidth = 2;
+    c2.strokeRect(1,1,res-2,res-2);
+    c2.beginPath();
+    c2.moveTo(res/2,1); c2.lineTo(res/2,res-1);
+    c2.moveTo(1,res/2); c2.lineTo(res-1,res/2);
+    c2.stroke();
+    c2.strokeStyle = 'rgba(255,255,255,0.15)';
+    c2.lineWidth = 1;
+    c2.strokeRect(4,4,res-8,res-8);
+    return new THREE.CanvasTexture(cvs);
+  }
+  const playerArmorTex = createArmorTexture('#3d7bff');
+  const enemyArmorTex = createArmorTexture('#e64545');
+  const bossArmorTex = createArmorTexture('#7a1fa2');
+  const trueBossArmorTex = createArmorTexture('#222222');
+  mat.playerBody.map = playerArmorTex; mat.playerBody.needsUpdate = true;
+  mat.enemyBody.map = enemyArmorTex; mat.enemyBody.needsUpdate = true;
+  mat.bossBody.map = bossArmorTex; mat.bossBody.needsUpdate = true;
+  mat.trueBossBody.map = trueBossArmorTex; mat.trueBossBody.needsUpdate = true;
+
+  const wallSideMat = stdMat(0xffffff, 0x000000, {map:wallTexture, roughness:0.6, metalness:0.35});
+  const wallTopMat = stdMat(0xffffff, 0x000000, {map:wallTopTexture, roughness:0.55, metalness:0.4});
+  const blockSideMat = stdMat(0xffffff, 0x000000, {map:blockTexture, roughness:0.7, metalness:0.1});
+  const blockTopMat = stdMat(0xffffff, 0x000000, {map:blockTopTexture, roughness:0.7, metalness:0.1});
+  // BoxGeometry face order is [+x,-x,+y(top),-y(bottom),+z,-z]
+  mat.wall = [wallSideMat,wallSideMat,wallTopMat,wallSideMat,wallSideMat,wallSideMat];
+  mat.block = [blockSideMat,blockSideMat,blockTopMat,blockSideMat,blockSideMat,blockSideMat];
+
+  // space-themed variants, swapped in for the true boss's and hidden final
+  // boss's stages
+  const spaceWallSideMat = stdMat(0xffffff, 0x0a1420, {map:spaceWallTexture, roughness:0.55, metalness:0.5});
+  const spaceWallTopMat = stdMat(0xffffff, 0x0a1420, {map:spaceWallTopTexture, roughness:0.5, metalness:0.55});
+  const spaceBlockSideMat = stdMat(0xffffff, 0x140a1e, {map:spaceBlockTexture, roughness:0.6, metalness:0.2});
+  const spaceBlockTopMat = stdMat(0xffffff, 0x140a1e, {map:spaceBlockTopTexture, roughness:0.6, metalness:0.2});
+  mat.spaceWall = [spaceWallSideMat,spaceWallSideMat,spaceWallTopMat,spaceWallSideMat,spaceWallSideMat,spaceWallSideMat];
+  mat.spaceBlock = [spaceBlockSideMat,spaceBlockSideMat,spaceBlockTopMat,spaceBlockSideMat,spaceBlockSideMat,spaceBlockSideMat];
+
+  function createFloorTexture(){
+    const res = 64;
+    const cvs = document.createElement('canvas');
+    cvs.width = COLS*res; cvs.height = ROWS*res;
+    const c2 = cvs.getContext('2d');
+    for(let y=0;y<ROWS;y++){
+      for(let x=0;x<COLS;x++){
+        const px=x*res, py=y*res;
+        c2.fillStyle = (x+y)%2===0 ? '#3d6b41' : '#356038';
+        c2.fillRect(px,py,res,res);
+        // subtle grass-blade speckles for texture, kept low contrast so it
+        // never competes with the characters/items sitting on top
+        for(let i=0;i<10;i++){
+          const gx = px+Math.random()*res, gy = py+Math.random()*res;
+          c2.strokeStyle = `rgba(0,0,0,${0.06+Math.random()*0.06})`;
+          c2.lineWidth = 1;
+          c2.beginPath();
+          c2.moveTo(gx,gy);
+          c2.lineTo(gx+(Math.random()*4-2), gy-3-Math.random()*3);
+          c2.stroke();
+        }
+        c2.strokeStyle = 'rgba(0,0,0,0.12)';
+        c2.lineWidth = 1;
+        c2.strokeRect(px+0.5,py+0.5,res-1,res-1);
+      }
+    }
+    const tex = new THREE.CanvasTexture(cvs);
+    tex.anisotropy = 4;
+    return tex;
+  }
+  const floorTexture = createFloorTexture();
+  const floorMat = new THREE.MeshStandardMaterial({
+    map: floorTexture, roughness:0.85, metalness:0.05
+  });
+  const floorGeo = new THREE.PlaneGeometry(COLS, ROWS);
+
+  function createSpaceFloorTexture(){
+    // a dark metal platform floating in space, panel-seamed, with tiny
+    // star-like flecks instead of grass speckles
+    const res = 64;
+    const cvs = document.createElement('canvas');
+    cvs.width = COLS*res; cvs.height = ROWS*res;
+    const c2 = cvs.getContext('2d');
+    for(let y=0;y<ROWS;y++){
+      for(let x=0;x<COLS;x++){
+        const px=x*res, py=y*res;
+        c2.fillStyle = (x+y)%2===0 ? '#181a2a' : '#141625';
+        c2.fillRect(px,py,res,res);
+        for(let i=0;i<6;i++){
+          const gx = px+Math.random()*res, gy = py+Math.random()*res;
+          c2.fillStyle = `rgba(180,220,255,${0.15+Math.random()*0.35})`;
+          c2.fillRect(gx,gy,1,1);
+        }
+        c2.strokeStyle = 'rgba(120,200,255,0.14)';
+        c2.lineWidth = 1;
+        c2.strokeRect(px+0.5,py+0.5,res-1,res-1);
+      }
+    }
+    const tex = new THREE.CanvasTexture(cvs);
+    tex.anisotropy = 4;
+    return tex;
+  }
+  const spaceFloorTexture = createSpaceFloorTexture();
+  const spaceFloorMat = new THREE.MeshStandardMaterial({
+    map: spaceFloorTexture, roughness:0.7, metalness:0.25
+  });
+
+  function createSkyTexture(){
+    const cvs = document.createElement('canvas');
+    cvs.width = 4; cvs.height = 256;
+    const c2 = cvs.getContext('2d');
+    const grad = c2.createLinearGradient(0,0,0,256);
+    grad.addColorStop(0,'#6fc3f0');
+    grad.addColorStop(0.55,'#bfe3ff');
+    grad.addColorStop(1,'#eaf6ff');
+    c2.fillStyle = grad;
+    c2.fillRect(0,0,4,256);
+    return new THREE.CanvasTexture(cvs);
+  }
+  const skyTexture = createSkyTexture();
+  scene.background = skyTexture;
+
+  const boardGroup = new THREE.Group();
+  scene.add(boardGroup);
+  let tileMeshes = [];
+
+  function disposeGroup(group){
+    while(group.children.length){
+      const obj = group.children.pop();
+      if(obj.geometry && obj.userData.ownGeometry) obj.geometry.dispose();
+      group.remove(obj);
+    }
+  }
+
+  function buildBoardMeshes(){
+    disposeGroup(boardGroup);
+    tileMeshes = [];
+    const floorMesh = new THREE.Mesh(floorGeo, spaceMode ? spaceFloorMat : floorMat);
+    floorMesh.rotation.x = -Math.PI/2;
+    floorMesh.position.set(0,0,0);
+    boardGroup.add(floorMesh);
+    for(let y=0;y<ROWS;y++){
+      tileMeshes.push(new Array(COLS).fill(null));
+      for(let x=0;x<COLS;x++){
+        addTileMesh(x,y);
+      }
+    }
+  }
+
+  function addTileMesh(gx,gy){
+    const cell = grid[gy][gx];
+    if(cell!==1 && cell!==2 && cell!==3) return;
+    const w = cellCenterToWorld(gx,gy);
+    const isWall = cell===1;
+    const isTreasure = cell===3;
+    const h = isWall ? 1.0 : 0.55;
+    const g = new THREE.Group();
+
+    const wallMat = spaceMode ? mat.spaceWall : mat.wall;
+    const blockMat = spaceMode ? mat.spaceBlock : mat.block;
+    const bodyMat = isTreasure ? basicMat(0xffd75e) : (isWall ? wallMat : blockMat);
+    const body = new THREE.Mesh(geo.box, bodyMat);
+    body.scale.set(isWall ? 0.92 : 0.86, h, isWall ? 0.92 : 0.86);
+    body.position.set(w.x, h/2, w.z);
+    addGlowEdges(body, isTreasure ? 0xffe066 : 0, isTreasure ? 0.9 : 0.45);
+    g.add(body);
+    if(isTreasure){
+      // an unmistakable golden glow so it reads as "special" - normal bombs
+      // can't touch it, only the destroy ray can crack it open
+      const glow = makeGlowSprite(0xffe066, 1.5);
+      glow.position.set(w.x, h+0.35, w.z);
+      g.add(glow);
+      const light = new THREE.PointLight(0xffe066, 0.9, 2.4);
+      light.position.set(w.x, h*0.7, w.z);
+      g.add(light);
+    }
+
+    boardGroup.add(g);
+    tileMeshes[gy][gx] = g;
+  }
+
+  function removeTileMesh(gx,gy){
+    const m = tileMeshes[gy] && tileMeshes[gy][gx];
+    if(m){
+      boardGroup.remove(m);
+      tileMeshes[gy][gx] = null;
+    }
+  }
+
+  // one group that gets fully cleared and repopulated every single frame
+  // with whatever is currently alive/active (characters, bombs, items,
+  // explosions, projectiles, particles) - simple and fast enough at this
+  // small scale, and means the render step never has to be threaded through
+  // every single spot in the game logic that changes state.
+  const dynamicGroup = new THREE.Group();
+  scene.add(dynamicGroup);
+
+  function makeAlienBossMesh(withCrown, gunHands){
+    // an amorphous space lifeform: a pulsating translucent membrane wrapped
+    // around a glowing core, with waving tentacles and scattered eyes -
+    // deliberately nothing like the mechanical player/enemy models.
+    // Stretched tall: a distinct smaller "head" mass (with its eyes
+    // clustered on the forward side, so it reads as facing whichever way
+    // the creature is moving) sits atop a much taller torso, connected by a
+    // long membranous neck, with tentacles trailing from its underside
+    // like a jellyfish.
+    const g = new THREE.Group();
+
+    const coreMat = stdMat(0x3a0a55, 0x1a0030, {roughness:0.35, metalness:0.1});
+    const tentacleMat = basicMat(0x4a1568);
+    const tipGlowColor = 0x39ffb0;
+    const membraneColor = 0x8a3ad0;
+
+    // torso mass - the bulk of the creature
+    const torso = new THREE.Mesh(geo.icosa, coreMat);
+    torso.scale.set(0.4,0.42,0.4);
+    torso.position.y = 0.62;
+    g.add(torso);
+    const torsoMembrane = new THREE.Mesh(geo.sphere, basicMat(membraneColor, {transparent:true, opacity:0.22}));
+    torsoMembrane.scale.set(0.58,0.6,0.58);
+    torsoMembrane.position.y = 0.64;
+    g.add(torsoMembrane);
+    const coreGlow = new THREE.PointLight(0xaa4dff, 0.9, 3);
+    coreGlow.position.y = 0.62;
+    g.add(coreGlow);
+
+    // thin translucent neck connecting torso to head, stretched much
+    // longer so the creature reads as unmistakably tall
+    const neck = new THREE.Mesh(geo.cylinder, basicMat(membraneColor, {transparent:true, opacity:0.32}));
+    neck.scale.set(0.16,0.85,0.16);
+    neck.position.y = 1.4;
+    g.add(neck);
+
+    // smaller head mass on top
+    const head = new THREE.Mesh(geo.sphere, coreMat);
+    head.scale.set(0.36,0.38,0.36);
+    head.position.y = 1.95;
+    g.add(head);
+    const headMembrane = new THREE.Mesh(geo.sphere, basicMat(membraneColor, {transparent:true, opacity:0.24}));
+    headMembrane.scale.set(0.48,0.5,0.48);
+    headMembrane.position.y = 1.96;
+    g.add(headMembrane);
+    const headGlow = new THREE.PointLight(0xaa4dff, 0.6, 2.2);
+    headGlow.position.y = 1.95;
+    g.add(headGlow);
+
+    // waving tentacles hanging from the torso's underside down toward the
+    // ground, each with a bioluminescent glowing tip - reads as legs/a
+    // trailing skirt while the creature floats forward
+    const tentacleCount = 7;
+    for(let i=0;i<tentacleCount;i++){
+      const angle = (i/tentacleCount)*Math.PI*2;
+      const outX = Math.cos(angle), outZ = Math.sin(angle);
+      const tentacle = new THREE.Mesh(geo.cylinder, tentacleMat);
+      tentacle.scale.set(0.045, 0.5, 0.045);
+      tentacle.position.set(outX*0.2, 0.2, outZ*0.2);
+      tentacle.rotation.x = outZ*0.5;
+      tentacle.rotation.z = -outX*0.5;
+      g.add(tentacle);
+      const tip = new THREE.Mesh(geo.sphere, basicMat(tipGlowColor));
+      tip.scale.set(0.055,0.055,0.055);
+      tip.position.set(outX*0.32, 0.02, outZ*0.32);
+      g.add(tip);
+    }
+
+    // eyes clustered on the head's forward (+z) hemisphere, so the
+    // creature has a clear "face" that visibly turns to track its heading
+    const eyeSpots = [
+      [0, 1.98, 0.2, 0.06],
+      [-0.13, 1.94, 0.16, 0.045],
+      [0.13, 1.94, 0.16, 0.045],
+      [-0.07, 2.05, 0.13, 0.035],
+      [0.07, 2.05, 0.13, 0.035],
+    ];
+    for(const [ex,ey,ez,es] of eyeSpots){
+      const eye = new THREE.Mesh(geo.sphere, basicMat(0xff3b3b));
+      eye.scale.set(es,es,es);
+      eye.position.set(ex,ey,ez);
+      g.add(eye);
+    }
+    // a few extra scattered eyes on the torso for continuity with the
+    // creature's original design language
+    const bodyEyeCount = 4;
+    for(let i=0;i<bodyEyeCount;i++){
+      const a1 = (i/bodyEyeCount)*Math.PI*2 + 0.6;
+      const eye = new THREE.Mesh(geo.sphere, basicMat(0xff3b3b));
+      eye.scale.set(0.04,0.04,0.04);
+      eye.position.set(Math.cos(a1)*0.34, 0.62+Math.sin(a1*1.7)*0.16, Math.sin(a1)*0.34);
+      g.add(eye);
+    }
+
+    // the hidden final boss's crown - a simple ringed gold band with
+    // points, worn atop the head. Kept as its own group (referenced via
+    // userData) so it can be detached and sent flying the moment the
+    // destroy ray cracks it.
+    if(withCrown){
+      const crownGroup = new THREE.Group();
+      const crownMat = basicMat(0xffd75e);
+      const band = new THREE.Mesh(geo.cylinder, crownMat);
+      band.scale.set(0.3,0.12,0.3);
+      band.position.y = 2.16;
+      crownGroup.add(band);
+      const pointCount = 6;
+      for(let i=0;i<pointCount;i++){
+        const angle = (i/pointCount)*Math.PI*2;
+        const px = Math.cos(angle)*0.24, pz = Math.sin(angle)*0.24;
+        const point = new THREE.Mesh(geo.box, crownMat);
+        point.scale.set(0.08,0.14,0.08);
+        point.position.set(px, 2.27, pz);
+        crownGroup.add(point);
+        const gem = new THREE.Mesh(geo.sphere, basicMat(0xff3b6b));
+        gem.scale.set(0.05,0.05,0.05);
+        gem.position.set(px, 2.35, pz);
+        crownGroup.add(gem);
+      }
+      const crownGlow = new THREE.PointLight(0xffd75e, 0.7, 2.4);
+      crownGlow.position.y = 2.24;
+      crownGroup.add(crownGlow);
+      // tilted rakishly to one side rather than sitting bolt upright - this
+      // keeps it from lining up directly under the HP bar overhead
+      crownGroup.rotation.z = 0.34;
+      crownGroup.position.x = 0.1;
+      g.add(crownGroup);
+      g.userData.crownGroup = crownGroup;
+    }
+
+    // ray gun prop(s), gripped by a stubby tentacle-arm out to the side(s) -
+    // the true boss carries one on its right; the hidden final boss (its
+    // master) carries a matching one in each hand for its two-handed
+    // last-stand laser attack.
+    function addRayGun(side){
+      const gunGroup = new THREE.Group();
+      const armMat = basicMat(0x4a1568);
+      const gunMat = stdMat(0x555566, 0x222233, {roughness:0.3, metalness:0.6});
+      const arm = new THREE.Mesh(geo.cylinder, armMat);
+      arm.scale.set(0.06,0.34,0.06);
+      arm.rotation.z = side*0.9;
+      arm.position.set(side*0.28, 0.5, 0.1);
+      gunGroup.add(arm);
+      const gunBody = new THREE.Mesh(geo.box, gunMat);
+      gunBody.scale.set(0.14,0.1,0.32);
+      gunBody.position.set(side*0.46, 0.32, 0.2);
+      gunGroup.add(gunBody);
+      const gunBarrel = new THREE.Mesh(geo.cylinder, gunMat);
+      gunBarrel.scale.set(0.045,0.22,0.045);
+      gunBarrel.rotation.x = Math.PI/2;
+      gunBarrel.position.set(side*0.46, 0.32, 0.4);
+      gunGroup.add(gunBarrel);
+      const gunTip = new THREE.Mesh(geo.sphere, basicMat(0xff3b3b));
+      gunTip.scale.set(0.05,0.05,0.05);
+      gunTip.position.set(side*0.46, 0.32, 0.52);
+      gunGroup.add(gunTip);
+      const gunGlow = new THREE.PointLight(0xff3b3b, 0.5, 1.6);
+      gunGlow.position.set(side*0.46, 0.32, 0.45);
+      gunGroup.add(gunGlow);
+      g.add(gunGroup);
+    }
+    if(gunHands==='single') addRayGun(1);
+    else if(gunHands==='dual'){ addRayGun(1); addRayGun(-1); }
+
+    // soft ground shadow
+    const shadow = new THREE.Mesh(geo.ring, basicMat(0x000000, {transparent:true, opacity:0.28, side:THREE.DoubleSide}));
+    shadow.rotation.x = -Math.PI/2;
+    shadow.scale.set(0.55,0.55,1);
+    shadow.position.y = 0.015;
+
+    // same backward lean as the mecha characters, so its clustered eyes
+    // read as a face under the steep top-down camera instead of edge-on
+    const bodyTilt = new THREE.Group();
+    while(g.children.length) bodyTilt.add(g.children[0]);
+    bodyTilt.rotation.x = -0.16;
+    g.add(bodyTilt);
+    g.add(shadow);
+
+    return g;
+  }
+
+  function makeCharacterMesh(bodyMat, visorMat, glowHex, spiky){
+    const g = new THREE.Group();
+
+    // --- roughly 3-heads-tall proportions: longer legs under the same
+    // upper-body design as before, so the silhouette reads as a proper
+    // (if still stylized) humanoid rather than a big-headed chibi ---
+    const LEG_EXTRA = 0.34; // how much taller the legs are now vs. the old chibi build
+    const legL = new THREE.Mesh(geo.cylinder, bodyMat);
+    legL.scale.set(0.1,0.18+LEG_EXTRA,0.1);
+    legL.position.set(-0.12,(0.18+LEG_EXTRA)/2,0);
+    g.add(legL);
+    const legR = legL.clone();
+    legR.position.x = 0.12;
+    g.add(legR);
+
+    // knee guards for a bit of leg articulation detail
+    const kneeL = new THREE.Mesh(geo.box, visorMat);
+    kneeL.scale.set(0.09,0.05,0.09);
+    kneeL.position.set(-0.12,0.15+LEG_EXTRA,0.05);
+    g.add(kneeL);
+    const kneeR = kneeL.clone();
+    kneeR.position.x = 0.12;
+    g.add(kneeR);
+
+    // two-tier torso: wider hip block + narrower chest block, for shape
+    const hips = new THREE.Mesh(geo.box, bodyMat);
+    hips.scale.set(0.42,0.14,0.36);
+    hips.position.y = 0.22+LEG_EXTRA;
+    addGlowEdges(hips, 0, 0.4);
+    g.add(hips);
+
+    // waist belt line, dark, between hips and chest
+    const belt = new THREE.Mesh(geo.box, visorMat);
+    belt.scale.set(0.44,0.045,0.38);
+    belt.position.y = 0.29+LEG_EXTRA;
+    g.add(belt);
+
+    const chest = new THREE.Mesh(geo.box, bodyMat);
+    chest.scale.set(0.48,0.26,0.38);
+    chest.position.y = 0.38+LEG_EXTRA;
+    addGlowEdges(chest, 0, 0.5);
+    g.add(chest);
+
+    // small glowing chest core accent
+    const core = new THREE.Mesh(geo.sphere, basicMat(glowHex));
+    core.scale.set(0.07,0.07,0.07);
+    core.position.set(0,0.4+LEG_EXTRA,0.2);
+    g.add(core);
+
+    // backpack block for a bit of silhouette depth from the side
+    const pack = new THREE.Mesh(geo.box, bodyMat);
+    pack.scale.set(0.3,0.24,0.12);
+    pack.position.set(0,0.4+LEG_EXTRA,-0.24);
+    addGlowEdges(pack, 0, 0.35);
+    g.add(pack);
+
+    // angled shoulder blades
+    const padL = new THREE.Mesh(geo.box, bodyMat);
+    padL.scale.set(0.14,0.17,0.3);
+    padL.position.set(-0.34,0.48+LEG_EXTRA,0);
+    padL.rotation.z = 0.24;
+    addGlowEdges(padL, 0, 0.4);
+    g.add(padL);
+    const padR = padL.clone();
+    padR.position.x = 0.34;
+    padR.rotation.z = -0.24;
+    g.add(padR);
+
+    // aggressive shoulder spikes on enemies/villains only - keeps the
+    // player's silhouette comparatively "heroic" by contrast
+    if(spiky){
+      const spikeL = new THREE.Mesh(geo.cylinder, bodyMat);
+      spikeL.scale.set(0.06,0.22,0.06);
+      spikeL.position.set(-0.36,0.62+LEG_EXTRA,0);
+      spikeL.rotation.z = 0.3;
+      g.add(spikeL);
+      const spikeR = spikeL.clone();
+      spikeR.position.x = 0.36;
+      spikeR.rotation.z = -0.3;
+      g.add(spikeR);
+    }
+
+    // the head - no longer dominant the way it was at 2-heads-tall, but
+    // kept the same size and detailing so the character stays recognizable
+    const head = new THREE.Mesh(geo.box, bodyMat);
+    head.scale.set(0.62,0.54,0.6);
+    head.position.y = 0.86+LEG_EXTRA;
+    addGlowEdges(head, 0, 0.6);
+    g.add(head);
+
+    // side head vents for extra mech detail
+    const ventL = new THREE.Mesh(geo.box, visorMat);
+    ventL.scale.set(0.04,0.22,0.1);
+    ventL.position.set(-0.32,0.86+LEG_EXTRA,0.12);
+    g.add(ventL);
+    const ventR = ventL.clone();
+    ventR.position.x = 0.32;
+    g.add(ventR);
+
+    // helmet fin, tall and blade-like
+    const crest = new THREE.Mesh(geo.box, bodyMat);
+    crest.scale.set(0.06,0.3,0.34);
+    crest.position.set(0, 1.26+LEG_EXTRA, -0.05);
+    addGlowEdges(crest, 0, 0.4);
+    g.add(crest);
+
+    // dark visor frame sitting just behind the visor pieces, so the face
+    // reads as a proper recessed helmet visor rather than floating panels
+    const visorFrame = new THREE.Mesh(geo.box, basicMat(0x111111));
+    visorFrame.scale.set(0.48,0.2,0.05);
+    visorFrame.position.set(0,0.88+LEG_EXTRA,0.29);
+    visorFrame.rotation.x = -0.45;
+    g.add(visorFrame);
+
+    // angled two-piece visor (a slight "V" shape), tilted upward so more of
+    // its glowing face is actually visible from the steep overhead camera
+    // instead of being seen edge-on
+    const visorL = new THREE.Mesh(geo.box, visorMat);
+    visorL.scale.set(0.22,0.15,0.07);
+    visorL.position.set(-0.11,0.9+LEG_EXTRA,0.28);
+    visorL.rotation.z = 0.08;
+    visorL.rotation.x = -0.45;
+    g.add(visorL);
+    const visorR = visorL.clone();
+    visorR.position.x = 0.11;
+    visorR.rotation.z = -0.08;
+    g.add(visorR);
+
+    // a colored badge on top of the head - this is what actually reads as
+    // "the face" when looking almost straight down, since the forward-
+    // facing visor alone is hard to see from this angle
+    const topMarker = new THREE.Mesh(new THREE.CircleGeometry(0.15,16), basicMat(glowHex));
+    topMarker.rotation.x = -Math.PI/2;
+    topMarker.position.set(0, 1.135+LEG_EXTRA, 0.08);
+    g.add(topMarker);
+    const topMarkerRing = new THREE.Mesh(geo.ring, basicMat(0x111111, {transparent:true, opacity:0.6, side:THREE.DoubleSide}));
+    topMarkerRing.rotation.x = -Math.PI/2;
+    topMarkerRing.scale.set(0.34,0.34,1);
+    topMarkerRing.position.set(0, 1.13+LEG_EXTRA, 0.08);
+    g.add(topMarkerRing);
+
+    // small antenna tip (a plain bright dot, no halo)
+    const antenna = new THREE.Mesh(geo.cylinder, bodyMat);
+    antenna.scale.set(0.04,0.18,0.04);
+    antenna.position.set(0,1.28+LEG_EXTRA,0.06);
+    g.add(antenna);
+    const tip = new THREE.Mesh(geo.sphere, basicMat(glowHex));
+    tip.scale.set(0.08,0.08,0.08);
+    tip.position.set(0,1.4+LEG_EXTRA,0.06);
+    g.add(tip);
+
+    // simple soft ground shadow instead of a colored ring
+    const shadow = new THREE.Mesh(geo.ring, basicMat(0x000000, {transparent:true, opacity:0.28, side:THREE.DoubleSide}));
+    shadow.rotation.x = -Math.PI/2;
+    shadow.scale.set(0.5,0.5,1);
+    shadow.position.y = 0.015;
+
+    // lean the whole silhouette back slightly so more of the face/visor
+    // reads clearly under the steep top-down camera, without touching the
+    // camera or stage geometry. Pivoting at the feet (local origin) keeps
+    // the feet planted while the head/torso tip back into view.
+    const bodyTilt = new THREE.Group();
+    while(g.children.length) bodyTilt.add(g.children[0]);
+    bodyTilt.rotation.x = -0.09;
+    g.add(bodyTilt);
+    g.add(shadow);
+
+    return g;
+  }
+
+  // Puts a small crown mesh on the player's head for the true, complete
+  // ending after touching the hidden final boss's dropped crown.
+  function attachCrownToPlayer(){
+    if(!player.mesh3d || player.mesh3d.userData.hasCrown) return;
+    player.mesh3d.userData.hasCrown = true;
+    const crownMat = basicMat(0xffd75e);
+    const band = new THREE.Mesh(geo.cylinder, crownMat);
+    band.scale.set(0.24,0.08,0.24);
+    band.position.y = 1.56;
+    player.mesh3d.add(band);
+    const pointCount = 5;
+    for(let i=0;i<pointCount;i++){
+      const angle = (i/pointCount)*Math.PI*2;
+      const px = Math.cos(angle)*0.18, pz = Math.sin(angle)*0.18;
+      const point = new THREE.Mesh(geo.box, crownMat);
+      point.scale.set(0.06,0.1,0.06);
+      point.position.set(px, 1.64, pz);
+      player.mesh3d.add(point);
+      const gem = new THREE.Mesh(geo.sphere, basicMat(0xff3b6b));
+      gem.scale.set(0.04,0.04,0.04);
+      gem.position.set(px, 1.7, pz);
+      player.mesh3d.add(gem);
+    }
+    const crownGlow = new THREE.PointLight(0xffd75e, 0.7, 2.2);
+    crownGlow.position.y = 1.62;
+    player.mesh3d.add(crownGlow);
+  }
 
   // ---------- iOS Safari zoom prevention ----------
   // iOS Safari can still trigger pinch-zoom and double-tap-zoom even with
@@ -360,6 +1511,58 @@
     noise.start(t0);
   }
 
+  // Approximates a single human vocal syllable (a laugh "ha"/"ho" or a
+  // shout) using plain oscillators: a quick two-stage pitch bounce (mimics
+  // the vocal cords releasing then settling), a quiet upper harmonic for a
+  // less pure-tone/synthy timbre, and a soft noise bed underneath for
+  // breathiness - much closer to a voice than a single flat tone or slide.
+  // A single "vowel" burst shaped through a resonant bandpass filter tuned
+  // near a vocal formant frequency - this is what actually gets a plain
+  // oscillator to stop sounding like a beep and start sounding like an
+  // open-mouthed "ha"/"fu" vowel. Two filtered layers (roughly the first
+  // and second vocal formants) are stacked for a fuller, less thin timbre.
+  function playFormantBurst(freq, duration, volume, startDelay, formant1, formant2, wave){
+    if(!audioEnabled) return;
+    const ac = ensureAudio();
+    if(!ac) return;
+    wave = wave || 'sawtooth';
+    startDelay = startDelay || 0;
+    const t0 = ac.currentTime + startDelay;
+    const osc = ac.createOscillator();
+    osc.type = wave;
+    osc.frequency.setValueAtTime(freq, t0);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(20, freq*0.8), t0+duration);
+    const amp = ac.createGain();
+    amp.gain.setValueAtTime(0.0001, t0);
+    amp.gain.exponentialRampToValueAtTime(1, t0+Math.min(0.025, duration*0.25));
+    amp.gain.exponentialRampToValueAtTime(0.001, t0+duration);
+    osc.connect(amp);
+
+    const f1 = ac.createBiquadFilter();
+    f1.type = 'bandpass'; f1.frequency.setValueAtTime(formant1, t0); f1.Q.value = 4.5;
+    const g1 = ac.createGain(); g1.gain.setValueAtTime(volume, t0);
+    amp.connect(f1).connect(g1).connect(ac.destination);
+
+    const f2 = ac.createBiquadFilter();
+    f2.type = 'bandpass'; f2.frequency.setValueAtTime(formant2, t0); f2.Q.value = 6;
+    const g2 = ac.createGain(); g2.gain.setValueAtTime(volume*0.55, t0);
+    amp.connect(f2).connect(g2).connect(ac.destination);
+
+    osc.start(t0);
+    osc.stop(t0+duration+0.02);
+  }
+
+  // A rhythmic run of laugh syllables ("ha-ha-ha"/"fu-fu-fu") with a bit of
+  // pitch bounce syllable-to-syllable, like real laughter rather than a
+  // perfectly even machine loop.
+  function playLaughRun(baseFreq, count, gap, syllableDur, volume, startDelay, formant1, formant2, wave){
+    for(let i=0;i<count;i++){
+      const wobble = 1 + ((i%3===1) ? 0.08 : (i%3===2 ? -0.05 : 0));
+      playFormantBurst(baseFreq*wobble, syllableDur, volume, startDelay + i*gap, formant1, formant2, wave);
+      playNoise(syllableDur*0.5, volume*0.18, startDelay + i*gap);
+    }
+  }
+
   const sfx = {
     bombPlace(){ playTone(220, 0.07, 'square', 0.12); },
     kick(){ playTone(140, 0.05, 'square', 0.1); },
@@ -404,6 +1607,13 @@
       playSlide(500, 30, 0.6, 'square', 0.22);
       playTone(50, 0.6, 'square', 0.2, 0.05);
     },
+    trueBossLaugh(){
+      // a fast, high, mocking anime-villain cackle ("ahahaha!") - quick
+      // rhythmic vowel bursts through resonant formant filters instead of
+      // a plain sliding tone, which is what actually makes it read as a
+      // laugh instead of a synth noise
+      playLaughRun(560, 7, 0.1, 0.11, 0.55, 0.32, 1000, 2200, 'sawtooth');
+    },
     invincibleActivate(){
       playTone(440,0.1,'square',0.16,0);
       playTone(660,0.1,'square',0.16,0.09);
@@ -431,6 +1641,52 @@
       playTone(160, 0.08, 'sawtooth', 0.13);
       playTone(110, 0.09, 'square', 0.1, 0.05);
     },
+    whiteHoleEnter(){
+      // bright, rising, airy - a gentle "swept away safely" feeling
+      playSlide(300, 1400, 0.9, 'sine', 0.16, 0);
+      playSlide(500, 1800, 0.8, 'triangle', 0.1, 0.08);
+      playTone(1600, 0.3, 'sine', 0.12, 0.75);
+    },
+    blackHoleEnter(){
+      // dark, falling, ominous - being pulled down into something
+      playSlide(600, 60, 1.1, 'sawtooth', 0.18, 0);
+      playNoise(0.6, 0.16, 0.1);
+      playTone(50, 0.7, 'square', 0.16, 0.5);
+    },
+    hiddenBossWarning(){
+      // distinct from the true boss's warning: slower, lower, and topped
+      // with a cold metallic ring rather than noise hits, so the two
+      // "boss incoming" alerts are clearly different by ear
+      playSlide(200, 30, 1.4, 'square', 0.18, 0);
+      playTone(1200, 0.9, 'sine', 0.08, 0.05);
+      playTone(45, 0.6, 'sawtooth', 0.2, 1.0);
+      playTone(1200, 0.7, 'sine', 0.07, 1.15);
+      playNoise(0.3, 0.2, 1.6);
+    },
+    hiddenBossLaugh(){
+      // a much deeper, slower, more theatrical "fuーはっはっはっは" villain
+      // chuckle - lower register and more drawn-out than the true boss's
+      // quick cackle, so the two are clearly different characters
+      playLaughRun(105, 5, 0.3, 0.24, 0.7, 0, 480, 950, 'sawtooth');
+    },
+    hiddenBossAngry(){
+      // an even longer, more theatrical roar - opens with a low, sustained
+      // growl ("ごぉぉぉー…") and then, instead of just fading out, swells
+      // back UP in pitch and volume for an exaggerated flourish at the tail
+      // ("…おおお!!"), like a shonen villain building to a shout
+      const startDelay = 0.16;
+      // main growl body - long, low, slowly sagging
+      playFormantBurst(220, 1.3, 0.62, startDelay, 520, 1050, 'sawtooth');
+      playSlide(230, 90, 1.3, 'sawtooth', 0.34, startDelay);
+      playSlide(90, 55, 1.35, 'square', 0.22, startDelay+0.05);
+      playNoise(1.25, 0.26, startDelay+0.05);
+      // the rising tail flourish - pitch and intensity swell back up
+      const tailDelay = startDelay + 1.05;
+      playFormantBurst(260, 0.7, 0.72, tailDelay, 650, 1400, 'sawtooth');
+      playSlide(150, 480, 0.55, 'sawtooth', 0.42, tailDelay);
+      playSlide(160, 500, 0.5, 'sawtooth', 0.3, tailDelay+0.08);
+      playNoise(0.55, 0.32, tailDelay+0.05);
+    },
   };
 
   const BGM_PATTERNS = {
@@ -453,10 +1709,30 @@
       noteDuration: 0.135,
       wave: 'sawtooth',
     },
+    // hidden final boss: a darker, more dramatic "final showdown" theme -
+    // driving sawtooth line built on a minor scale, with a stomping bass
+    // accent instead of the true boss's plain sub-octave doubling
+    // hidden final boss: a complete rework - higher, cleaner triangle-wave
+    // melody (rather than the true boss's harsh low sawtooth) built as two
+    // 16-note phrases where the second is transposed up a whole step,
+    // giving an audible key-change lift partway through the loop, plus a
+    // soft sine pad underneath every note for a fuller, more "beautiful"
+    // final-showdown sound instead of a stomping bassline
+    hiddenBoss: {
+      notes: [329.6,392.0,440.0,493.9, 440.0,392.0,329.6,392.0, 440.0,493.9,523.3,587.3, 523.3,493.9,440.0,392.0,
+              369.9,440.0,493.9,554.4, 493.9,440.0,369.9,440.0, 493.9,554.4,587.3,659.3, 587.3,554.4,493.9,440.0],
+      noteDuration: 0.128,
+      wave: 'triangle',
+      bassAccent: true,
+      bassWave: 'sine',
+      bassDiv: 2,
+      bassEvery: 1,
+    },
   };
   let currentBgmKey = null;
 
   function bgmKeyForStage(){
+    if(stage>=8) return 'hiddenBoss';
     if(stage>=4) return 'trueBoss';
     if(stage===3) return 'boss1';
     return 'normal';
@@ -475,9 +1751,19 @@
     const pattern = BGM_PATTERNS[key];
     if(ac.currentTime >= bgmNextTime){
       const freq = pattern.notes[bgmIndex % pattern.notes.length];
-      const vol = key==='trueBoss' ? 0.06 : 0.11;
+      const vol = key==='hiddenBoss' ? 0.08 : ((key==='trueBoss') ? 0.06 : 0.11);
       playTone(freq, pattern.noteDuration*0.85, pattern.wave, vol);
-      if(bgmIndex % 4===0) playTone(freq/2, pattern.noteDuration*0.85, 'sine', vol*0.8);
+      if(pattern.bassAccent){
+        // configurable low-end backing pulse, distinct per theme
+        const every = pattern.bassEvery || 2;
+        if(bgmIndex % every===0){
+          const bassWave = pattern.bassWave || 'square';
+          const bassDiv = pattern.bassDiv || 4;
+          playTone(freq/bassDiv, pattern.noteDuration*1.6, bassWave, vol*1.1);
+        }
+      } else if(bgmIndex % 4===0){
+        playTone(freq/2, pattern.noteDuration*0.85, 'sine', vol*0.8);
+      }
       bgmIndex++;
       bgmNextTime = ac.currentTime + pattern.noteDuration;
     }
@@ -513,21 +1799,57 @@
   const ITEM_DROP_CHANCE = 0.35;
   const ITEM_TYPES = ['bombUp','fireUp','speedUp'];
   const ITEM_ICON = { bombUp:'💣', fireUp:'🔥', speedUp:'🛼' };
+  const TREASURE_INFO = {
+    ring: { name:'指輪' },
+    earring: { name:'ピアス' },
+    necklace: { name:'ネックレス' },
+    goldbar: { name:'金の延べ棒' },
+  };
 
   let grid, bombs, explosions, enemies, player, items, safeCells, projectiles;
+  let rainBombs = []; // visual-only "primed" bombs for the true boss's carpet-bomb finisher (not real collidable bombs)
   let deathEffects = [];
+  let blockDebris = [];
   let shakeTimer = 0, shakeMagnitude = 0;
   let pendingEnd = null; // { isWin, timer } - delays the end screen until the death animation finishes
+  let endingMessage = null; // optional overlay text override for the various new endings
+  let trueEnding = false; // set once the player actually claims the hidden boss's crown
   // 1 = clearing normal enemies, 2 = boss intro, 3 = boss fight,
-  // 4 = true-boss intro, 5 = true-boss fight
+  // 4 = true-boss intro, 5 = true-boss fight, 6 = true-boss death cutscene,
+  // 7 = portal zone (white hole / black hole), 8 = hidden-boss intro,
+  // 9 = hidden-boss fight, 10 = hidden-boss death cutscene, 11 = crown roam
+  // 13 = crown-claimed victory pose (walk to center, face camera, pose) before the win screen
   let stage = 1;
   let stageTimer = 0;
   let boss = null;
   let trueBoss = null;
+  let hiddenBoss = null;
+  let portals = null; // { white:{gx,gy}, black:{gx,gy} }
+  let crownPos = null; // {gx,gy} where the crown sits once the hidden boss falls
+  let crownTaken = false;
+  let crownCracked = false; // true if the destroy ray ever hit the hidden boss directly - swaps its dropped crown for a cracked one
+  let rayGunPos = null; // {gx,gy} where the true boss's dropped ray gun sits, waiting to be picked up
+  let rayGunTaken = false;
+  let destroyRayMode = false; // true once the destroy-ray button has been revealed (ray gun picked up)
+  let destroyRayBeam = null; // {x,y,dx,dy,timer} - transient visual for the fired beam
+  let treasureBlocks = null; // { tl,tr,bl,br } - the warp-zone's four corner blocks, each breakable only by the destroy ray and hiding one item
+  let collectedTreasures = []; // ordered list of item names actually collected this run
+  let timeStopTimer = 0; // brief hitstop freeze when the destroy ray connects with the hidden boss
+  let crownCrackEffectTimer = 0; // drives the crown-cracking flash/particle burst
+  let shieldBreakEffectTimer = 0; // a smaller purple burst for a shield-only hit (no crown crack)
+  let posePlayerStart = null; // {x,y} pixel position the player walks from during the victory pose cutscene
+  let spaceMode = false; // true once we've warped into the hidden boss's stage
+  let starField = null;
+  let cutsceneFlashDone = false; // guards the one-time white flash inside a burst cutscene
+  const BLACKHOLE_DEATH_DURATION = 1.7; // the swirling "sucked in and torn apart" cutscene
+  let blackHoleDeathTarget = null; // {x,y} pixel center of the black hole doing the pulling
+  let blackHoleStartPos = null; // {x,y} pixel center where the player was when it started
+  let blackHoleWarpMode = false; // true if invincible - ends in a warp instead of a death
   const BOSS_HP = 3;
   const BOSS_SPEED = 105;
   const BOSS_SIZE = 40; // purely visual - collision still uses ENTITY_SIZE so it still fits corridors
   const BOSS_INTRO_TIME = 2.0;
+  const TRUEBOSS_DESCENT_DURATION = 7.3; // eject + rocket away -> long beam warp build-up -> white flash hold -> new space arena -> true boss falls from above
   const PROJECTILE_SPEED = 210;
   const PROJECTILE_SIZE = 12;
   const PROJECTILE_BURST_COUNT = 14;
@@ -535,6 +1857,22 @@
   const TRUEBOSS_FIRE_RANGE = MAX_FIRE; // safe to max out now that it's fully immune to its own bombs
   const TRUEBOSS_MAX_BOMBS = 20; // way more than the player's own cap - it can really carpet the map
   const TRUEBOSS_SIZE = 30; // close to the player's own size - it basically *is* a player
+  const BOMBRAIN_CHARGE_DURATION = 3.4; // telegraph window - long enough to sprint across the fully-open arena
+  const BOMBRAIN_DROP_DURATION = 0.9; // bombs visibly sit primed on the ground before they all go off
+  const BOMBRAIN_ATTACK_DURATION = 0.7; // how long the carpet of blasts actually burns
+  const TRUEBOSS_RAYATTACK_TELEGRAPH = 0.6; // brief aim-down-the-sights pause before the one-shot ray gun blast
+  const BOSS_BURST_DURATION = 3.0; // shared "slow-mo burst -> white flash" cutscene length
+  const HIDDENBOSS_CROWN_DURATION = 3.8; // longer - gives the exaggerated crown launch room to play out
+  const CROWN_POSE_DURATION = 2.4; // walk to center -> face camera -> hold the pose, before the win screen
+  const HIDDENBOSS_HP = 6;
+  const HIDDENBOSS_SPEED = BASE_SPEED + (MAX_SPEED_LEVEL-1)*SPEED_STEP; // relentless - matches a maxed-out player
+  const HIDDENBOSS_SIZE = TRUEBOSS_SIZE * 1.2; // "one size bigger" than the true boss
+  const HIDDENBOSS_FIRE_RANGE = MAX_FIRE;
+  const HIDDENBOSS_MAX_BOMBS = 24;
+  const HIDDENBOSS_INTRO_TIME = 2.2;
+  const HIDDENBOSS_UFO_DURATION = 3.0; // its own UFO descends, drops it off, and leaves
+  const KICKBROKEN_MSG_DURATION = 1.6; // how long the "kick mechanism broke" callout shows before the hidden boss reveal banner
+  const HIDDENBOSS_CAGE_DURATION = 11.0; // how long the player has to destroy the shield + finish it off before the lasers fully close in (slowed for readability)
   let score = 0;
   let gameStartTime = 0;
   let clearElapsedMs = 0;
@@ -551,6 +1889,14 @@
   const overlayTitle = document.getElementById('overlayTitle');
   const overlayText = document.getElementById('overlayText');
   const bossBanner = document.getElementById('bossBanner');
+  const itemToast = document.getElementById('itemToast');
+  let itemToastTimer = 0;
+  function showItemToast(text, duration){
+    itemToast.textContent = text;
+    itemToast.classList.add('show');
+    itemToastTimer = duration || 1.6;
+  }
+  const whiteFlash = document.getElementById('whiteFlash');
   const screenshotBtn = document.getElementById('screenshotBtn');
 
   function clearCell(gx,gy){ if(grid[gy] && grid[gy][gx]!==undefined) grid[gy][gx]=0; }
@@ -595,7 +1941,9 @@
   }
 
   function resetGame(){
+    teardownSpaceTheme();
     buildGrid();
+    buildBoardMeshes();
     player = makeGridEntity(1,1,BASE_SPEED);
     player.maxBombs = 3;
     player.bombsAvailable = 3;
@@ -606,21 +1954,55 @@
     player.invincibleTimer = 0;
     player.invincibleUsed = false;
     player.invinciblePulseTimer = 0;
+    player.hasRayGun = false;
+    player.destroyRayCooldown = 0;
+    player.destroyRayUsed = false;
+    player.posing = false;
+    itemToastTimer = 0;
+    itemToast.classList.remove('show');
+    posePlayerStart = null;
     pendingEnd = null;
     const spots = [[COLS-2,1],[1,ROWS-2],[COLS-2,ROWS-2]];
     enemies = spots.slice(0,ENEMY_COUNT).map(([x,y])=>makeEntity(x,y,ENEMY_SPEED));
     bombs = [];
     explosions = [];
+    rainBombs = [];
     projectiles = [];
     items = [];
     safeCells = [];
     deathEffects = [];
+    blockDebris = [];
     shakeTimer = 0;
     shakeMagnitude = 0;
     stage = 1;
     stageTimer = 0;
     boss = null;
     trueBoss = null;
+    hiddenBoss = null;
+    portals = null;
+    crownPos = null;
+    crownTaken = false;
+    crownCracked = false;
+    rayGunPos = null;
+    rayGunTaken = false;
+    destroyRayMode = false;
+    destroyRayBeam = null;
+    treasureBlocks = null;
+    collectedTreasures = [];
+    timeStopTimer = 0;
+    crownCrackEffectTimer = 0;
+    shieldBreakEffectTimer = 0;
+    trueEnding = false;
+    endingMessage = null;
+    cutsceneFlashDone = false;
+    blackHoleDeathTarget = null;
+    blackHoleStartPos = null;
+    blackHoleWarpMode = false;
+    whiteFlash.style.opacity = '0';
+    descentMesh = null;
+    stage4FX = null;
+    hiddenDescentMesh = null;
+    bossDeathPixelPos = null;
     bossBanner.classList.remove('show');
     score = 0;
     gameOver = false;
@@ -630,6 +2012,9 @@
     overlay.classList.remove('show');
     invincibleBtn.disabled = false;
     invincibleBtn.innerHTML = '無敵<br>5秒';
+    destroyRayBtn.disabled = false;
+    destroyRayBtn.innerHTML = '破壊光線<br>1回のみ';
+    destroyRayBtn.style.display = 'none';
     if(audioCtx) bgmPlaying = true;
     updateHUD();
   }
@@ -643,8 +2028,9 @@
 
   function updateHUD(){
     elapsedTimeEl.textContent = formatShortTime(performance.now() - gameStartTime);
-    if(stage>=5 && trueBoss) enemyCountEl.textContent = `真ボスHP${trueBoss.hp}`;
-    else if(stage>=3 && boss) enemyCountEl.textContent = `ボスHP${boss.hp}`;
+    if(stage===9 && hiddenBoss) enemyCountEl.textContent = `裏ボスHP${hiddenBoss.hp}`;
+    else if(stage===5 && trueBoss) enemyCountEl.textContent = `真ボスHP${trueBoss.hp}`;
+    else if(stage===3 && boss) enemyCountEl.textContent = `ボスHP${boss.hp}`;
     else enemyCountEl.textContent = enemies.filter(e=>e.alive).length;
     bombCountEl.textContent = player.bombsAvailable + '/' + player.maxBombs;
     fireStatEl.textContent = player.fireRange;
@@ -654,7 +2040,7 @@
 
   function isSolidTile(gx,gy){
     if(gx<0||gy<0||gx>=COLS||gy>=ROWS) return true;
-    return grid[gy][gx]===1 || grid[gy][gx]===2;
+    return grid[gy][gx]===1 || grid[gy][gx]===2 || grid[gy][gx]===3;
   }
   function bombAtCell(gx,gy){
     return bombs.find(b=>!b.exploded && b.gx===gx && b.gy===gy);
@@ -684,7 +2070,7 @@
           if(!grid[cy]) break;
           if(grid[cy][cx]===1) break; // hard wall stops the blast completely
           if(cx===gx && cy===gy) return true;
-          if(grid[cy][cx]===2) break; // block absorbs the blast, same as a real explosion
+          if(grid[cy][cx]===2 || grid[cy][cx]===3) break; // block absorbs the blast, same as a real explosion
         }
       }
     }
@@ -748,6 +2134,26 @@
   // A generic "died" burst: a ring of particles flying outward plus a quick
   // flash, scaled by `intensity` so the same system can be a small pop for a
   // grunt enemy or a screen-shaking spectacle for the true boss.
+  // A much slower, longer-lived version of spawnDeathEffect used for the
+  // big cinematic "boss bursts apart" cutscenes - same rendering system
+  // (deathEffects/syncDeathEffects3D), just with drifting rather than
+  // exploding particles, so it reads as slow motion without needing an
+  // actual game-wide time-scale system.
+  function spawnSlowBurst(x, y, color, count, duration){
+    const particles = [];
+    for(let i=0;i<count;i++){
+      const angle = (i/count)*Math.PI*2 + Math.random()*0.5;
+      const speed = 16 + Math.random()*24;
+      particles.push({
+        x, y,
+        dx: Math.cos(angle)*speed,
+        dy: Math.sin(angle)*speed,
+        size: 5 + Math.random()*5,
+      });
+    }
+    deathEffects.push({ particles, timer:duration, maxTimer:duration, x, y, color, intensity:1 });
+  }
+
   function spawnDeathEffect(x, y, color, intensity){
     const count = Math.round(7 * intensity) + 4;
     const particles = [];
@@ -784,23 +2190,72 @@
     if(shakeTimer>0) shakeTimer -= dt;
   }
 
-  function drawDeathEffects(){
+  // A destroyed block bursts into a few tumbling metal/spark fragments
+  // instead of just vanishing.
+  function spawnBlockDebris(gx, gy){
+    const cx = gx*TILE+TILE/2, cy = gy*TILE+TILE/2;
+    const particles = [];
+    const count = 7;
+    for(let i=0;i<count;i++){
+      const angle = (i/count)*Math.PI*2 + Math.random()*0.6;
+      const speed = 45 + Math.random()*65;
+      particles.push({
+        x:cx, y:cy,
+        dx:Math.cos(angle)*speed, dy:Math.sin(angle)*speed - 30,
+        size: 2 + Math.random()*3,
+        rot: Math.random()*Math.PI*2,
+        rotSpeed: (Math.random()-0.5)*9,
+        color: Math.random()<0.55 ? '#ffaa28' : '#6df3ff'
+      });
+    }
+    blockDebris.push({ particles, timer:0.5, maxTimer:0.5 });
+  }
+
+  function updateBlockDebris(dt){
+    for(const fx of blockDebris){
+      fx.timer -= dt;
+      for(const p of fx.particles){
+        p.x += p.dx*dt;
+        p.y += p.dy*dt;
+        p.dy += 170*dt;
+        p.rot += p.rotSpeed*dt;
+      }
+    }
+    blockDebris = blockDebris.filter(fx=>fx.timer>0);
+  }
+
+  function syncBlockDebris3D(){
+    for(const fx of blockDebris){
+      const life = Math.max(0, fx.timer/fx.maxTimer);
+      for(const p of fx.particles){
+        const w = pixelToWorld(p.x, p.y);
+        const mesh = new THREE.Mesh(geo.box, p.color==='#ffaa28' ? mat.debrisMetal : mat.debrisSpark);
+        const s = (p.size/TILE)*1.4;
+        mesh.scale.set(s,s,s);
+        mesh.position.set(w.x, 0.15+life*0.5, w.z);
+        mesh.rotation.set(p.rot, p.rot*0.7, 0);
+        mesh.material = mesh.material.clone();
+        mesh.material.transparent = true;
+        mesh.material.opacity = life;
+        dynamicGroup.add(mesh);
+      }
+    }
+  }
+
+  function syncDeathEffects3D(){
     for(const fx of deathEffects){
       const life = Math.max(0, fx.timer/fx.maxTimer);
       for(const p of fx.particles){
-        ctx.beginPath();
-        ctx.fillStyle = fx.color;
-        ctx.globalAlpha = life;
-        ctx.arc(p.x, p.y, p.size*life, 0, Math.PI*2);
-        ctx.fill();
+        const w = pixelToWorld(p.x, p.y);
+        const mesh = new THREE.Mesh(geo.sphere, mat.deathParticle.clone());
+        const s = (p.size*life/TILE)*1.6;
+        mesh.scale.set(s,s,s);
+        mesh.position.set(w.x, 0.3, w.z);
+        mesh.material.color.set(fx.color);
+        mesh.material.transparent = true;
+        mesh.material.opacity = life;
+        dynamicGroup.add(mesh);
       }
-    }
-    ctx.globalAlpha = 1;
-    if(deathEffects.some(fx=>fx.intensity>=2.5)){
-      const flashFx = deathEffects.find(fx=>fx.intensity>=2.5);
-      const t = flashFx.timer/flashFx.maxTimer;
-      ctx.fillStyle = `rgba(255,255,255,${0.5*t})`;
-      ctx.fillRect(0,0,canvas.width,canvas.height);
     }
   }
 
@@ -977,6 +2432,125 @@
     sfx.invincibleActivate();
   }
 
+  // The destroy ray: fires once in whichever direction the player is
+  // currently facing, piercing straight across the arena. A direct hit on
+  // the hidden final boss cracks its crown (marking it for a cracked-crown
+  // drop later) and either strips its last-stand shield or, outside that
+  // fight, chips 3 HP with a floor of 1 so the finishing blow always has to
+  // come from a bomb. It only ever fires once in the whole game - in the
+  // warp zone (stage 7) it can crack open exactly one of the four corner
+  // treasure blocks, but doing so spends the only shot, so it's no longer
+  // available later against the hidden boss (and vice versa).
+  function activateDestroyRay(){
+    if(gameOver || gameWin || !player.alive) return;
+    if(!destroyRayMode) return;
+    if(player.destroyRayUsed) return;
+    if(player.destroyRayCooldown>0) return;
+    const dirMap = { up:{dx:0,dy:-1}, down:{dx:0,dy:1}, left:{dx:-1,dy:0}, right:{dx:1,dy:0} };
+    const d = dirMap[player.facing] || {dx:0,dy:1};
+    const originX = player.x+ENTITY_SIZE/2, originY = player.y+ENTITY_SIZE/2;
+    player.destroyRayUsed = true; // spent for good, the instant it's fired - whatever it does or doesn't hit
+    player.destroyRayCooldown = 1.6;
+    destroyRayBtn.disabled = true;
+    destroyRayBtn.innerHTML = '使用済み';
+    destroyRayBeam = { x:originX, y:originY, dx:d.dx, dy:d.dy, timer:0.3 };
+    sfx.bossFire();
+    if(stage===9 && hiddenBoss && hiddenBoss.alive){
+      const bx = hiddenBoss.x+ENTITY_SIZE/2, by = hiddenBoss.y+ENTITY_SIZE/2;
+      let hit = false;
+      if(d.dx!==0) hit = Math.abs(by-originY) < ENTITY_SIZE*1.1 && (d.dx>0 ? bx>originX : bx<originX);
+      else hit = Math.abs(bx-originX) < ENTITY_SIZE*1.1 && (d.dy>0 ? by>originY : by<originY);
+      if(hit) applyDestroyRayHit();
+    }
+    if(stage===7 && treasureBlocks){
+      for(const key of Object.keys(treasureBlocks)){
+        const tb = treasureBlocks[key];
+        if(tb.broken) continue;
+        const tx = tb.gx*TILE+TILE/2, ty = tb.gy*TILE+TILE/2;
+        let hit = false;
+        if(d.dx!==0) hit = Math.abs(ty-originY) < TILE*0.5 && (d.dx>0 ? tx>originX : tx<originX);
+        else hit = Math.abs(tx-originX) < TILE*0.5 && (d.dy>0 ? ty>originY : ty<originY);
+        if(hit){
+          breakTreasureBlock(tb);
+          break; // the ray (and its one shot) stops the instant it cracks one open
+        }
+      }
+    }
+  }
+
+  // Cracking a treasure block only reveals the item lying inside as a real
+  // floor pickup - the player still has to walk over it to actually claim
+  // it (matching how every other item in the game works), rather than
+  // granting it automatically the moment the block is destroyed.
+  // Wipes out any treasure blocks that never got cracked open, and any
+  // treasure items already revealed but not yet picked up - called the
+  // instant the player commits to the black hole, since anything left
+  // behind in the warp zone is gone for good once it collapses.
+  function clearTreasureBlocks(){
+    if(treasureBlocks){
+      for(const key of Object.keys(treasureBlocks)){
+        const tb = treasureBlocks[key];
+        if(!tb.broken && grid[tb.gy] && grid[tb.gy][tb.gx]===3){
+          grid[tb.gy][tb.gx] = 0;
+          removeTileMesh(tb.gx, tb.gy);
+        }
+      }
+    }
+    treasureBlocks = null;
+    items = items.filter(it=>!TREASURE_INFO[it.type]);
+  }
+
+  function breakTreasureBlock(tb){
+    tb.broken = true;
+    grid[tb.gy][tb.gx] = 0;
+    removeTileMesh(tb.gx, tb.gy);
+    spawnBlockDebris(tb.gx, tb.gy);
+    items.push({ gx:tb.gx, gy:tb.gy, type:tb.itemKey });
+    triggerShake(0.25, 5);
+    sfx.stepItem();
+  }
+
+  function applyDestroyRayHit(){
+    if(!hiddenBoss || !hiddenBoss.alive) return;
+    if(hiddenBoss.dormant){
+      hiddenBoss.dormant = false;
+      sfx.hiddenBossAngry();
+    }
+    triggerShake(0.25, 6);
+    sfx.bossHit();
+    if(hiddenBoss.phase==='cage' && hiddenBoss.shieldActive){
+      // this hit only breaks the shield - it never touches the boss
+      // itself, so the crown stays intact
+      hiddenBoss.shieldActive = false;
+      hiddenBoss.invuln = 0.3;
+      timeStopTimer = 0.35;
+      shieldBreakEffectTimer = 0.7;
+    } else {
+      // a direct hit on the boss's body - this is what cracks the crown
+      const firstCrack = !hiddenBoss.crownCracked;
+      crownCracked = true;
+      hiddenBoss.crownCracked = true;
+      // a long, clear freeze-frame beat every time a direct hit connects,
+      // with the crown-shard burst effect timed to match
+      timeStopTimer = 1.2;
+      crownCrackEffectTimer = 1.8;
+      if(firstCrack){
+        // the crown visibly breaks and comes flying off, for good
+        if(hiddenBoss.mesh3d && hiddenBoss.mesh3d.userData.crownGroup){
+          hiddenBoss.mesh3d.userData.crownGroup.visible = false;
+        }
+        const hw = { x: hiddenBoss.x+ENTITY_SIZE/2, y: hiddenBoss.y+ENTITY_SIZE/2 };
+        spawnDeathEffect(hw.x, hw.y, '#ffd75e', 2.2);
+        spawnSlowBurst(hw.x, hw.y, '#ffd75e', 24, 1.6);
+        spawnSlowBurst(hw.x, hw.y, '#ff3b6b', 14, 1.4);
+        sfx.trueBossDeath();
+      }
+      hiddenBoss.hp = Math.max(1, hiddenBoss.hp-3);
+      hiddenBoss.invuln = 0.3;
+    }
+    updateHUD();
+  }
+
   function placeBombFor(entity){
     if(!entity.alive || entity.bombsAvailable<=0) return false;
     const {gx,gy} = occupiedCell(entity);
@@ -1004,6 +2578,7 @@
       case 'ArrowRight': case 'd': case 'D': keys.right=true; break;
       case ' ': if(!e.repeat) placeBomb(); e.preventDefault(); break;
       case 'z': case 'Z': if(!e.repeat) activateInvincibility(); e.preventDefault(); break;
+      case 'x': case 'X': if(!e.repeat && destroyRayMode) activateDestroyRay(); e.preventDefault(); break;
     }
   });
   window.addEventListener('keyup', e=>{
@@ -1021,7 +2596,39 @@
   const invincibleBtn = document.getElementById('invincibleBtn');
   invincibleBtn.addEventListener('pointerdown', e=>{ e.preventDefault(); activateInvincibility(); });
 
+  const destroyRayBtn = document.getElementById('destroyRayBtn');
+  destroyRayBtn.addEventListener('pointerdown', e=>{ e.preventDefault(); activateDestroyRay(); });
+
   document.getElementById('restartBtn').addEventListener('click', resetGame);
+
+  function skipToFirstBoss(){
+    if(gameOver || gameWin) return;
+    enemies.forEach(en=>en.alive=false);
+    boss = null;
+    trueBoss = null;
+    bombs = [];
+    explosions = [];
+    rainBombs = [];
+    projectiles = [];
+    safeCells = [];
+    teardownSpaceTheme();
+    buildBoardMeshes();
+    // fully gear up for the skip
+    player.maxBombs = MAX_BOMBS;
+    player.bombsAvailable = MAX_BOMBS;
+    player.fireRange = MAX_FIRE;
+    player.speedLevel = MAX_SPEED_LEVEL;
+    player.speed = BASE_SPEED + (MAX_SPEED_LEVEL-1)*SPEED_STEP;
+    player.canKick = true;
+    stage = 2;
+    stageTimer = BOSS_INTRO_TIME;
+    bossBanner.textContent = '';
+    bossBanner.innerHTML = '<span>⚠️ ボス登場 ⚠️</span>';
+    bossBanner.classList.add('show');
+    sfx.bossWarning();
+    updateHUD();
+  }
+  // debug skip-to-first-boss removed (kept the function, dropped the click binding so the 💣 title icon is no longer clickable)
 
   function skipToTrueBoss(){
     if(gameOver || gameWin) return;
@@ -1029,8 +2636,12 @@
     boss = null;
     bombs = [];
     explosions = [];
+    rainBombs = [];
     projectiles = [];
     safeCells = [];
+    setupSpaceTheme();
+    clearAllSoftBlocks();
+    buildBoardMeshes();
     // fully gear up since we're skipping straight to the final fight
     player.maxBombs = MAX_BOMBS;
     player.bombsAvailable = MAX_BOMBS;
@@ -1039,12 +2650,58 @@
     player.speed = BASE_SPEED + (MAX_SPEED_LEVEL-1)*SPEED_STEP;
     player.canKick = true;
     stage = 4;
-    stageTimer = BOSS_INTRO_TIME;
+    stageTimer = 2.6; // no wreck/flash phase to wait through here - just enough for the fall-from-above landing
+    descentMesh = null;
+    stage4FX = null;
+    bossDeathPixelPos = null;
     bossBanner.innerHTML = '<span>💀 真のボス降臨 💀</span>';
     bossBanner.classList.add('show');
     updateHUD();
   }
-  document.getElementById('skipToBossBtn').addEventListener('click', skipToTrueBoss);
+  // debug skip-to-true-boss removed (kept the function, dropped the click binding so the 💣 title icon is no longer clickable)
+
+  function skipToPortalZone(){
+    if(gameOver || gameWin) return;
+    enemies.forEach(en=>en.alive=false);
+    boss = null;
+    trueBoss = null;
+    hiddenBoss = null;
+    bombs = [];
+    explosions = [];
+    rainBombs = [];
+    projectiles = [];
+    safeCells = [];
+    items = [];
+    crownPos = null;
+    crownTaken = false;
+    crownCracked = false;
+    rayGunTaken = false;
+    player.hasRayGun = true; // dev skip convenience: lets the destroy-ray/laser-cage content be reached without a full trueBoss kill
+    player.destroyRayCooldown = 0;
+    destroyRayMode = true;
+    destroyRayBtn.style.display = '';
+    destroyRayBtn.disabled = false;
+    destroyRayBtn.innerHTML = '破壊光線<br>1回のみ';
+    rayGunPos = null; // no physical pickup needed since it's already granted above
+    setupSpaceTheme();
+    bossBanner.classList.remove('show');
+    whiteFlash.style.opacity = '0';
+    cutsceneFlashDone = false;
+    // fully gear up for the skip - kick stays usable here now; it only
+    // breaks later, at the moment of warping into the hidden boss's stage
+    player.maxBombs = MAX_BOMBS;
+    player.bombsAvailable = MAX_BOMBS;
+    player.fireRange = MAX_FIRE;
+    player.speedLevel = MAX_SPEED_LEVEL;
+    player.speed = BASE_SPEED + (MAX_SPEED_LEVEL-1)*SPEED_STEP;
+    player.canKick = true;
+    clearAllSoftBlocks();
+    buildBoardMeshes();
+    setupPortalZone();
+    stage = 7;
+    updateHUD();
+  }
+  // debug skip-to-portal-zone removed (kept the function, dropped the click binding; the 🤖 icon itself is now hidden via CSS)
 
   const muteBtn = document.getElementById('muteBtn');
   muteBtn.addEventListener('click', ()=>{
@@ -1104,6 +2761,12 @@
   }
 
   function applyItem(type){
+    if(TREASURE_INFO[type]){
+      const name = TREASURE_INFO[type].name;
+      collectedTreasures.push(name);
+      showItemToast(`${name}を手に入れた`, 1.6);
+      return;
+    }
     switch(type){
       case 'bombUp':
         player.maxBombs = Math.min(player.maxBombs+1, MAX_BOMBS);
@@ -1147,6 +2810,11 @@
         // straight through it - letting a connected line of bombs blow past
         // a block that should have stopped them.
         if(gridSnapshot[gy][gx]===1) break;
+        if(gridSnapshot[gy][gx]===3){
+          // treasure blocks are immune to bomb blasts entirely - the blast
+          // just stops here, same as hitting a hard wall
+          break;
+        }
         if(gridSnapshot[gy][gx]===2){
           // the block absorbs the blast: it's destroyed, and this whole arm
           // (from the bomb's own tile up through the block) becomes
@@ -1154,6 +2822,8 @@
           if(grid[gy][gx]===2){
             grid[gy][gx]=0;
             score += 10;
+            spawnBlockDebris(gx,gy);
+            removeTileMesh(gx,gy);
             if(Math.random()<ITEM_DROP_CHANCE){
               const type = ITEM_TYPES[Math.floor(Math.random()*ITEM_TYPES.length)];
               newItems.push({gx,gy,type});
@@ -1189,6 +2859,21 @@
   function update(dt){
     if(gameOver || gameWin) return;
 
+    if(destroyRayBeam){
+      destroyRayBeam.timer -= dt;
+      if(destroyRayBeam.timer<=0) destroyRayBeam = null;
+    }
+    if(crownCrackEffectTimer>0) crownCrackEffectTimer -= dt;
+    if(shieldBreakEffectTimer>0) shieldBreakEffectTimer -= dt;
+    if(itemToastTimer>0){
+      itemToastTimer -= dt;
+      if(itemToastTimer<=0) itemToast.classList.remove('show');
+    }
+    if(timeStopTimer>0){
+      timeStopTimer -= dt;
+      return; // brief hitstop freeze - everything else pauses for the beat
+    }
+
     // Let the death animation actually play before showing the end screen,
     // instead of instantly covering it up.
     if(pendingEnd){
@@ -1220,12 +2905,166 @@
         bossBanner.classList.remove('show');
         spawnTrueBoss();
         stage = 5;
+        descentMesh = null;
+        stage4FX = null;
         updateHUD();
       }
       return;
     }
 
-    // determine raw movement input: joystick takes priority, keyboard as fallback
+    // stage 6: the true boss's death cutscene - a slow-motion burst that
+    // builds into a full white flash, which then fades to reveal the
+    // warp-zone stage underneath
+    if(stage===6){
+      stageTimer -= dt;
+      const elapsed = BOSS_BURST_DURATION - stageTimer;
+      if(!cutsceneFlashDone && elapsed >= BOSS_BURST_DURATION*0.62){
+        cutsceneFlashDone = true;
+        whiteFlash.style.opacity = '1';
+      }
+      if(stageTimer<=0){
+        setupPortalZone();
+        stage = 7;
+        whiteFlash.style.opacity = '0';
+        updateHUD();
+      }
+      return;
+    }
+
+    // stage 8: the hidden final boss's reveal intro - the kick-broken
+    // message, then its own UFO descends and drops it off
+    if(stage===8){
+      stageTimer -= dt;
+      const elapsedH = (KICKBROKEN_MSG_DURATION+HIDDENBOSS_UFO_DURATION) - stageTimer;
+      if(!cutsceneFlashDone && elapsedH >= KICKBROKEN_MSG_DURATION){
+        cutsceneFlashDone = true;
+        bossBanner.textContent = '';
+        bossBanner.innerHTML = '<span>👑 裏ボス降臨 👑</span>';
+        sfx.hiddenBossWarning();
+      }
+      if(stageTimer<=0){
+        bossBanner.classList.remove('show');
+        spawnHiddenBoss();
+        hiddenDescentMesh = null;
+        stage = 9;
+        updateHUD();
+      }
+      return;
+    }
+
+    // stage 10: the hidden boss's death cutscene - same burst-then-flash
+    // treatment as stage 6, but fades back into the crown being left behind
+    // stage 10: the hidden boss's death cutscene - no white flash this
+    // time, just a much bigger, clearly visible crown launch (see the
+    // matching draw()-time animation for the actual crown motion)
+    if(stage===10){
+      stageTimer -= dt;
+      const elapsedC = HIDDENBOSS_CROWN_DURATION - stageTimer;
+      if(!cutsceneFlashDone && elapsedC >= 3.6 && crownPos){
+        cutsceneFlashDone = true;
+        const cw = { x: crownPos.gx*TILE+TILE/2, y: crownPos.gy*TILE+TILE/2 };
+        spawnDeathEffect(cw.x, cw.y, '#ffd75e', 1.6);
+        triggerShake(0.35, 7);
+        sfx.bossHit();
+      }
+      if(stageTimer<=0){
+        stage = 11;
+        updateHUD();
+      }
+      return;
+    }
+
+    // stage 12: not-invincible black hole death - the player visibly
+    // spirals into the hole, accelerating as it grows, then is torn apart
+    // in a burst right at the core
+    if(stage===12 && blackHoleDeathTarget){
+      stageTimer -= dt;
+      const progress = Math.min(1, 1 - Math.max(0,stageTimer)/BLACKHOLE_DEATH_DURATION);
+      const ease = progress*progress; // starts slow, rushes in at the end
+      const spiralAngle = progress*Math.PI*5;
+      const spiralR = (1-progress)*1.4*TILE;
+      const baseX = blackHoleStartPos.x + (blackHoleDeathTarget.x-blackHoleStartPos.x)*ease;
+      const baseY = blackHoleStartPos.y + (blackHoleDeathTarget.y-blackHoleStartPos.y)*ease;
+      if(player.alive){
+        player.x = baseX + Math.cos(spiralAngle)*spiralR - ENTITY_SIZE/2;
+        player.y = baseY + Math.sin(spiralAngle)*spiralR - ENTITY_SIZE/2;
+      }
+      triggerShake(0.15, 2+progress*7);
+      if(!cutsceneFlashDone && stageTimer<=0.3){
+        cutsceneFlashDone = true;
+        if(blackHoleWarpMode){
+          // invincible - shielded from harm, but still visibly swallowed
+          // and flung through to the other side in a bright burst
+          spawnSlowBurst(blackHoleDeathTarget.x, blackHoleDeathTarget.y, '#ffe066', 26, 0.8);
+          spawnSlowBurst(blackHoleDeathTarget.x, blackHoleDeathTarget.y, '#8a3ad0', 20, 0.7);
+          sfx.trueBossWarning();
+        } else {
+          player.alive = false;
+          spawnSlowBurst(blackHoleDeathTarget.x, blackHoleDeathTarget.y, '#3d7bff', 28, 0.9);
+          spawnSlowBurst(blackHoleDeathTarget.x, blackHoleDeathTarget.y, '#8a3ad0', 20, 0.7);
+          spawnSlowBurst(blackHoleDeathTarget.x, blackHoleDeathTarget.y, '#111111', 16, 0.6);
+          sfx.playerDeath();
+        }
+        triggerShake(0.5, 12);
+      }
+      if(stageTimer<=0){
+        if(blackHoleWarpMode){
+          player.gx = Math.floor(COLS/2); player.gy = ROWS-2;
+          player.moveDir = { dx:0, dy:0 }; player.progress = 0;
+          player.x = player.gx*TILE + (TILE-ENTITY_SIZE)/2;
+          player.y = player.gy*TILE + (TILE-ENTITY_SIZE)/2;
+          player.facing = 'up';
+          player.alive = true;
+          player.canKick = false;
+          player.invincibleTimer = 0;
+          player.invinciblePulseTimer = 0;
+          setupSpaceTheme();
+          blackHoleDeathTarget = null;
+          stage = 8;
+          stageTimer = KICKBROKEN_MSG_DURATION + HIDDENBOSS_UFO_DURATION;
+          cutsceneFlashDone = false;
+          bossBanner.textContent = '';
+          bossBanner.innerHTML = '<span style="font-size:18px">🔧 キック機構が壊れてしまった… 🔧</span>';
+          bossBanner.classList.add('show');
+          updateHUD();
+        } else {
+          endingMessage = 'ブラックホールに飲み込まれてしまった…';
+          if(!pendingEnd) pendingEnd = { isWin:false, timer:0.8 };
+        }
+      }
+      return;
+    }
+
+    // stage 13: the crown-claimed victory pose - walk to the arena's
+    // center, turn to face the camera, and hold a pose before the win
+    // screen finally covers the scene
+    if(stage===13){
+      stageTimer -= dt;
+      const elapsedP = CROWN_POSE_DURATION - stageTimer;
+      const WALK_END = CROWN_POSE_DURATION*0.55;
+      const centerX = Math.floor(COLS/2)*TILE + (TILE-ENTITY_SIZE)/2;
+      const centerY = Math.floor(ROWS/2)*TILE + (TILE-ENTITY_SIZE)/2;
+      if(elapsedP < WALK_END && posePlayerStart){
+        const p = Math.min(1, elapsedP/WALK_END);
+        const ease = 1-(1-p)*(1-p);
+        const dx = centerX - posePlayerStart.x, dy = centerY - posePlayerStart.y;
+        player.x = posePlayerStart.x + dx*ease;
+        player.y = posePlayerStart.y + dy*ease;
+        if(Math.abs(dx)>Math.abs(dy)) player.facing = dx<0 ? 'left' : 'right';
+        else player.facing = dy<0 ? 'up' : 'down';
+      } else {
+        player.x = centerX;
+        player.y = centerY;
+        player.facing = 'down'; // face the camera for the pose
+        player.posing = true;
+      }
+      if(stageTimer<=0){
+        player.posing = false;
+        endingMessage = crownCracked ? '割れた王冠を手にした…完全クリア！' : '綺麗な王冠を手にした…完全クリア！';
+        if(!pendingEnd) pendingEnd = { isWin:true, timer:0.6 };
+      }
+      return;
+    }
     let rawDx=0, rawDy=0;
     if(joyActive && (Math.abs(joyVec.x)>0.15 || Math.abs(joyVec.y)>0.15)){
       rawDx = joyVec.x; rawDy = joyVec.y;
@@ -1250,6 +3089,17 @@
         player.invincibleTimer = 0;
         if(!gameOver && !gameWin){
           invincibleBtn.innerHTML = '使用済み';
+        }
+      }
+    }
+
+    if(destroyRayMode && player.destroyRayCooldown>0){
+      player.destroyRayCooldown -= dt;
+      if(player.destroyRayCooldown<=0){
+        player.destroyRayCooldown = 0;
+        if(!gameOver && !gameWin){
+          destroyRayBtn.disabled = true;
+          destroyRayBtn.innerHTML = '使用済み';
         }
       }
     }
@@ -1354,25 +3204,108 @@
         const arrived = marchStep(trueBoss, centerGx, centerGy, dt);
         if(arrived){
           trueBoss.phase = 'charging';
-          trueBoss.phaseTimer = 2.2;
+          trueBoss.phaseTimer = BOMBRAIN_CHARGE_DURATION;
+          // pick the one tile that will be spared from the coming bomb rain
+          const safe = pickBombRainSafeCell();
+          trueBoss.rainSafeGx = safe.gx;
+          trueBoss.rainSafeGy = safe.gy;
           sfx.desperationCharge();
         }
       } else if(trueBoss.phase==='charging'){
         trueBoss.phaseTimer -= dt;
         if(trueBoss.phaseTimer<=0){
-          trueBoss.phase = 'attacking';
-          trueBoss.phaseTimer = 0.5;
+          trueBoss.phase = 'dropping';
+          trueBoss.phaseTimer = BOMBRAIN_DROP_DURATION;
           sfx.desperationHit();
-          // the unavoidable hit - only invincibility can save you here
-          if(player.alive && player.invincibleTimer<=0){
-            player.alive = false;
-            spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, '#3d7bff', 1.6);
-            sfx.playerDeath();
+          sfx.trueBossLaugh();
+          // work out exactly which tiles the carpet-bomb will cover, once,
+          // and actually place visible (but harmless-until-primed) bombs on
+          // every one of them so the attack reads as bombs raining down and
+          // settling before they all go off together
+          const cells = [];
+          for(let gy=0; gy<ROWS; gy++){
+            for(let gx=0; gx<COLS; gx++){
+              if(grid[gy][gx]===1) continue; // hard walls are never part of the blast
+              if(gx===trueBoss.rainSafeGx && gy===trueBoss.rainSafeGy) continue; // the spared tile
+              cells.push({gx,gy});
+            }
           }
+          trueBoss.rainCells = cells;
+          rainBombs = cells.map(c=>({ gx:c.gx, gy:c.gy, cx:c.gx*TILE+TILE/2, cy:c.gy*TILE+TILE/2 }));
+          triggerShake(0.35, 6);
+        }
+      } else if(trueBoss.phase==='dropping'){
+        trueBoss.phaseTimer -= dt;
+        if(trueBoss.phaseTimer<=0){
+          trueBoss.phase = 'attacking';
+          trueBoss.phaseTimer = BOMBRAIN_ATTACK_DURATION;
+          // carpet-bomb every tile that had a primed bomb on it, all at
+          // once - reuses the normal explosion system, so invincibility and
+          // death handling both work exactly as they do for any other blast
+          for(const c of trueBoss.rainCells){
+            if(grid[c.gy][c.gx]===2){
+              grid[c.gy][c.gx] = 0;
+              spawnBlockDebris(c.gx,c.gy);
+              removeTileMesh(c.gx,c.gy);
+            }
+          }
+          explosions.push({ cells: trueBoss.rainCells, timer: BOMBRAIN_ATTACK_DURATION, owner: trueBoss });
+          rainBombs = [];
+          triggerShake(0.9, 14);
+          sfx.explosion();
         }
       } else if(trueBoss.phase==='attacking'){
         trueBoss.phaseTimer -= dt;
         if(trueBoss.phaseTimer<=0){
+          // one last flourish before going back to normal play: a single
+          // aimed ray-gun shot straight at the player
+          trueBoss.phase = 'rayattack';
+          trueBoss.phaseTimer = TRUEBOSS_RAYATTACK_TELEGRAPH;
+          trueBoss.rayFired = false;
+          // aim at the tile that was spared during the bomb rain, not
+          // wherever the player happens to be standing now - punishes
+          // players who took shelter there. Store the exact (non-cardinal)
+          // direction so the beam is guaranteed to pass through that tile,
+          // and a separate cardinal approximation just for which way the
+          // boss's model visibly turns to face.
+          {
+            const safeCx = trueBoss.rainSafeGx*TILE+TILE/2, safeCy = trueBoss.rainSafeGy*TILE+TILE/2;
+            const bcx = trueBoss.x+ENTITY_SIZE/2, bcy = trueBoss.y+ENTITY_SIZE/2;
+            const rdx = safeCx-bcx, rdy = safeCy-bcy;
+            const rdist = Math.hypot(rdx, rdy) || 1;
+            trueBoss.rayDirX = rdx/rdist;
+            trueBoss.rayDirY = rdy/rdist;
+            if(Math.abs(rdx) > Math.abs(rdy)){ trueBoss.faceDx = rdx<0 ? -1 : 1; trueBoss.faceDy = 0; }
+            else { trueBoss.faceDx = 0; trueBoss.faceDy = rdy<0 ? -1 : 1; }
+          }
+        }
+      } else if(trueBoss.phase==='rayattack'){
+        trueBoss.phaseTimer -= dt;
+        if(trueBoss.phaseTimer<=0 && !trueBoss.rayFired){
+          trueBoss.rayFired = true;
+          const cx = trueBoss.x+ENTITY_SIZE/2, cy = trueBoss.y+ENTITY_SIZE/2;
+          // recompute fresh at the exact instant of firing. If the player is
+          // still standing in the tile that was spared, aim dead at their
+          // exact current position so the beam is guaranteed to connect;
+          // otherwise aim at the tile's center as before (a near-miss on an
+          // empty tile, since they've already moved on)
+          const pgFire = occupiedCell(player);
+          let targetX2, targetY2;
+          if(pgFire.gx===trueBoss.rainSafeGx && pgFire.gy===trueBoss.rainSafeGy){
+            targetX2 = player.x+ENTITY_SIZE/2;
+            targetY2 = player.y+ENTITY_SIZE/2;
+          } else {
+            targetX2 = trueBoss.rainSafeGx*TILE+TILE/2;
+            targetY2 = trueBoss.rainSafeGy*TILE+TILE/2;
+          }
+          const rdx2 = targetX2-cx, rdy2 = targetY2-cy;
+          const rdist2 = Math.hypot(rdx2, rdy2) || 1;
+          const fireDx = rdx2/rdist2, fireDy = rdy2/rdist2;
+          projectiles.push({ x:cx, y:cy, dx:fireDx, dy:fireDy, isTrueBossRay:true });
+          sfx.bossFire();
+          triggerShake(0.15,3);
+        }
+        if(trueBoss.rayFired && trueBoss.phaseTimer<=-0.35){
           trueBoss.phase = 'normal'; // back to business as usual
           trueBoss.invuln = 0.6; // damageable again from here on
         }
@@ -1446,6 +3379,150 @@
       // a bomb it dropped becomes solid to it only once it has left that cell
       for(const b of bombs){
         if(!b.settled && b.owner===trueBoss && (trueBoss.gx!==b.gx || trueBoss.gy!==b.gy)) b.settled = true;
+      }
+
+      // remember which way it's actually moving so its 3D model can turn to
+      // face that direction; while it charges/unleashes its attack it turns
+      // to stare down the player instead, for a bit of extra menace
+      if(trueBoss.phase==='charging' || trueBoss.phase==='dropping' || trueBoss.phase==='attacking' || trueBoss.phase==='rayattack'){
+        const pcx = player.x+ENTITY_SIZE/2, pcy = player.y+ENTITY_SIZE/2;
+        const bcx = trueBoss.x+ENTITY_SIZE/2, bcy = trueBoss.y+ENTITY_SIZE/2;
+        const ddx = pcx-bcx, ddy = pcy-bcy;
+        if(Math.abs(ddx)>1 || Math.abs(ddy)>1){
+          if(Math.abs(ddx)>Math.abs(ddy)){ trueBoss.faceDx = ddx<0?-1:1; trueBoss.faceDy = 0; }
+          else { trueBoss.faceDx = 0; trueBoss.faceDy = ddy<0?-1:1; }
+        }
+      } else if(trueBoss.moveDir.dx!==0 || trueBoss.moveDir.dy!==0){
+        trueBoss.faceDx = trueBoss.moveDir.dx;
+        trueBoss.faceDy = trueBoss.moveDir.dy;
+      }
+      if(trueBoss.faceDx===undefined){ trueBoss.faceDx = 0; trueBoss.faceDy = 1; }
+    }
+
+    // hidden final boss AI: same chase-with-safety-bias as the true boss,
+    // but re-evaluates its path far more often and bombs on a much shorter
+    // cooldown with no minimum-escape-route caution - it will happily
+    // corner itself chasing the player
+    if(stage===9 && hiddenBoss && hiddenBoss.alive){
+      if(hiddenBoss.invuln>0) hiddenBoss.invuln -= dt;
+
+      // once it's down to its last HP, break off into the last-stand laser
+      // cage: march to the top-center, then sweep twin laser walls in from
+      // both edges - the player has to strip its shield with the destroy
+      // ray (if not already cracked) and finish it with a bomb before the
+      // lasers fully close in
+      if(hiddenBoss.hp<=1 && !hiddenBoss.cageTriggered){
+        hiddenBoss.cageTriggered = true;
+        hiddenBoss.phase = 'cagemoving';
+        hiddenBoss.invuln = 999;
+        bombs = bombs.filter(b=>b.owner!==hiddenBoss);
+      }
+
+      if(hiddenBoss.phase==='cagemoving'){
+        const targetGx = Math.floor(COLS/2), targetGy = 1;
+        const arrived = marchStep(hiddenBoss, targetGx, targetGy, dt);
+        hiddenBoss.faceDx = 0; hiddenBoss.faceDy = 1;
+        if(arrived){
+          hiddenBoss.phase = 'cage';
+          hiddenBoss.cageTimer = HIDDENBOSS_CAGE_DURATION;
+          hiddenBoss.cageHalfAngle = Math.PI/2; // starts fully open (a straight 180-degree sideways line)
+          hiddenBoss.shieldActive = !hiddenBoss.crownCracked;
+          hiddenBoss.invuln = hiddenBoss.shieldActive ? 999 : 0.3;
+          sfx.trueBossWarning();
+        }
+      } else if(hiddenBoss.phase==='cage'){
+        hiddenBoss.faceDx = 0; hiddenBoss.faceDy = 1;
+        hiddenBoss.cageTimer -= dt;
+        // Pac-Man mouth: two beams, symmetric around the boss's forward
+        // (downward) direction, start 180 degrees apart (a straight
+        // sideways line) and slowly rotate inward together until they
+        // meet at 0 degrees (fully closed, both pointing straight ahead)
+        const progress = Math.max(0, Math.min(1, 1 - hiddenBoss.cageTimer/HIDDENBOSS_CAGE_DURATION));
+        hiddenBoss.cageHalfAngle = (Math.PI/2)*(1-progress);
+        if(player.alive && player.invincibleTimer<=0){
+          const bcx = hiddenBoss.x+ENTITY_SIZE/2, bcy = hiddenBoss.y+ENTITY_SIZE/2;
+          const pcx = player.x+ENTITY_SIZE/2, pcy = player.y+ENTITY_SIZE/2;
+          const relAngle = Math.atan2(pcx-bcx, pcy-bcy); // 0 = straight ahead of the boss
+          if(Math.abs(relAngle) >= hiddenBoss.cageHalfAngle){
+            player.alive = false;
+            spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, '#8a3ad0', 1.8);
+            sfx.playerDeath();
+          }
+        }
+        if(hiddenBoss.cageTimer<=0 && hiddenBoss.alive && player.alive){
+          // the mouth fully closed - nowhere left to stand
+          player.alive = false;
+          spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, '#8a3ad0', 1.8);
+          sfx.playerDeath();
+        }
+      } else if(hiddenBoss.dormant){
+        // stays completely still and mocks the player with a low chuckle
+        // until it takes its first hit (bomb or destroy ray)
+        hiddenBoss.faceDx = 0; hiddenBoss.faceDy = 1;
+        hiddenBoss.laughTimer -= dt;
+        if(hiddenBoss.laughTimer<=0){
+          sfx.hiddenBossLaugh();
+          hiddenBoss.laughTimer = 1.8 + Math.random()*0.5;
+        }
+      } else {
+
+      if(hiddenBoss.stallGx===undefined){
+        hiddenBoss.stallGx = hiddenBoss.gx;
+        hiddenBoss.stallGy = hiddenBoss.gy;
+        hiddenBoss.stallTimer = 0;
+      }
+      if(hiddenBoss.gx!==hiddenBoss.stallGx || hiddenBoss.gy!==hiddenBoss.stallGy){
+        hiddenBoss.stallGx = hiddenBoss.gx;
+        hiddenBoss.stallGy = hiddenBoss.gy;
+        hiddenBoss.stallTimer = 0;
+      } else {
+        hiddenBoss.stallTimer += dt;
+      }
+      const hStalled = hiddenBoss.stallTimer > 0.5;
+      const hInDanger = isCellDangerous(hiddenBoss.gx, hiddenBoss.gy);
+      hiddenBoss.changeTimer -= dt;
+      if(hStalled){
+        const cardinal = [[1,0],[-1,0],[0,1],[0,-1]];
+        const openDirs = cardinal.filter(([dx,dy])=>{
+          const ngx=hiddenBoss.gx+dx, ngy=hiddenBoss.gy+dy;
+          return !isSolidTile(ngx,ngy) && !bombAtCell(ngx,ngy);
+        });
+        if(openDirs.length){
+          const [dx,dy] = openDirs[Math.floor(Math.random()*openDirs.length)];
+          hiddenBoss.dir = { dx, dy };
+        } else {
+          const nonWall = cardinal.filter(([dx,dy])=>!isSolidTile(hiddenBoss.gx+dx, hiddenBoss.gy+dy));
+          if(nonWall.length){
+            const [dx,dy] = nonWall[Math.floor(Math.random()*nonWall.length)];
+            const b = bombAtCell(hiddenBoss.gx+dx, hiddenBoss.gy+dy);
+            if(b) b.exploded = true;
+            hiddenBoss.dir = { dx, dy };
+          }
+        }
+        hiddenBoss.changeTimer = 0.2;
+        hiddenBoss.stallTimer = 0;
+      } else if(hInDanger || hiddenBoss.changeTimer<=0 || (hiddenBoss.moveDir.dx===0 && hiddenBoss.moveDir.dy===0)){
+        hiddenBoss.dir = chooseTrueBossDirection(hiddenBoss);
+        hiddenBoss.changeTimer = hInDanger ? 0.15 : (0.2 + Math.random()*0.2);
+      }
+
+      updateGridMovement(hiddenBoss, dt, hiddenBoss.dir.dx, hiddenBoss.dir.dy);
+
+      hiddenBoss.bombTimer -= dt;
+      if(hiddenBoss.bombTimer<=0 && !hInDanger){
+        if(placeBombFor(hiddenBoss)) sfx.trueBossBombPlace();
+        hiddenBoss.bombTimer = 0.5 + Math.random()*0.4;
+      }
+
+      if(hiddenBoss.moveDir.dx!==0 || hiddenBoss.moveDir.dy!==0){
+        hiddenBoss.faceDx = hiddenBoss.moveDir.dx;
+        hiddenBoss.faceDy = hiddenBoss.moveDir.dy;
+      }
+      if(hiddenBoss.faceDx===undefined){ hiddenBoss.faceDx = 0; hiddenBoss.faceDy = 1; }
+      }
+
+      for(const b of bombs){
+        if(!b.settled && b.owner===hiddenBoss && (hiddenBoss.gx!==b.gx || hiddenBoss.gy!==b.gy)) b.settled = true;
       }
     }
 
@@ -1523,6 +3600,7 @@
           boss.invuln = 0.6;
           if(boss.hp<=0){
             boss.alive = false;
+            bossDeathPixelPos = { x: boss.x+ENTITY_SIZE/2, y: boss.y+ENTITY_SIZE/2 };
             spawnDeathEffect(boss.x+ENTITY_SIZE/2, boss.y+ENTITY_SIZE/2, '#7a1fa2', 2.2);
             sfx.bossDeath();
             score += 500;
@@ -1538,11 +3616,47 @@
           trueBoss.invuln = 0.6;
           if(trueBoss.hp<=0){
             trueBoss.alive = false;
-            // an especially violent send-off for the true final boss
-            spawnDeathEffect(trueBoss.x+ENTITY_SIZE/2, trueBoss.y+ENTITY_SIZE/2, '#ff3b3b', 3.5);
-            spawnDeathEffect(trueBoss.x+ENTITY_SIZE/2, trueBoss.y+ENTITY_SIZE/2, '#111111', 3);
+            // an immediate small pop, then a much bigger slow-motion burst
+            // that carries the whole cutscene leading into the white flash
+            spawnDeathEffect(trueBoss.x+ENTITY_SIZE/2, trueBoss.y+ENTITY_SIZE/2, '#ff3b3b', 2.2);
+            spawnSlowBurst(trueBoss.x+ENTITY_SIZE/2, trueBoss.y+ENTITY_SIZE/2, '#ff3b3b', 26, BOSS_BURST_DURATION-0.3);
+            spawnSlowBurst(trueBoss.x+ENTITY_SIZE/2, trueBoss.y+ENTITY_SIZE/2, '#111111', 18, BOSS_BURST_DURATION-0.5);
             sfx.trueBossDeath();
             score += 1000;
+            rayGunPos = { gx: tCell.gx, gy: tCell.gy };
+            rayGunTaken = false;
+            stage = 6;
+            stageTimer = BOSS_BURST_DURATION;
+            cutsceneFlashDone = false;
+            projectiles = [];
+          } else {
+            sfx.bossHit();
+          }
+        }
+      }
+      if(stage===9 && hiddenBoss && hiddenBoss.alive && hiddenBoss.invuln<=0 && ex.owner!==hiddenBoss){
+        const hCell = occupiedCell(hiddenBoss);
+        if(ex.cells.some(c=>c.gx===hCell.gx && c.gy===hCell.gy)){
+          if(hiddenBoss.dormant){
+            hiddenBoss.dormant = false;
+            sfx.hiddenBossAngry();
+          }
+          hiddenBoss.hp--;
+          hiddenBoss.invuln = 0.6;
+          if(hiddenBoss.hp<=0){
+            hiddenBoss.alive = false;
+            spawnDeathEffect(hiddenBoss.x+ENTITY_SIZE/2, hiddenBoss.y+ENTITY_SIZE/2, '#ffd75e', 2.4);
+            spawnSlowBurst(hiddenBoss.x+ENTITY_SIZE/2, hiddenBoss.y+ENTITY_SIZE/2, '#ffd75e', 28, HIDDENBOSS_CROWN_DURATION-0.6);
+            spawnSlowBurst(hiddenBoss.x+ENTITY_SIZE/2, hiddenBoss.y+ENTITY_SIZE/2, '#8a3ad0', 20, HIDDENBOSS_CROWN_DURATION-0.8);
+            sfx.trueBossDeath();
+            score += 2000;
+            crownPos = { gx: hCell.gx, gy: hCell.gy };
+            crownTaken = false;
+            stage = 10;
+            stageTimer = HIDDENBOSS_CROWN_DURATION;
+            cutsceneFlashDone = false;
+            projectiles = [];
+            bombs = [];
           } else {
             sfx.bossHit();
           }
@@ -1562,15 +3676,79 @@
       bossBanner.classList.add('show');
       sfx.bossWarning();
     } else if(stage===3 && boss && !boss.alive){
-      // first boss defeated - it was a decoy; the true boss appears
+      // first boss defeated - it was a decoy; the true boss's descent
+      // cutscene handles smoking the wreck, the beam warp, the white
+      // flash, and swapping the arena to space itself
       stage = 4;
-      stageTimer = BOSS_INTRO_TIME + 0.5;
+      stageTimer = TRUEBOSS_DESCENT_DURATION;
       projectiles = [];
+      explosions = [];
+      bombs = [];
       bossBanner.innerHTML = '<span>💀 真のボス降臨 💀</span>';
       bossBanner.classList.add('show');
       sfx.trueBossWarning();
-    } else if(stage===5 && trueBoss && !trueBoss.alive){
-      if(!pendingEnd) pendingEnd = { isWin:true, timer: 1.3 };
+    }
+
+    // the ray gun, dropped where the true boss fell - picking it up while
+    // wandering the warp zone equips the destroy-ray attack for later
+    if(player.alive && stage===7 && rayGunPos && !rayGunTaken){
+      const pg = occupiedCell(player);
+      if(pg.gx===rayGunPos.gx && pg.gy===rayGunPos.gy){
+        rayGunTaken = true;
+        player.hasRayGun = true;
+        sfx.stepItem();
+        showItemToast('光線銃を手に入れた', 1.6);
+        destroyRayMode = true;
+        player.destroyRayCooldown = 0;
+        destroyRayBtn.style.display = '';
+        destroyRayBtn.disabled = false;
+        destroyRayBtn.innerHTML = '破壊光線<br>1回のみ';
+      }
+    }
+
+    // the warp-zone stage: stepping into either hole decides the ending
+    if(player.alive && stage===7 && portals){
+      const pc = occupiedCell(player);
+      if(pc.gx===portals.white.gx && pc.gy===portals.white.gy){
+        whiteFlash.style.opacity = '1';
+        endingMessage = collectedTreasures.length
+          ? `${collectedTreasures.join('と')}を手に入れ、ホワイトホールに吸い込まれ、無事に生還した！`
+          : 'ホワイトホールに吸い込まれ、無事に生還した！';
+        trueEnding = false;
+        if(!pendingEnd) pendingEnd = { isWin:true, timer:1.3 };
+        portals = null;
+        sfx.whiteHoleEnter();
+      } else if(pc.gx===portals.black.gx && pc.gy===portals.black.gy){
+        // either way, the black hole swirls the player in first - only
+        // what happens the instant it's done differs
+        blackHoleDeathTarget = { x: portals.black.gx*TILE+TILE/2, y: portals.black.gy*TILE+TILE/2 };
+        blackHoleStartPos = { x: player.x+ENTITY_SIZE/2, y: player.y+ENTITY_SIZE/2 };
+        blackHoleWarpMode = player.invincibleTimer>0;
+        stage = 12;
+        stageTimer = BLACKHOLE_DEATH_DURATION;
+        cutsceneFlashDone = false;
+        triggerShake(0.3, 4);
+        portals = null;
+        clearTreasureBlocks();
+        sfx.blackHoleEnter();
+      }
+    }
+
+    // the crown, left behind after the hidden final boss falls - touching
+    // it is the true, complete ending
+    if(player.alive && stage===11 && crownPos && !crownTaken){
+      const pc = occupiedCell(player);
+      if(pc.gx===crownPos.gx && pc.gy===crownPos.gy){
+        crownTaken = true;
+        trueEnding = true;
+        attachCrownToPlayer();
+        posePlayerStart = { x: player.x, y: player.y };
+        player.moveDir = { dx:0, dy:0 }; player.progress = 0;
+        stage = 13;
+        stageTimer = CROWN_POSE_DURATION;
+        updateHUD();
+        return;
+      }
     }
     updateHUD();
   }
@@ -1720,12 +3898,27 @@
     return (entity.gx===tgx && entity.gy===tgy && entity.moveDir.dx===0 && entity.moveDir.dy===0);
   }
 
+  // Picks a single random open floor tile to be spared from the true boss's
+  // carpet-bombing last-stand attack. Boss arenas always have their soft
+  // blocks cleared out (see clearAllSoftBlocks), so any open (0) tile here
+  // is guaranteed reachable, never sealed off behind rubble.
+  function pickBombRainSafeCell(){
+    const candidates = [];
+    for(let gy=0; gy<ROWS; gy++){
+      for(let gx=0; gx<COLS; gx++){
+        if(grid[gy][gx]===0) candidates.push({gx,gy});
+      }
+    }
+    if(!candidates.length) return { gx:Math.floor(COLS/2), gy:Math.floor(ROWS/2) };
+    return candidates[Math.floor(Math.random()*candidates.length)];
+  }
+
   // Clears a boss room but only removes destructible blocks - the
   // indestructible pillar walls that give the maze its structure must stay.
   function clearAllSoftBlocks(){
     for(let y=0; y<ROWS; y++){
       for(let x=0; x<COLS; x++){
-        if(grid[y][x]===2) grid[y][x] = 0;
+        if(grid[y][x]===2 || grid[y][x]===3) grid[y][x] = 0;
       }
     }
   }
@@ -1733,6 +3926,7 @@
   function spawnBoss(){
     const bx = Math.floor(COLS/2), by = Math.floor(ROWS/2);
     clearAllSoftBlocks();
+    buildBoardMeshes();
     boss = makeEntity(bx, by, BOSS_SPEED);
     boss.hp = BOSS_HP;
     // brief spawn grace: protects the player from an instant death if they
@@ -1748,8 +3942,11 @@
   // fire power, max speed) and equipped with bomb kick, wandering the map,
   // dropping bombs, and kicking any it runs into - just like you can.
   function spawnTrueBoss(){
-    const bx = Math.floor(COLS/2), by = Math.floor(ROWS/2);
+    const bx = Math.floor(COLS/2), by = Math.max(1, Math.floor(ROWS/2)-2);
     clearAllSoftBlocks();
+    buildBoardMeshes();
+    bombs = [];
+    explosions = [];
     trueBoss = makeGridEntity(bx, by, BASE_SPEED + (MAX_SPEED_LEVEL-1)*SPEED_STEP);
     trueBoss.hp = TRUEBOSS_HP;
     trueBoss.invuln = 1.0; // same spawn-grace reasoning as the first boss
@@ -1766,6 +3963,112 @@
     trueBoss.phaseTimer = 0;
   }
 
+  // Clears the arena for the white-hole/black-hole warp-zone stage and
+  // places the two portals at the far left and right sides.
+  function setupPortalZone(){
+    bombs = [];
+    explosions = [];
+    rainBombs = [];
+    projectiles = [];
+    items = [];
+    const midY = Math.floor(ROWS/2);
+    portals = {
+      white: { gx: 4, gy: midY },
+      black: { gx: COLS-5, gy: midY },
+    };
+    for(const p of [portals.white, portals.black]){
+      if(grid[p.gy][p.gx]!==0){ grid[p.gy][p.gx] = 0; removeTileMesh(p.gx,p.gy); }
+    }
+    // the ray gun (dropped where the true boss fell) might happen to land
+    // right on top of one of the two portals, or on one of the four corner
+    // treasure blocks placed below - nudge it to a nearby open, unoccupied
+    // cell if so
+    const corners = [
+      { key:'tl', gx:1, gy:1, itemKey:'ring' },
+      { key:'tr', gx:COLS-2, gy:1, itemKey:'earring' },
+      { key:'bl', gx:1, gy:ROWS-2, itemKey:'necklace' },
+      { key:'br', gx:COLS-2, gy:ROWS-2, itemKey:'goldbar' },
+    ];
+    if(rayGunPos && !rayGunTaken){
+      const isBlocked = (gx,gy)=> (gx===portals.white.gx&&gy===portals.white.gy) ||
+        (gx===portals.black.gx&&gy===portals.black.gy) ||
+        corners.some(c=>c.gx===gx && c.gy===gy);
+      if(isBlocked(rayGunPos.gx, rayGunPos.gy)){
+        const candidates = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]]
+          .map(([dx,dy])=>({gx:rayGunPos.gx+dx, gy:rayGunPos.gy+dy}))
+          .filter(c=>!isSolidTile(c.gx,c.gy) && !isBlocked(c.gx,c.gy));
+        if(candidates.length) rayGunPos = candidates[0];
+      }
+    }
+
+    // four corner blocks, breakable only by the destroy ray, each hiding a
+    // different treasure item - open floor tiles near each corner of the
+    // arena, well clear of the portals and the ray gun's landing spot
+    treasureBlocks = {};
+    for(const c of corners){
+      grid[c.gy][c.gx] = 3;
+      removeTileMesh(c.gx, c.gy);
+      addTileMesh(c.gx, c.gy);
+      treasureBlocks[c.key] = { gx:c.gx, gy:c.gy, itemKey:c.itemKey, broken:false };
+    }
+    collectedTreasures = [];
+  }
+
+  // Swaps the sky/fog for a dark space palette and adds a persistent
+  // starfield for the hidden final boss's arena.
+  function setupSpaceTheme(){
+    spaceMode = true;
+    if(!starField){
+      const starCount = 300;
+      const positions = new Float32Array(starCount*3);
+      for(let i=0;i<starCount;i++){
+        const r = 18 + Math.random()*22;
+        const theta = Math.random()*Math.PI*2;
+        const phi = Math.acos((Math.random()*2)-1);
+        positions[i*3] = r*Math.sin(phi)*Math.cos(theta);
+        positions[i*3+1] = Math.abs(r*Math.cos(phi))*0.6 + 2;
+        positions[i*3+2] = r*Math.sin(phi)*Math.sin(theta);
+      }
+      const starGeo = new THREE.BufferGeometry();
+      starGeo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+      const starMat = new THREE.PointsMaterial({ color:0xffffff, size:0.18, transparent:true, opacity:0.85 });
+      starField = new THREE.Points(starGeo, starMat);
+      scene.add(starField);
+    }
+  }
+  function teardownSpaceTheme(){
+    spaceMode = false;
+    if(starField){ scene.remove(starField); starField = null; }
+  }
+
+  // The hidden final boss: the true boss's own master, one size bigger,
+  // crowned, and far more relentless - it re-plans its chase far more
+  // often and drops bombs on a much shorter cooldown, with none of the
+  // true boss's escape-route caution.
+  function spawnHiddenBoss(){
+    const bx = Math.floor(COLS/2), by = Math.max(1, Math.floor(ROWS/2)-2);
+    clearAllSoftBlocks();
+    buildBoardMeshes();
+    hiddenBoss = makeGridEntity(bx, by, HIDDENBOSS_SPEED);
+    hiddenBoss.hp = HIDDENBOSS_HP;
+    hiddenBoss.invuln = 1.0;
+    hiddenBoss.maxBombs = HIDDENBOSS_MAX_BOMBS;
+    hiddenBoss.bombsAvailable = HIDDENBOSS_MAX_BOMBS;
+    hiddenBoss.fireRange = HIDDENBOSS_FIRE_RANGE;
+    hiddenBoss.canKick = true;
+    hiddenBoss.changeTimer = 0;
+    hiddenBoss.bombTimer = 0.6 + Math.random()*0.4;
+    hiddenBoss.dir = { dx:0, dy:1 };
+    hiddenBoss.phase = 'normal';
+    hiddenBoss.cageTriggered = false;
+    hiddenBoss.crownCracked = false;
+    hiddenBoss.shieldActive = false;
+    // stays put and mocks the player until it takes its first hit (bomb or
+    // destroy ray) - only then does it actually start moving/bombing
+    hiddenBoss.dormant = true;
+    hiddenBoss.laughTimer = 1.0;
+  }
+
   function formatClearTime(ms){
     const totalSec = ms/1000;
     const min = Math.floor(totalSec/60);
@@ -1774,23 +4077,43 @@
   }
 
   function showOverlay(win){
-    overlayTitle.textContent = win ? 'YOU WIN! 🎉' : 'GAME OVER 💥';
+    overlayTitle.textContent = win ? (trueEnding ? '完全クリア！ 👑' : 'YOU WIN! 🎉') : 'GAME OVER 💥';
     bgmPlaying = false;
     if(win){
       clearElapsedMs = performance.now() - gameStartTime;
-      overlayText.textContent = `真のボスを倒した！ クリアタイム: ${formatClearTime(clearElapsedMs)}`;
+      overlayText.textContent = `${endingMessage || '真のボスを倒した！'} クリアタイム: ${formatClearTime(clearElapsedMs)}`;
       sfx.win();
     } else {
-      overlayText.textContent = 'もう一度挑戦しよう！';
+      overlayText.textContent = endingMessage || 'もう一度挑戦しよう！';
       sfx.gameOver();
     }
     overlay.classList.add('show');
   }
 
+  function wrapTextLines(ctx, text, maxWidth){
+    if(!text) return [];
+    const chars = Array.from(text);
+    const lines = [];
+    let line = '';
+    for(const ch of chars){
+      const test = line + ch;
+      if(ctx.measureText(test).width > maxWidth && line){
+        lines.push(line);
+        line = ch;
+      } else {
+        line = test;
+      }
+    }
+    if(line) lines.push(line);
+    return lines;
+  }
+
   function captureScreenshotDataUrl(){
     // draw onto a separate offscreen canvas so we don't disturb the live
     // game rendering loop, then bake the result banner + clear time (or
-    // game-over) right into the exported image itself
+    // game-over) plus the actual ending message right into the exported
+    // image itself, since the HTML overlay text otherwise sits outside
+    // the canvas and never makes it into the exported PNG
     const shot = document.createElement('canvas');
     shot.width = canvas.width;
     shot.height = canvas.height;
@@ -1800,20 +4123,46 @@
     sctx.textAlign = 'center';
     sctx.textBaseline = 'middle';
     if(gameWin){
+      sctx.font = '13px sans-serif';
+      const msgLines = wrapTextLines(sctx, endingMessage || '', shot.width*0.82);
+      const lineH = 17;
+      const boxH = 84 + msgLines.length*lineH;
+      const boxTop = shot.height/2 - boxH/2;
       sctx.fillStyle = 'rgba(0,0,0,0.6)';
-      sctx.fillRect(0, shot.height/2-42, shot.width, 84);
+      sctx.fillRect(0, boxTop, shot.width, boxH);
+      let y = boxTop + 26;
       sctx.font = 'bold 26px sans-serif';
       sctx.fillStyle = '#ffd54f';
-      sctx.fillText('CLEAR!', shot.width/2, shot.height/2-16);
-      sctx.font = 'bold 17px sans-serif';
+      sctx.fillText('CLEAR!', shot.width/2, y);
+      y += 30;
+      sctx.font = 'bold 15px sans-serif';
       sctx.fillStyle = '#ffffff';
-      sctx.fillText(`クリアタイム: ${formatClearTime(clearElapsedMs)}`, shot.width/2, shot.height/2+16);
+      for(const l of msgLines){
+        sctx.fillText(l, shot.width/2, y);
+        y += lineH;
+      }
+      sctx.font = 'bold 13px sans-serif';
+      sctx.fillStyle = '#ffe066';
+      sctx.fillText(`クリアタイム: ${formatClearTime(clearElapsedMs)}`, shot.width/2, y+2);
     } else if(gameOver){
+      sctx.font = '13px sans-serif';
+      const msgLines = wrapTextLines(sctx, endingMessage || '', shot.width*0.82);
+      const lineH = 17;
+      const boxH = 60 + msgLines.length*lineH;
+      const boxTop = shot.height/2 - boxH/2;
       sctx.fillStyle = 'rgba(0,0,0,0.6)';
-      sctx.fillRect(0, shot.height/2-32, shot.width, 64);
+      sctx.fillRect(0, boxTop, shot.width, boxH);
+      let y = boxTop + 26;
       sctx.font = 'bold 24px sans-serif';
       sctx.fillStyle = '#ff6b6b';
-      sctx.fillText('GAME OVER', shot.width/2, shot.height/2);
+      sctx.fillText('GAME OVER', shot.width/2, y);
+      y += 28;
+      sctx.font = 'bold 14px sans-serif';
+      sctx.fillStyle = '#ffffff';
+      for(const l of msgLines){
+        sctx.fillText(l, shot.width/2, y);
+        y += lineH;
+      }
     }
     return shot.toDataURL('image/png');
   }
@@ -1836,214 +4185,1215 @@
   });
 
   // ---------- Rendering ----------
+  const cameraBase = camera.position.clone();
+  let bgLerp = 0; // 0 = normal dark background, 1 = full red (desperation attack)
+  let descentMesh = null; // the true boss's dramatic fall-from-above entrance
+  let stage4FX = null; // { cutoverDone } - tracks the wreck-smoke/beam -> flash -> space-arena cutover for stage 4
+  let hiddenDescentMesh = null; // the hidden final boss's own fall-from-its-UFO entrance
+  let bossDeathPixelPos = null; // where the first boss died, for the eject animation
+
+  function renderCharacter3D(entity, group, invincible, facingAngle){
+    const w = pixelToWorld(entity.x+ENTITY_SIZE/2, entity.y+ENTITY_SIZE/2);
+    group.position.set(w.x, 0, w.z);
+    if(facingAngle!==undefined && facingAngle!==null){
+      if(group.userData.facingAngle===undefined) group.userData.facingAngle = facingAngle;
+      let diff = facingAngle - group.userData.facingAngle;
+      diff = Math.atan2(Math.sin(diff), Math.cos(diff)); // shortest angular path
+      group.userData.facingAngle += diff*0.4;
+      group.rotation.y = group.userData.facingAngle;
+    }
+    const light = group.children.find(c=>c.isPointLight);
+    if(light) light.intensity = invincible ? 1.4 : 0.6;
+    if(invincible){
+      // a clearly visible pulsating golden shield bubble, plus a shimmering
+      // ring at ground level - unmistakable at a glance
+      const t = performance.now()/260;
+      const pulse = 0.9 + 0.1*Math.sin(t);
+      const shield = new THREE.Mesh(geo.sphere, basicMat(0xffe066, {transparent:true, opacity:0.22+0.1*Math.sin(t*1.6)}));
+      shield.scale.set(0.7*pulse, 0.8*pulse, 0.7*pulse);
+      shield.position.set(w.x, 0.5, w.z);
+      dynamicGroup.add(shield);
+      const shieldGlow = makeGlowSprite(0xffe066, 1.6);
+      shieldGlow.position.set(w.x, 0.5, w.z);
+      dynamicGroup.add(shieldGlow);
+      const shieldRing = new THREE.Mesh(geo.ring, basicMat(0xffe066, {transparent:true, opacity:0.7, side:THREE.DoubleSide}));
+      shieldRing.rotation.x = -Math.PI/2;
+      shieldRing.scale.set(0.95,0.95,1);
+      shieldRing.position.set(w.x, 0.03, w.z);
+      dynamicGroup.add(shieldRing);
+      const shieldLight = new THREE.PointLight(0xffe066, 1.3, 3.2);
+      shieldLight.position.set(w.x, 0.5, w.z);
+      dynamicGroup.add(shieldLight);
+    }
+    dynamicGroup.add(group);
+  }
+
+  // Renders one warp-zone portal: a bright swirling white hole, or a dark
+  // event-horizon black hole, with orbiting particles spiraling into the
+  // core and a couple of rotating accretion rings.
+  function renderPortalHole(gx, gy, isWhite){
+    const w = cellCenterToWorld(gx, gy);
+    const t = performance.now()/1000;
+    const ringColor = isWhite ? 0xbfe8ff : 0x8a3ad0;
+    const coreMat = isWhite ? basicMat(0xffffff) : basicMat(0x0a0612, {transparent:true, opacity:0.94});
+    const core = new THREE.Mesh(geo.sphere, coreMat);
+    core.scale.set(0.55,0.55,0.55);
+    core.position.set(w.x, 0.6, w.z);
+    dynamicGroup.add(core);
+
+    for(let i=0;i<3;i++){
+      const ringR = 0.62 + i*0.2;
+      const ring = new THREE.Mesh(geo.ring, basicMat(ringColor, {transparent:true, opacity:0.5-i*0.13, side:THREE.DoubleSide}));
+      ring.rotation.x = Math.PI/2.4 + Math.sin(t*0.6+i)*0.12;
+      ring.rotation.z = t*(isWhite?1.1:-1.4)*(i%2===0?1:-1);
+      ring.scale.set(ringR,ringR,1);
+      ring.position.set(w.x, 0.6, w.z);
+      dynamicGroup.add(ring);
+    }
+
+    const count = 8;
+    for(let i=0;i<count;i++){
+      const phase = (t*(isWhite?0.85:1.25) + i/count) % 1;
+      const r = 1.15*(1-phase) + 0.16;
+      const ang = i*1.3 + t*(isWhite?2:2.6);
+      const px = w.x+Math.cos(ang)*r, pz = w.z+Math.sin(ang)*r;
+      const particle = new THREE.Mesh(geo.sphere, basicMat(ringColor, {transparent:true, opacity:0.8*(1-phase)}));
+      particle.scale.set(0.07,0.07,0.07);
+      particle.position.set(px, 0.6, pz);
+      dynamicGroup.add(particle);
+    }
+
+    const glow = makeGlowSprite(isWhite?0xffffff:0x8a3ad0, isWhite?2.6:2.0);
+    glow.position.set(w.x, 0.6, w.z);
+    dynamicGroup.add(glow);
+    const light = new THREE.PointLight(isWhite?0xffffff:0x8a3ad0, isWhite?1.4:0.8, 4);
+    light.position.set(w.x, 0.6, w.z);
+    dynamicGroup.add(light);
+
+    const shadow = new THREE.Mesh(geo.ring, basicMat(0x000000, {transparent:true, opacity:0.3, side:THREE.DoubleSide}));
+    shadow.rotation.x = -Math.PI/2;
+    shadow.scale.set(0.7,0.7,1);
+    shadow.position.set(w.x, 0.015, w.z);
+    dynamicGroup.add(shadow);
+  }
+
+  // Renders one straight laser-beam segment between two pixel-space points:
+  // a soft outer glow tube plus a bright white-hot core, aligned with a
+  // quaternion rotation rather than chained sphere sprites, for a much more
+  // convincing continuous-beam look.
+  function renderBeamSegment(px1, py1, px2, py2, color, thickness, alpha, height){
+    const w1 = pixelToWorld(px1, py1), w2 = pixelToWorld(px2, py2);
+    const ddx = w2.x-w1.x, ddz = w2.z-w1.z;
+    const dist = Math.sqrt(ddx*ddx+ddz*ddz);
+    if(dist<0.001) return;
+    const dirVec = new THREE.Vector3(ddx,0,ddz).normalize();
+    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), dirVec);
+    const midx = (w1.x+w2.x)/2, midz = (w1.z+w2.z)/2;
+    const h = height!==undefined ? height : 1.15;
+    const outer = new THREE.Mesh(geo.cylinder, basicMat(color, {transparent:true, opacity:0.32*alpha}));
+    outer.scale.set(thickness*2.6, dist, thickness*2.6);
+    outer.position.set(midx, h, midz);
+    outer.quaternion.copy(quat);
+    dynamicGroup.add(outer);
+    const mid = new THREE.Mesh(geo.cylinder, basicMat(color, {transparent:true, opacity:0.7*alpha}));
+    mid.scale.set(thickness*1.1, dist, thickness*1.1);
+    mid.position.set(midx, h, midz);
+    mid.quaternion.copy(quat);
+    dynamicGroup.add(mid);
+    const core = new THREE.Mesh(geo.cylinder, basicMat(0xffffff, {transparent:true, opacity:0.85*alpha}));
+    core.scale.set(thickness*0.4, dist, thickness*0.4);
+    core.position.set(midx, h, midz);
+    core.quaternion.copy(quat);
+    dynamicGroup.add(core);
+  }
+
+  function makeHpBarTexture(hp, maxHp){
+    const w = 160, h = 28;
+    const cvs = document.createElement('canvas');
+    cvs.width = w; cvs.height = h;
+    const c2 = cvs.getContext('2d');
+    // dark backing plate so the bar reads clearly against any background
+    c2.fillStyle = 'rgba(0,0,0,0.75)';
+    c2.fillRect(0,0,w,h);
+    c2.strokeStyle = 'rgba(255,255,255,0.9)';
+    c2.lineWidth = 3;
+    c2.strokeRect(1.5,1.5,w-3,h-3);
+    const pad = 5;
+    const innerW = w-pad*2, innerH = h-pad*2;
+    const ratio = Math.max(0, hp/maxHp);
+    c2.fillStyle = ratio>0.5 ? '#3ddc5a' : ratio>0.25 ? '#ffcc33' : '#ff3b3b';
+    c2.fillRect(pad, pad, innerW*ratio, innerH);
+    // segment dividers, one per HP point
+    c2.strokeStyle = 'rgba(0,0,0,0.6)';
+    c2.lineWidth = 2;
+    for(let i=1;i<maxHp;i++){
+      const x = pad + innerW*(i/maxHp);
+      c2.beginPath(); c2.moveTo(x,pad); c2.lineTo(x,pad+innerH); c2.stroke();
+    }
+    return new THREE.CanvasTexture(cvs);
+  }
+
+  function renderBoss3D(b, size, maxHp, bodyMat, isFinal, facingAngle){
+    const w = pixelToWorld(b.x+ENTITY_SIZE/2, b.y+ENTITY_SIZE/2);
+    const flashing = b.invuln>0 && Math.floor(performance.now()/80)%2===0;
+    const s = (size/TILE) * 1.8;
+    const g = new THREE.Group();
+    const t = performance.now()/1000;
+    const pulse = 0.5+0.5*Math.sin(t*2.2);
+    const activeMat = flashing ? mat.enemyBody : bodyMat;
+    // a gentle hover bob, applied only to the ship's own parts (not its
+    // ground shadow or health bar) so it visibly floats rather than rolls
+    const hover = Math.sin(t*2.4)*0.05*s;
+
+    const shadow = new THREE.Mesh(geo.ring, basicMat(0x000000, {transparent:true, opacity:0.3, side:THREE.DoubleSide}));
+    shadow.rotation.x = -Math.PI/2;
+    shadow.scale.set(s*0.6,s*0.6,1);
+    shadow.position.y = 0.015;
+    g.add(shadow);
+
+    // main saucer body - a wide flattened disc
+    const saucer = new THREE.Mesh(geo.sphere, activeMat);
+    saucer.scale.set(s*0.62, s*0.16, s*0.62);
+    saucer.position.y = s*0.46+hover;
+    g.add(saucer);
+
+    // lower belly cone (the classic tapered underside)
+    const belly = new THREE.Mesh(geo.sphere, activeMat);
+    belly.scale.set(s*0.3, s*0.14, s*0.3);
+    belly.position.y = s*0.36+hover;
+    g.add(belly);
+
+    // a short translucent riser lifting the cockpit dome clear of the
+    // saucer's disc, so whatever's inside the dome reads as sitting up on
+    // top of the ship rather than buried inside its hull
+    const riser = new THREE.Mesh(geo.cylinder, basicMat(0x9be8ff, {transparent:true, opacity:0.28}));
+    riser.scale.set(s*0.2, s*0.24, s*0.2);
+    riser.position.y = s*0.66+hover;
+    g.add(riser);
+
+    // upper glass dome cockpit - translucent and roomy, so the alien rider
+    // inside is clearly and unmistakably visible through it
+    const dome = new THREE.Mesh(geo.sphere, basicMat(0x9be8ff, {transparent:true, opacity:0.26}));
+    dome.scale.set(s*0.44, s*0.42, s*0.44);
+    dome.position.y = s*0.94+hover;
+    g.add(dome);
+    const domeRim = new THREE.Mesh(geo.ring, basicMat(0x222222, {transparent:true, opacity:0.7, side:THREE.DoubleSide}));
+    domeRim.rotation.x = -Math.PI/2;
+    domeRim.scale.set(s*0.33,s*0.33,1);
+    domeRim.position.y = s*0.76+hover;
+    g.add(domeRim);
+
+    // a single forward-facing scanner lens on the saucer's rim, doubling
+    // as the ship's "eye" and as a clear visual cue for which way it faces
+    const lens = new THREE.Mesh(geo.sphere, mat.bossEye);
+    lens.scale.set(s*0.11,s*0.11,s*0.045);
+    lens.position.set(0, s*0.46+hover, s*0.6);
+    g.add(lens);
+    const lensRing = new THREE.Mesh(geo.ring, basicMat(0x111111, {transparent:true, opacity:0.85, side:THREE.DoubleSide}));
+    lensRing.scale.set(s*0.16,s*0.16,1);
+    lensRing.position.set(0, s*0.46+hover, s*0.61);
+    g.add(lensRing);
+    const eyeLight = new THREE.PointLight(0xff2020, 0.9, 3);
+    eyeLight.position.set(0, s*0.46+hover, s*0.55);
+    g.add(eyeLight);
+
+    // slowly-spinning collar ring around the base of the dome, standing in
+    // for the old radar dish - still reads as "scanning" tech
+    const collar = new THREE.Mesh(geo.ring, basicMat(0xaaaaaa, {transparent:true, opacity:0.8, side:THREE.DoubleSide}));
+    collar.scale.set(s*0.3,s*0.3,1);
+    collar.position.y = s*0.72+hover;
+    collar.rotation.x = -Math.PI/2 + Math.sin(t*1.4)*0.15;
+    collar.rotation.z = t*1.2;
+    g.add(collar);
+
+    // pulsing amber warning beacon at the very top
+    const beacon = new THREE.Mesh(geo.sphere, basicMat(0xffaa00, {transparent:true, opacity:0.6+0.4*pulse}));
+    beacon.scale.set(s*0.07,s*0.07,s*0.07);
+    beacon.position.set(0, s*1.18+hover, 0);
+    g.add(beacon);
+
+    // an under-glow disc beneath the saucer, selling the hover effect
+    const underGlow = new THREE.Mesh(geo.ring, basicMat(0x66ccff, {transparent:true, opacity:0.35+0.15*pulse, side:THREE.DoubleSide}));
+    underGlow.rotation.x = -Math.PI/2;
+    underGlow.scale.set(s*0.5,s*0.5,1);
+    underGlow.position.y = s*0.28+hover;
+    g.add(underGlow);
+    const underLight = new THREE.PointLight(0x66ccff, 0.7, 2.4);
+    underLight.position.y = s*0.3+hover;
+    g.add(underLight);
+
+    if(!isFinal){
+      // the true boss is secretly piloting this saucer - seated right up
+      // inside the roomy glass dome atop the riser, clearly visible the
+      // whole time so its identity is never really much of a mystery
+      const rider = makeAlienBossMesh();
+      rider.scale.set(0.5,0.5,0.5);
+      rider.position.set(0, s*0.58+hover, 0);
+      g.add(rider);
+    }
+
+    // health bar - a canvas-drawn sprite, always billboarded to face the
+    // camera, so it's clearly readable no matter the viewing angle
+    const barTex = makeHpBarTexture(b.hp, maxHp);
+    const bar = new THREE.Sprite(new THREE.SpriteMaterial({ map:barTex, depthTest:false }));
+    bar.scale.set(1.3, 0.22, 1);
+    bar.position.set(0, s*1.7, 0);
+    bar.renderOrder = 999;
+    g.add(bar);
+
+    if(facingAngle!==undefined && facingAngle!==null){
+      if(b._facingAngle===undefined) b._facingAngle = facingAngle;
+      let diff = facingAngle - b._facingAngle;
+      diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+      b._facingAngle += diff*0.15;
+      g.rotation.y = b._facingAngle;
+    }
+
+    g.position.set(w.x, 0, w.z);
+    dynamicGroup.add(g);
+  }
+
+  // The wrecked UFO for the stage-4 cutscene: keeps the real first boss's
+  // silhouette (saucer, riser, dome, collar, lens) so it's still clearly
+  // recognizable, just dimmed, tilted, and smoking - it never explodes,
+  // and its cockpit sits empty now that the true boss has already left it.
+  function renderUfoWreck(wx, wz){
+    const s = (BOSS_SIZE/TILE) * 1.8;
+    const t = performance.now()/1000;
+    const dimMat = stdMat(0x145654, 0x061615, {metalness:0.5, roughness:0.5});
+    const tiltX = 0.16, tiltZ = 0.22;
+
+    const shadow = new THREE.Mesh(geo.ring, basicMat(0x000000, {transparent:true, opacity:0.3, side:THREE.DoubleSide}));
+    shadow.rotation.x = -Math.PI/2;
+    shadow.scale.set(s*0.6,s*0.6,1);
+    shadow.position.set(wx, 0.015, wz);
+    dynamicGroup.add(shadow);
+
+    const saucer = new THREE.Mesh(geo.sphere, dimMat);
+    saucer.scale.set(s*0.62, s*0.16, s*0.62);
+    saucer.position.set(wx, s*0.46, wz);
+    saucer.rotation.x = tiltX; saucer.rotation.z = tiltZ;
+    dynamicGroup.add(saucer);
+
+    const belly = new THREE.Mesh(geo.sphere, dimMat);
+    belly.scale.set(s*0.3, s*0.14, s*0.3);
+    belly.position.set(wx, s*0.36, wz);
+    belly.rotation.x = tiltX; belly.rotation.z = tiltZ;
+    dynamicGroup.add(belly);
+
+    const riser = new THREE.Mesh(geo.cylinder, basicMat(0x6a9098, {transparent:true, opacity:0.22}));
+    riser.scale.set(s*0.2, s*0.24, s*0.2);
+    riser.position.set(wx+Math.sin(tiltZ)*s*0.2, s*0.66, wz-Math.sin(tiltX)*s*0.1);
+    riser.rotation.x = tiltX; riser.rotation.z = tiltZ;
+    dynamicGroup.add(riser);
+
+    // the dome, empty now, cracked and barely glowing
+    const dome = new THREE.Mesh(geo.sphere, basicMat(0x4a6a70, {transparent:true, opacity:0.24}));
+    dome.scale.set(s*0.44, s*0.42, s*0.44);
+    dome.position.set(wx+Math.sin(tiltZ)*s*0.32, s*0.9, wz-Math.sin(tiltX)*s*0.16);
+    dynamicGroup.add(dome);
+    const domeRim = new THREE.Mesh(geo.ring, basicMat(0x111111, {transparent:true, opacity:0.7, side:THREE.DoubleSide}));
+    domeRim.rotation.x = -Math.PI/2+tiltX;
+    domeRim.scale.set(s*0.33,s*0.33,1);
+    domeRim.position.set(wx+Math.sin(tiltZ)*s*0.28, s*0.72, wz-Math.sin(tiltX)*s*0.14);
+    dynamicGroup.add(domeRim);
+
+    const collar = new THREE.Mesh(geo.ring, basicMat(0x777777, {transparent:true, opacity:0.6, side:THREE.DoubleSide}));
+    collar.scale.set(s*0.3,s*0.3,1);
+    collar.position.set(wx, s*0.68, wz);
+    collar.rotation.x = -Math.PI/2+tiltX*1.4;
+    collar.rotation.z = t*0.4; // still limply spinning
+    dynamicGroup.add(collar);
+
+    // the scanner lens, dead and dark
+    const lens = new THREE.Mesh(geo.sphere, basicMat(0x222222));
+    lens.scale.set(s*0.11,s*0.11,s*0.045);
+    lens.position.set(wx, s*0.46, wz+s*0.6);
+    lens.rotation.x = tiltX;
+    dynamicGroup.add(lens);
+
+    // rising smoke, thicker right after the beam grabs the player
+    const smokeCount = 7;
+    for(let i=0;i<smokeCount;i++){
+      const phase = (t*0.28 + i/smokeCount) % 1;
+      const sy = s*0.9 + phase*2.6;
+      const sx = wx + Math.sin(t*0.45+i)*0.18;
+      const sz = wz + Math.cos(t*0.4+i)*0.18;
+      const sc = 0.18+phase*0.5;
+      const puff = new THREE.Mesh(geo.sphere, basicMat(0x333333, {transparent:true, opacity:0.42*(1-phase)}));
+      puff.scale.set(sc,sc,sc);
+      puff.position.set(sx, sy, sz);
+      dynamicGroup.add(puff);
+    }
+    // an occasional electrical spark along the hull
+    if(Math.random()<0.35){
+      const spark = new THREE.Mesh(geo.sphere, basicMat(0xffaa00, {transparent:true, opacity:0.85}));
+      spark.scale.set(0.06,0.06,0.06);
+      spark.position.set(wx+(Math.random()-0.5)*s*0.7, s*0.4+Math.random()*s*0.3, wz+(Math.random()-0.5)*s*0.7);
+      dynamicGroup.add(spark);
+    }
+    const emberLight = new THREE.PointLight(0xff8833, 0.65, 2.6);
+    emberLight.position.set(wx, s*0.5, wz);
+    dynamicGroup.add(emberLight);
+  }
+
   function draw(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.save();
-    if(shakeTimer>0){
-      const sx = (Math.random()*2-1)*shakeMagnitude*(shakeTimer);
-      const sy = (Math.random()*2-1)*shakeMagnitude*(shakeTimer);
-      ctx.translate(sx, sy);
-    }
-    for(let y=0;y<ROWS;y++){
-      for(let x=0;x<COLS;x++){
-        const px=x*TILE, py=y*TILE;
-        ctx.fillStyle = (x+y)%2===0 ? '#3d6b41' : '#356038';
-        ctx.fillRect(px,py,TILE,TILE);
-        const cell = grid[y][x];
-        if(cell===1){
-          ctx.fillStyle = '#7a7a7a';
-          ctx.fillRect(px+1,py+1,TILE-2,TILE-2);
-          ctx.fillStyle = '#5c5c5c';
-          ctx.fillRect(px+1,py+1,TILE-2,6);
-        } else if(cell===2){
-          ctx.fillStyle = '#a5682f';
-          ctx.fillRect(px+2,py+2,TILE-4,TILE-4);
-          ctx.fillStyle = '#8a5324';
-          ctx.fillRect(px+2,py+2,TILE-4,4);
-          ctx.fillRect(px+2,py+TILE/2,TILE-4,4);
-        }
-      }
+    // clear last frame's dynamic (per-frame-rebuilt) meshes
+    while(dynamicGroup.children.length){
+      const obj = dynamicGroup.children.pop();
+      dynamicGroup.remove(obj);
     }
 
-    // items
-    ctx.font = '18px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    // items - a clear emoji icon (fire/roller-skate/bomb) gently floating,
+    // with a soft ground shadow - no extra glow/rings so it stays simple
+    // and the icon itself does the work of telling them apart
+    const bob = Math.sin(performance.now()/260)*0.06;
     for(const it of items){
-      const px = it.gx*TILE+TILE/2, py = it.gy*TILE+TILE/2;
-      ctx.fillStyle = 'rgba(0,0,0,0.25)';
-      ctx.beginPath();
-      ctx.arc(px,py,13,0,Math.PI*2);
-      ctx.fill();
-      ctx.fillText(ITEM_ICON[it.type], px, py+1);
+      const w = cellCenterToWorld(it.gx, it.gy);
+      if(TREASURE_INFO[it.type]){
+        // a small proper 3D model (ring/earring/necklace/gold bar), gently
+        // spinning and bobbing so it reads as a real treasure sitting there
+        const tmesh = makeTreasureMesh(it.type);
+        tmesh.position.set(w.x, 0.42+bob, w.z);
+        tmesh.rotation.y = performance.now()/900;
+        dynamicGroup.add(tmesh);
+        const tglow = makeGlowSprite(0xffe066, 0.9);
+        tglow.position.set(w.x, 0.42+bob, w.z);
+        dynamicGroup.add(tglow);
+      } else {
+        const iconSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: itemTextures[it.type], transparent:true }));
+        iconSprite.scale.set(0.95,0.95,1);
+        iconSprite.position.set(w.x, 0.5+bob, w.z);
+        dynamicGroup.add(iconSprite);
+      }
+      const shadow = new THREE.Mesh(geo.ring, basicMat(0x000000, {transparent:true, opacity:0.22, side:THREE.DoubleSide}));
+      shadow.rotation.x = -Math.PI/2;
+      shadow.scale.set(0.4,0.4,1);
+      shadow.position.set(w.x, 0.015, w.z);
+      dynamicGroup.add(shadow);
     }
 
-    // explosions
+    // explosions - warm energy blast slabs, classic fire coloring
     for(const ex of explosions){
+      const alpha = Math.max(0, ex.timer/EXPLOSION_DURATION);
       for(const c of ex.cells){
-        const px=c.gx*TILE, py=c.gy*TILE;
-        const alpha = Math.max(0, ex.timer/EXPLOSION_DURATION);
-        ctx.fillStyle = `rgba(255,150,30,${0.55*alpha+0.2})`;
-        ctx.fillRect(px+2,py+2,TILE-4,TILE-4);
-        ctx.fillStyle = `rgba(255,230,120,${0.7*alpha})`;
-        ctx.fillRect(px+8,py+8,TILE-16,TILE-16);
+        const w = cellCenterToWorld(c.gx, c.gy);
+        const outer = new THREE.Mesh(geo.box, mat.explosionOuter.clone());
+        outer.material.opacity = 0.45*alpha+0.1;
+        outer.scale.set(0.9, 0.06+0.3*alpha, 0.9);
+        outer.position.set(w.x, 0.05+0.15*alpha, w.z);
+        dynamicGroup.add(outer);
+        const inner = new THREE.Mesh(geo.box, mat.explosionInner.clone());
+        inner.material.opacity = 0.6*alpha;
+        inner.scale.set(0.5,0.4+0.4*alpha,0.5);
+        inner.position.set(w.x, 0.2+0.2*alpha, w.z);
+        dynamicGroup.add(inner);
       }
     }
 
-    // bombs
+    // bombs - classic look: a plain dark sphere with a small fuse spark on
+    // top, no glow or rings, so it doesn't visually compete with anything
     for(const b of bombs){
-      const px = b.cx, py = b.cy;
-      const pulse = 1 + 0.15*Math.sin(performance.now()/100);
-      const isTrueBossBomb = b.owner===trueBoss;
-      ctx.beginPath();
-      ctx.fillStyle = isTrueBossBomb ? '#a11212' : '#222';
-      ctx.arc(px,py,TILE*0.32*pulse,0,Math.PI*2);
-      ctx.fill();
-      ctx.fillStyle = isTrueBossBomb ? '#e05555' : '#666';
-      ctx.beginPath();
-      ctx.arc(px-4,py-6,3,0,Math.PI*2);
-      ctx.fill();
+      const w = pixelToWorld(b.cx, b.cy);
+      const pulse = 1 + 0.12*Math.sin(performance.now()/100);
+      const isTrueBossBomb = b.owner===trueBoss || b.owner===hiddenBoss;
+      const sparkColor = isTrueBossBomb ? 0xff2020 : 0xdddddd;
+      const body = new THREE.Mesh(geo.sphere, isTrueBossBomb ? mat.trueBossBomb : mat.bomb);
+      body.scale.set(0.52*pulse,0.52*pulse,0.52*pulse);
+      body.position.set(w.x, 0.5, w.z);
+      dynamicGroup.add(body);
+      const highlight = new THREE.Mesh(geo.sphere, basicMat(0xffffff, {transparent:true, opacity:isTrueBossBomb?0.3:0.5}));
+      highlight.scale.set(0.11,0.11,0.11);
+      highlight.position.set(w.x-0.14, 0.68, w.z+0.14);
+      dynamicGroup.add(highlight);
+      const fuseTip = new THREE.Mesh(geo.sphere, basicMat(sparkColor));
+      fuseTip.scale.set(isTrueBossBomb?0.13:0.1, isTrueBossBomb?0.13:0.1, isTrueBossBomb?0.13:0.1);
+      fuseTip.position.set(w.x, 0.5+0.52*pulse*0.95, w.z);
+      dynamicGroup.add(fuseTip);
+      if(isTrueBossBomb){
+        // a faint red under-glow specifically for the true boss's bombs -
+        // the one deliberate exception, so they're unmistakable
+        const light = new THREE.PointLight(0xff2020, 0.5, 1.6);
+        light.position.set(w.x, 0.4, w.z);
+        dynamicGroup.add(light);
+      }
     }
 
-    // boss projectiles
+    // boss projectiles - flown above wall height so they stay visible while
+    // passing straight through walls/blocks, matching how they actually
+    // behave in the game (they pierce everything)
     for(const p of projectiles){
-      ctx.beginPath();
-      ctx.fillStyle = 'rgba(255,120,40,0.35)';
-      ctx.arc(p.x - p.dx*6, p.y - p.dy*6, PROJECTILE_SIZE*0.7, 0, Math.PI*2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.fillStyle = '#ffcf4d';
-      ctx.arc(p.x, p.y, PROJECTILE_SIZE/2, 0, Math.PI*2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.fillStyle = '#ff5a1f';
-      ctx.arc(p.x, p.y, PROJECTILE_SIZE/2-3, 0, Math.PI*2);
-      ctx.fill();
+      const w = pixelToWorld(p.x, p.y);
+      if(p.isTrueBossRay){
+        // the true boss's one-shot ray gun blast - a genuine laser beam
+        // trailing behind the traveling hit-point, unmistakably red
+        renderBeamSegment(p.x - p.dx*130, p.y - p.dy*130, p.x, p.y, 0xff2020, 0.16, 1, 1.15);
+        const bolt = new THREE.Mesh(geo.sphere, basicMat(0xffffff));
+        bolt.scale.set(0.22,0.22,0.22);
+        bolt.position.set(w.x, 1.15, w.z);
+        dynamicGroup.add(bolt);
+        const boltGlow = makeGlowSprite(0xff2020, 1.8);
+        boltGlow.position.set(w.x, 1.15, w.z);
+        dynamicGroup.add(boltGlow);
+        const boltLight = new THREE.PointLight(0xff2020, 1.1, 2.6);
+        boltLight.position.set(w.x, 1.15, w.z);
+        dynamicGroup.add(boltLight);
+        continue;
+      }
+      const wTrail = pixelToWorld(p.x - p.dx*6, p.y - p.dy*6);
+      const trail = new THREE.Mesh(geo.sphere, basicMat(0xff7828, {transparent:true, opacity:0.35}));
+      trail.scale.set(0.28,0.28,0.28);
+      trail.position.set(wTrail.x, 1.15, wTrail.z);
+      dynamicGroup.add(trail);
+      const bolt = new THREE.Mesh(geo.sphere, mat.projectile);
+      bolt.scale.set(0.18,0.18,0.18);
+      bolt.position.set(w.x, 1.15, w.z);
+      dynamicGroup.add(bolt);
     }
 
     // enemies
     for(const en of enemies){
       if(!en.alive) continue;
-      drawCharacter(en, '#e64545', '#7a1f1f');
+      if(!en.mesh3d) en.mesh3d = makeCharacterMesh(mat.enemyBody, mat.enemyVisor, 0xffb3b3, true);
+      renderCharacter3D(en, en.mesh3d, false, Math.atan2(en.dir.dx, en.dir.dy));
     }
 
-    // boss
+    // first boss
     if(stage===3 && boss && boss.alive){
-      drawBoss(boss, BOSS_SIZE, BOSS_HP, '#7a1fa2');
+      renderBoss3D(boss, BOSS_SIZE, BOSS_HP, mat.bossBody, false, Math.atan2(boss.dir.dx, boss.dir.dy));
     }
 
-    // true boss - looks like a stylized player with a crown/menacing colors
+    // true boss - a space lifeform, deliberately unlike anything mechanical
+    // seen so far, matching the player's size
     if(stage===5 && trueBoss && trueBoss.alive){
-      drawBoss(trueBoss, TRUEBOSS_SIZE, TRUEBOSS_HP, '#111111');
+      if(!trueBoss.mesh3d) trueBoss.mesh3d = makeAlienBossMesh(false, 'single');
+      renderCharacter3D(trueBoss, trueBoss.mesh3d, false, Math.atan2(trueBoss.faceDx||0, trueBoss.faceDy||1));
+      const w = pixelToWorld(trueBoss.x+ENTITY_SIZE/2, trueBoss.y+ENTITY_SIZE/2);
+      const barTex = makeHpBarTexture(trueBoss.hp, TRUEBOSS_HP);
+      const bar = new THREE.Sprite(new THREE.SpriteMaterial({ map:barTex, depthTest:false }));
+      bar.scale.set(1.2, 0.2, 1);
+      bar.position.set(w.x, 2.7, w.z);
+      bar.renderOrder = 999;
+      dynamicGroup.add(bar);
     }
 
-    // last-stand desperation attack telegraph / flash
+    // the hidden final boss - the true boss's own master: same alien
+    // design, one size bigger, and crowned
+    if(stage===9 && hiddenBoss && hiddenBoss.alive){
+      if(!hiddenBoss.mesh3d){
+        hiddenBoss.mesh3d = makeAlienBossMesh(true, 'dual');
+        hiddenBoss.mesh3d.scale.set(1.2,1.2,1.2);
+      }
+      renderCharacter3D(hiddenBoss, hiddenBoss.mesh3d, false, Math.atan2(hiddenBoss.faceDx||0, hiddenBoss.faceDy||1));
+      const w = pixelToWorld(hiddenBoss.x+ENTITY_SIZE/2, hiddenBoss.y+ENTITY_SIZE/2);
+      const barTex = makeHpBarTexture(hiddenBoss.hp, HIDDENBOSS_HP);
+      const bar = new THREE.Sprite(new THREE.SpriteMaterial({ map:barTex, depthTest:false }));
+      bar.scale.set(1.3, 0.22, 1);
+      bar.position.set(w.x, 4.2, w.z);
+      bar.renderOrder = 999;
+      dynamicGroup.add(bar);
+
+      // last-stand shield bubble - blocks bomb damage entirely until the
+      // destroy ray strips it away
+      if(hiddenBoss.phase==='cage' && hiddenBoss.shieldActive){
+        const st = performance.now()/220;
+        const spulse = 0.92+0.12*Math.sin(st);
+        const shieldBubble = new THREE.Mesh(geo.sphere, basicMat(0x9d4dff, {transparent:true, opacity:0.48+0.14*Math.sin(st*1.4)}));
+        shieldBubble.scale.set(1.85*spulse, 2.15*spulse, 1.85*spulse);
+        shieldBubble.position.set(w.x, 1.3, w.z);
+        dynamicGroup.add(shieldBubble);
+        // a brighter wireframe shell on top so the edge of the shield reads
+        // clearly even against similarly-colored backgrounds
+        const shieldWire = new THREE.Mesh(geo.sphere, new THREE.MeshBasicMaterial({ color:0xd9b3ff, wireframe:true, transparent:true, opacity:0.55 }));
+        shieldWire.scale.set(1.9*spulse, 2.2*spulse, 1.9*spulse);
+        shieldWire.position.set(w.x, 1.3, w.z);
+        dynamicGroup.add(shieldWire);
+        const shieldBubbleGlow = makeGlowSprite(0x9d4dff, 4.2);
+        shieldBubbleGlow.position.set(w.x, 1.3, w.z);
+        dynamicGroup.add(shieldBubbleGlow);
+        const shieldBubbleLight = new THREE.PointLight(0x9d4dff, 1.6, 4.5);
+        shieldBubbleLight.position.set(w.x, 1.3, w.z);
+        dynamicGroup.add(shieldBubbleLight);
+      }
+
+      // the last-stand laser "mouth": two beams, symmetric around the
+      // boss's forward direction, starting as a straight 180-degree
+      // sideways line and slowly rotating inward until they meet, closed,
+      // pointing straight ahead - like a Pac-Man mouth biting shut
+      if(hiddenBoss.phase==='cage'){
+        const halfAngle = hiddenBoss.cageHalfAngle;
+        const bossPixelX = hiddenBoss.x+ENTITY_SIZE/2, bossPixelY = hiddenBoss.y+ENTITY_SIZE/2;
+        const beamLen = 900;
+        const dirA = { dx: Math.sin(halfAngle), dy: Math.cos(halfAngle) };
+        const dirB = { dx: Math.sin(-halfAngle), dy: Math.cos(-halfAngle) };
+        renderBeamSegment(bossPixelX, bossPixelY, bossPixelX+dirA.dx*beamLen, bossPixelY+dirA.dy*beamLen, 0xff2020, 0.16, 1, 0.75);
+        renderBeamSegment(bossPixelX, bossPixelY, bossPixelX+dirB.dx*beamLen, bossPixelY+dirB.dy*beamLen, 0xff2020, 0.16, 1, 0.75);
+        const bw = pixelToWorld(bossPixelX, bossPixelY);
+        const mouthLight = new THREE.PointLight(0xff2020, 1.2, 4.2);
+        mouthLight.position.set(bw.x, 0.75, bw.z);
+        dynamicGroup.add(mouthLight);
+        // the closing-in warning ring at the boss's feet, pulsing faster
+        // and glowing hotter the closer the mouth gets to fully shutting
+        const closeness = 1 - halfAngle/(Math.PI/2);
+        const pt = performance.now()/1000;
+        const warnRing = new THREE.Mesh(geo.ring, basicMat(0xff2020, {transparent:true, opacity:0.35+0.35*closeness, side:THREE.DoubleSide}));
+        warnRing.rotation.x = -Math.PI/2;
+        const warnS = 0.7+0.15*Math.sin(pt*(4+closeness*8));
+        warnRing.scale.set(warnS, warnS, 1);
+        warnRing.position.set(bw.x, 0.04, bw.z);
+        dynamicGroup.add(warnRing);
+      }
+    }
+
+    // the destroy ray - a brief, powerful straight-line beam fired in
+    // whichever direction the player's currently facing
+    if(destroyRayBeam){
+      const alpha = Math.max(0, destroyRayBeam.timer/0.3);
+      const endPx = destroyRayBeam.x + destroyRayBeam.dx*700;
+      const endPy = destroyRayBeam.y + destroyRayBeam.dy*700;
+      renderBeamSegment(destroyRayBeam.x, destroyRayBeam.y, endPx, endPy, 0xff2020, 0.15, alpha, 1.1);
+      const muzzleGlow = makeGlowSprite(0xff2020, 1.6*alpha+0.3);
+      const mw = pixelToWorld(destroyRayBeam.x, destroyRayBeam.y);
+      muzzleGlow.position.set(mw.x, 1.1, mw.z);
+      dynamicGroup.add(muzzleGlow);
+      const muzzleLight = new THREE.PointLight(0xff2020, 1.0*alpha, 3);
+      muzzleLight.position.set(mw.x, 1.1, mw.z);
+      dynamicGroup.add(muzzleLight);
+    }
+
+    // the crown-crack hit-flash: a big, unmistakable burst right at the
+    // hidden boss's (or its crown's) position the instant the destroy ray
+    // connects, with the crown's shards visibly flying off
+    if(crownCrackEffectTimer>0){
+      const flashAlpha = Math.max(0, Math.min(1, crownCrackEffectTimer/0.7));
+      const overallAlpha = Math.max(0, Math.min(1, crownCrackEffectTimer/1.8));
+      let fx=null, fz=null;
+      if(hiddenBoss && hiddenBoss.alive){
+        const fw = pixelToWorld(hiddenBoss.x+ENTITY_SIZE/2, hiddenBoss.y+ENTITY_SIZE/2);
+        fx = fw.x; fz = fw.z;
+      } else if(crownPos){
+        const fw = cellCenterToWorld(crownPos.gx, crownPos.gy);
+        fx = fw.x; fz = fw.z;
+      }
+      if(fx!==null){
+        const crackFlash = makeGlowSprite(0xffffff, 3.8*flashAlpha+0.4);
+        crackFlash.position.set(fx, 2.3, fz);
+        dynamicGroup.add(crackFlash);
+        const crackLight = new THREE.PointLight(0xffffff, 2.0*flashAlpha, 4);
+        crackLight.position.set(fx, 2.3, fz);
+        dynamicGroup.add(crackLight);
+        // an expanding golden shockwave ring
+        const elapsedCrack = 1.8 - crownCrackEffectTimer;
+        const ringR = 0.3 + elapsedCrack*2.2;
+        const shockRing = new THREE.Mesh(geo.ring, basicMat(0xffd75e, {transparent:true, opacity:0.7*overallAlpha, side:THREE.DoubleSide}));
+        shockRing.rotation.x = -Math.PI/2;
+        shockRing.scale.set(ringR, ringR, 1);
+        shockRing.position.set(fx, 2.3, fz);
+        dynamicGroup.add(shockRing);
+        // tumbling gold crown-shard debris, flung outward from the break
+        const shardCount = 8;
+        for(let i=0;i<shardCount;i++){
+          const ang = (i/shardCount)*Math.PI*2 + i*0.7;
+          const shardDist = elapsedCrack*1.8;
+          const shardY = Math.max(0.2, 2.3 + elapsedCrack*1.4 - elapsedCrack*elapsedCrack*3.2);
+          const shard = new THREE.Mesh(geo.box, basicMat(0xffd75e, {transparent:true, opacity:overallAlpha}));
+          shard.scale.set(0.07,0.1,0.07);
+          shard.position.set(fx+Math.cos(ang)*shardDist, shardY, fz+Math.sin(ang)*shardDist);
+          shard.rotation.set(elapsedCrack*6+i, elapsedCrack*4+i, elapsedCrack*5);
+          dynamicGroup.add(shard);
+        }
+      }
+    }
+
+    // the shield-break hit-flash: a smaller purple burst when the destroy
+    // ray only strips the shield rather than directly hitting the boss -
+    // the crown stays on, so this deliberately looks different/lesser
+    // than the golden crown-crack burst above
+    if(shieldBreakEffectTimer>0 && hiddenBoss && hiddenBoss.alive){
+      const sAlpha = Math.max(0, Math.min(1, shieldBreakEffectTimer/0.7));
+      const sw = pixelToWorld(hiddenBoss.x+ENTITY_SIZE/2, hiddenBoss.y+ENTITY_SIZE/2);
+      const shieldFlash = makeGlowSprite(0x8a3ad0, 2.6*sAlpha+0.3);
+      shieldFlash.position.set(sw.x, 1.3, sw.z);
+      dynamicGroup.add(shieldFlash);
+      const shieldFlashLight = new THREE.PointLight(0x8a3ad0, 1.4*sAlpha, 3.2);
+      shieldFlashLight.position.set(sw.x, 1.3, sw.z);
+      dynamicGroup.add(shieldFlashLight);
+    }
+
+    // the true boss's dropped ray gun, waiting to be picked up
+    if((stage===6 || stage===7) && rayGunPos && !rayGunTaken){
+      const w = cellCenterToWorld(rayGunPos.gx, rayGunPos.gy);
+      const bob = Math.sin(performance.now()/300)*0.07;
+      const gunMat = stdMat(0x555566, 0x222233, {roughness:0.3, metalness:0.6});
+      const gunBody = new THREE.Mesh(geo.box, gunMat);
+      gunBody.scale.set(0.22,0.16,0.5);
+      gunBody.position.set(w.x, 0.5+bob, w.z);
+      gunBody.rotation.y = performance.now()/900;
+      dynamicGroup.add(gunBody);
+      const gunBarrel = new THREE.Mesh(geo.cylinder, gunMat);
+      gunBarrel.scale.set(0.08,0.35,0.08);
+      gunBarrel.rotation.x = Math.PI/2;
+      gunBarrel.rotation.y = gunBody.rotation.y;
+      gunBarrel.position.set(w.x + Math.sin(gunBody.rotation.y)*0.3, 0.5+bob, w.z + Math.cos(gunBody.rotation.y)*0.3);
+      dynamicGroup.add(gunBarrel);
+      const gunGlow = makeGlowSprite(0xff3b3b, 1.4);
+      gunGlow.position.set(w.x, 0.5+bob, w.z);
+      dynamicGroup.add(gunGlow);
+      const gunLight = new THREE.PointLight(0xff3b3b, 0.7, 2.2);
+      gunLight.position.set(w.x, 0.5+bob, w.z);
+      dynamicGroup.add(gunLight);
+      const gunShadow = new THREE.Mesh(geo.ring, basicMat(0x000000, {transparent:true, opacity:0.25, side:THREE.DoubleSide}));
+      gunShadow.rotation.x = -Math.PI/2;
+      gunShadow.scale.set(0.4,0.4,1);
+      gunShadow.position.set(w.x, 0.015, w.z);
+      dynamicGroup.add(gunShadow);
+    }
+
+    // the warp-zone portals
+    if(stage===7 && portals){
+      renderPortalHole(portals.white.gx, portals.white.gy, true);
+      renderPortalHole(portals.black.gx, portals.black.gy, false);
+    }
+
+    // the black hole itself, expanding and spinning ever faster as it
+    // pulls the player in during the stage-12 death cutscene
+    if(stage===12 && blackHoleDeathTarget){
+      const w = pixelToWorld(blackHoleDeathTarget.x, blackHoleDeathTarget.y);
+      const t = performance.now()/1000;
+      const progress = Math.min(1, 1 - Math.max(0,stageTimer)/BLACKHOLE_DEATH_DURATION);
+      const accentColor = blackHoleWarpMode ? 0xffe066 : 0x8a3ad0;
+      const growR = 0.55 + progress*3.4;
+      const core = new THREE.Mesh(geo.sphere, basicMat(0x05020a, {transparent:true, opacity:0.95}));
+      core.scale.set(growR, growR, growR);
+      core.position.set(w.x, 0.65, w.z);
+      dynamicGroup.add(core);
+      for(let i=0;i<4;i++){
+        const ringR = growR*0.7 + i*0.25;
+        const ring = new THREE.Mesh(geo.ring, basicMat(accentColor, {transparent:true, opacity:0.55-i*0.1, side:THREE.DoubleSide}));
+        ring.rotation.x = Math.PI/2.3;
+        ring.rotation.z = t*(3+progress*7)*(i%2===0?1:-1);
+        ring.scale.set(ringR,ringR,1);
+        ring.position.set(w.x, 0.65, w.z);
+        dynamicGroup.add(ring);
+      }
+      // debris/light being torn off and swallowed, spiraling faster near the end
+      const debrisCount = 10;
+      for(let i=0;i<debrisCount;i++){
+        const phase = (t*(1.4+progress*2.2) + i/debrisCount) % 1;
+        const r = growR*1.7*(1-phase) + 0.1;
+        const ang = i*1.7 + t*(2.5+progress*4);
+        const dpx = w.x+Math.cos(ang)*r, dpz = w.z+Math.sin(ang)*r;
+        const bit = new THREE.Mesh(geo.box, basicMat(accentColor, {transparent:true, opacity:0.75*(1-phase)}));
+        bit.scale.set(0.08,0.08,0.08);
+        bit.position.set(dpx, 0.65, dpz);
+        dynamicGroup.add(bit);
+      }
+      const light = new THREE.PointLight(accentColor, 1.3*progress, 6.5);
+      light.position.set(w.x, 0.65, w.z);
+      dynamicGroup.add(light);
+    }
+
+    // the crown left behind after the hidden final boss falls. During
+    // stage 10 it's flung high into the air, spinning wildly, before
+    // slowly twirling back down to land - a big, unmissable beat since
+    // there's no white flash covering it this time. Stage 11 then keeps
+    // it gently bobbing at rest until it's picked up.
+    if((stage===10 || stage===11) && crownPos && !crownTaken){
+      const w = cellCenterToWorld(crownPos.gx, crownPos.gy);
+      const t = performance.now()/1000;
+      let extraY = 0, spinBoost = 1;
+      if(stage===10){
+        const elapsedC = HIDDENBOSS_CROWN_DURATION - stageTimer;
+        const clamp01 = x=>Math.max(0,Math.min(1,x));
+        const easeOut = x=>1-(1-x)*(1-x);
+        const easeIn = x=>x*x;
+        const LAUNCH_END=1.0, HANG_END=2.3, FALL_END=3.6;
+        if(elapsedC<LAUNCH_END){
+          extraY = 3.4*easeOut(clamp01(elapsedC/LAUNCH_END));
+          spinBoost = 1+clamp01(elapsedC/LAUNCH_END)*8;
+        } else if(elapsedC<HANG_END){
+          extraY = 3.4;
+          spinBoost = 9;
+        } else if(elapsedC<FALL_END){
+          const p = clamp01((elapsedC-HANG_END)/(FALL_END-HANG_END));
+          extraY = 3.4*(1-easeIn(p));
+          spinBoost = 9-p*8;
+        }
+        // a trail of glittering sparks left behind as it rockets up and falls
+        if(extraY>0.05){
+          const trailCount = 6;
+          for(let i=0;i<trailCount;i++){
+            const ty = extraY*(1-i/trailCount);
+            const spark = new THREE.Mesh(geo.sphere, basicMat(0xffe066, {transparent:true, opacity:0.6*(1-i/trailCount)}));
+            spark.scale.set(0.05,0.05,0.05);
+            spark.position.set(w.x+Math.sin(t*6+i)*0.12, 0.6+ty, w.z+Math.cos(t*6+i)*0.12);
+            dynamicGroup.add(spark);
+          }
+        }
+      }
+      const bob = stage===11 ? Math.sin(t*1.6)*0.08 : 0;
+      const y = 0.55+bob+extraY;
+      const crownMat = basicMat(crownCracked ? 0x8a7248 : 0xffd75e);
+      const band = new THREE.Mesh(geo.cylinder, crownMat);
+      band.scale.set(0.26,0.09,0.26);
+      band.position.set(w.x, y, w.z);
+      band.rotation.y = t*1.1*spinBoost;
+      band.rotation.x = stage===10 ? Math.sin(t*3)*0.3 : (crownCracked ? Math.PI*0.4 : 0);
+      if(crownCracked) band.rotation.z = 0.55; // toppled onto its side, clearly no longer wearable
+      dynamicGroup.add(band);
+      if(crownCracked){
+        // a wide, jagged dark fracture straight through the band
+        const crack = new THREE.Mesh(geo.box, basicMat(0x0d0d0d));
+        crack.scale.set(0.06,0.13,0.3);
+        crack.position.set(w.x, y, w.z);
+        crack.rotation.y = band.rotation.y + 0.5;
+        crack.rotation.z = band.rotation.z;
+        dynamicGroup.add(crack);
+        const crackGlow = new THREE.PointLight(0xff3b3b, 0.55, 1.6);
+        crackGlow.position.set(w.x, y+0.05, w.z);
+        dynamicGroup.add(crackGlow);
+        // a couple of shard fragments broken clean off, lying scattered nearby
+        for(let i=0;i<3;i++){
+          const sAng = i*2.4 + t*0.3;
+          const sr = 0.22+i*0.05;
+          const shard = new THREE.Mesh(geo.box, basicMat(0x3a2a1a));
+          shard.scale.set(0.06, 0.05, 0.09);
+          shard.position.set(w.x+Math.cos(sAng)*sr, 0.05+bob*0.4, w.z+Math.sin(sAng)*sr);
+          shard.rotation.set(i*1.3, i*2.1, i*0.7);
+          dynamicGroup.add(shard);
+        }
+      }
+      const pointCount = crownCracked ? 1 : 5;
+      for(let i=0;i<pointCount;i++){
+        const angle = (i/pointCount)*Math.PI*2 + t*1.1*spinBoost;
+        const px = w.x+Math.cos(angle)*0.2, pz = w.z+Math.sin(angle)*0.2;
+        // if cracked, the one surviving spike is bent and gemless - every
+        // other spike and every gem is simply gone
+        const point = new THREE.Mesh(geo.box, crownMat);
+        point.scale.set(0.07, crownCracked?0.08:0.11, 0.07);
+        point.position.set(px, y+(crownCracked?0.09:0.13), pz);
+        if(crownCracked) point.rotation.z = 0.6;
+        dynamicGroup.add(point);
+        if(!crownCracked){
+          const gem = new THREE.Mesh(geo.sphere, basicMat(0xff3b6b));
+          gem.scale.set(0.045,0.045,0.045);
+          gem.position.set(px, y+0.21, pz);
+          dynamicGroup.add(gem);
+        }
+      }
+      const crownGlow = new THREE.PointLight(crownCracked ? 0x8a7248 : 0xffd75e, stage===10 ? 1.6 : 1.0, stage===10 ? 4.5 : 3);
+      crownGlow.position.set(w.x, y+0.05, w.z);
+      dynamicGroup.add(crownGlow);
+      const glowSprite = makeGlowSprite(crownCracked ? 0x8a7248 : 0xffd75e, stage===10 ? 2.0 : 1.4);
+      glowSprite.position.set(w.x, y+0.07, w.z);
+      dynamicGroup.add(glowSprite);
+    }
+
+    // last-stand desperation attack telegraph, expressed as the whole scene
+    // gradually bathing in red instead of a 2D screen overlay
+    let targetBgLerp = 0;
     if(stage===5 && trueBoss && trueBoss.alive && trueBoss.phase==='charging'){
-      const CHARGE_DURATION = 2.2;
-      const progress = Math.min(1, 1 - trueBoss.phaseTimer/CHARGE_DURATION); // 0 -> 1
-      const cx = trueBoss.x + ENTITY_SIZE/2, cy = trueBoss.y + ENTITY_SIZE/2;
-      const maxRadius = Math.hypot(canvas.width, canvas.height)/2 + 40;
-      const radius = progress*maxRadius;
+      const progress = Math.min(1, 1 - trueBoss.phaseTimer/BOMBRAIN_CHARGE_DURATION);
+      targetBgLerp = progress*0.6;
+      const w = pixelToWorld(trueBoss.x+ENTITY_SIZE/2, trueBoss.y+ENTITY_SIZE/2);
+      const t = performance.now()/1000;
 
-      // a single slow, growing red circle spreading out from the boss -
-      // easy to read at a glance: the bigger it gets, the less time is left
-      const grad = ctx.createRadialGradient(cx,cy, Math.max(0,radius*0.5), cx,cy, radius);
-      grad.addColorStop(0, `rgba(200,0,0,${0.15+0.55*progress})`);
-      grad.addColorStop(1, 'rgba(200,0,0,0)');
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(cx, cy, radius, 0, Math.PI*2);
-      ctx.fill();
+      // a rising column of dark energy that grows taller the closer the
+      // attack gets to landing
+      const pillarH = 1 + progress*7;
+      const pillar = new THREE.Mesh(geo.cylinder, basicMat(0xff2020, {transparent:true, opacity:0.3+0.35*progress}));
+      pillar.scale.set(0.22+0.18*progress, pillarH, 0.22+0.18*progress);
+      pillar.position.set(w.x, pillarH/2, w.z);
+      dynamicGroup.add(pillar);
 
-      // once it's most of the way there, the whole screen starts bathing in
-      // red too, so the final moment is unmistakable
-      if(progress>0.65){
-        const t = (progress-0.65)/0.35;
-        ctx.fillStyle = `rgba(200,0,0,${0.55*t})`;
-        ctx.fillRect(0,0,canvas.width,canvas.height);
+      // several staggered shockwave rings expanding outward continuously
+      const waveCount = 4;
+      for(let i=0;i<waveCount;i++){
+        const wavePhase = (t*0.9 + i/waveCount) % 1;
+        const waveR = 0.3 + wavePhase*(2+progress*11);
+        const waveAlpha = (1-wavePhase) * (0.35+0.45*progress);
+        const wave = new THREE.Mesh(geo.ring, basicMat(0xff2020, {transparent:true, opacity:waveAlpha, side:THREE.DoubleSide}));
+        wave.rotation.x = -Math.PI/2;
+        wave.scale.set(waveR, waveR, 1);
+        wave.position.set(w.x, 0.04, w.z);
+        dynamicGroup.add(wave);
+      }
+
+      // dark debris chunks orbiting faster and faster as it charges
+      const orbitCount = 6;
+      for(let i=0;i<orbitCount;i++){
+        const ang = t*(2.5+progress*5) + (i/orbitCount)*Math.PI*2;
+        const orbitR = 1.3 - progress*0.55;
+        const debris = new THREE.Mesh(geo.box, basicMat(0x2a0000));
+        debris.scale.set(0.11,0.11,0.11);
+        debris.position.set(w.x+Math.cos(ang)*orbitR, 0.5+Math.sin(ang*2)*0.25, w.z+Math.sin(ang)*orbitR);
+        debris.rotation.set(ang, ang*1.3, 0);
+        dynamicGroup.add(debris);
+      }
+
+      const surgeLight = new THREE.PointLight(0xff0000, 1.6*progress, 5);
+      surgeLight.position.set(w.x, 1.2, w.z);
+      dynamicGroup.add(surgeLight);
+
+      // the one tile that will survive the bomb rain - deliberately subtle
+      // (a small dim blue dot) rather than an obvious beacon, so finding it
+      // takes real attention
+      if(trueBoss.rainSafeGx!==undefined){
+        const sw = cellCenterToWorld(trueBoss.rainSafeGx, trueBoss.rainSafeGy);
+        const dotPulse = 0.5+0.25*Math.sin(t*2.4);
+        const safeDot = new THREE.Mesh(geo.sphere, basicMat(0x3d8bff, {transparent:true, opacity:0.45+0.2*dotPulse}));
+        safeDot.scale.set(0.1,0.1,0.1);
+        safeDot.position.set(sw.x, 0.05, sw.z);
+        dynamicGroup.add(safeDot);
+      }
+
+      // an ominous scatter of bombs raining down over the rest of the map,
+      // telegraphing exactly what's about to happen everywhere except the beacon
+      const rainCount = 22;
+      for(let i=0;i<rainCount;i++){
+        const seed = i*137.5;
+        const rgx = Math.floor(((Math.sin(seed)*0.5+0.5))*COLS);
+        const rgy = Math.floor(((Math.cos(seed*1.3)*0.5+0.5))*ROWS);
+        if(rgx===trueBoss.rainSafeGx && rgy===trueBoss.rainSafeGy) continue;
+        if(grid[rgy] && grid[rgy][rgx]===1) continue;
+        const cw = cellCenterToWorld(rgx, rgy);
+        const fallPhase = (t*1.1 + i*0.29) % 1;
+        const dropH = 6*(1-fallPhase);
+        const bombDrop = new THREE.Sprite(new THREE.SpriteMaterial({ map: itemTextures.bombUp, transparent:true, opacity:0.8*(0.4+0.6*progress) }));
+        bombDrop.scale.set(0.5,0.5,1);
+        bombDrop.position.set(cw.x, 0.5+dropH, cw.z);
+        dynamicGroup.add(bombDrop);
+      }
+    } else if(stage===5 && trueBoss && trueBoss.phase==='dropping'){
+      // bombs have actually landed and are sitting primed for a beat before
+      // they all go off together - keep the tension of the reddened sky
+      // going, but the real focus now is the bombs themselves
+      targetBgLerp = 0.55;
+      const t = performance.now()/1000;
+      if(trueBoss.rainSafeGx!==undefined){
+        const sw = cellCenterToWorld(trueBoss.rainSafeGx, trueBoss.rainSafeGy);
+        const dotPulse = 0.5+0.25*Math.sin(t*2.4);
+        const safeDot = new THREE.Mesh(geo.sphere, basicMat(0x3d8bff, {transparent:true, opacity:0.45+0.2*dotPulse}));
+        safeDot.scale.set(0.1,0.1,0.1);
+        safeDot.position.set(sw.x, 0.05, sw.z);
+        dynamicGroup.add(safeDot);
+      }
+      // the primed carpet-bomb bombs themselves - visually real bombs, but
+      // deliberately not collidable, so they can't strand the player
+      const pulse = 1 + 0.12*Math.sin(performance.now()/100);
+      for(const rb of rainBombs){
+        const w = pixelToWorld(rb.cx, rb.cy);
+        const body = new THREE.Mesh(geo.sphere, mat.trueBossBomb);
+        body.scale.set(0.5*pulse,0.5*pulse,0.5*pulse);
+        body.position.set(w.x, 0.5, w.z);
+        dynamicGroup.add(body);
+        const fuseTip = new THREE.Mesh(geo.sphere, basicMat(0xff2020));
+        fuseTip.scale.set(0.12,0.12,0.12);
+        fuseTip.position.set(w.x, 0.5+0.5*pulse*0.95, w.z);
+        dynamicGroup.add(fuseTip);
       }
     } else if(stage===5 && trueBoss && trueBoss.phase==='attacking'){
-      const alpha = Math.max(0, trueBoss.phaseTimer/0.5);
-      ctx.fillStyle = `rgba(220,0,0,${0.9*alpha})`;
-      ctx.fillRect(0,0,canvas.width,canvas.height);
+      targetBgLerp = Math.max(0, trueBoss.phaseTimer/BOMBRAIN_ATTACK_DURATION);
+      const w = pixelToWorld(trueBoss.x+ENTITY_SIZE/2, trueBoss.y+ENTITY_SIZE/2);
+      const burstProgress = 1 - Math.max(0, trueBoss.phaseTimer/BOMBRAIN_ATTACK_DURATION);
+      const burst = new THREE.Mesh(geo.ring, basicMat(0xffffff, {transparent:true, opacity:0.85*(1-burstProgress), side:THREE.DoubleSide}));
+      burst.rotation.x = -Math.PI/2;
+      const br = 1+burstProgress*20;
+      burst.scale.set(br,br,1);
+      burst.position.set(w.x, 0.05, w.z);
+      dynamicGroup.add(burst);
+      const burst2 = new THREE.Mesh(geo.ring, basicMat(0xff2020, {transparent:true, opacity:0.6*(1-burstProgress), side:THREE.DoubleSide}));
+      burst2.rotation.x = -Math.PI/2;
+      const br2 = Math.max(0.1, br-3);
+      burst2.scale.set(br2,br2,1);
+      burst2.position.set(w.x, 0.05, w.z);
+      dynamicGroup.add(burst2);
+    }
+    if(spaceMode){
+      scene.background = new THREE.Color(0x05040f);
+      scene.fog.color = new THREE.Color(0x140a24);
+    } else if(stage===12 && blackHoleDeathTarget){
+      const progress = Math.min(1, 1 - Math.max(0,stageTimer)/BLACKHOLE_DEATH_DURATION);
+      scene.background = new THREE.Color(0xbfe3ff).lerp(new THREE.Color(0x05020a), progress);
+      scene.fog.color = new THREE.Color(0x8fd0ea).lerp(new THREE.Color(0x1a0a2a), progress);
+    } else {
+      bgLerp += (targetBgLerp-bgLerp)*0.3;
+      if(bgLerp < 0.015){
+        scene.background = skyTexture;
+      } else {
+        const bg = new THREE.Color(0xbfe3ff).lerp(new THREE.Color(0xff2020), bgLerp);
+        scene.background = bg;
+      }
+      scene.fog.color = new THREE.Color(0x8fd0ea).lerp(new THREE.Color(0xff2020), bgLerp);
+    }
+
+    // true boss's dramatic entrance, played out during the stage-4 intro:
+    //   A) the first boss's UFO doesn't explode - it sits wrecked and
+    //      smoking right where it died, a beam of light stretching out to
+    //      lock onto the player
+    //   B) a white flash cuts over: the arena itself swaps to the space
+    //      theme and the player is repositioned inside it
+    //   C) the true boss falls from high above into the new space arena
+    //      and lands with an impact right before the fight starts for real
+    if(stage===4){
+      if(!stage4FX) stage4FX = { cutoverDone: !bossDeathPixelPos };
+      const EJECT_START = 0.6, EJECT_END = 1.6;
+      const BEAM_START = 1.9, BEAM_BUILD = 1.6;
+      const FLASH_START = 3.9, FLASH_FULL = 4.4, FLASH_HOLD_END = 5.0, FLASH_FADE_END = 5.8;
+      const FALL_START = bossDeathPixelPos ? FLASH_FULL : 0;
+      const FALL_END = FALL_START + 2.3;
+      const TOTAL = TRUEBOSS_DESCENT_DURATION;
+      const elapsed = Math.max(0, TOTAL - stageTimer);
+      const clamp01 = x => Math.max(0, Math.min(1, x));
+      const easeIn = x => x*x;
+
+      const centerGx = Math.floor(COLS/2), centerGy = Math.max(1, Math.floor(ROWS/2)-2);
+      const landSpot = cellCenterToWorld(centerGx, centerGy);
+
+      // --- Phase A: the wrecked, smoking UFO - the true boss visibly
+      // ejects from it and rockets away, then a beam locks onto the player ---
+      if(bossDeathPixelPos && elapsed < FLASH_FULL){
+        const wreckW = pixelToWorld(bossDeathPixelPos.x, bossDeathPixelPos.y);
+        const t = performance.now()/1000;
+
+        renderUfoWreck(wreckW.x, wreckW.z);
+
+        // the true boss bursts out of the dome and rockets off into space,
+        // shrinking into the distance as it goes
+        if(elapsed >= EJECT_START && elapsed < EJECT_END+0.4){
+          if(!stage4FX.ejectTriggered){
+            stage4FX.ejectTriggered = true;
+            triggerShake(0.3, 6);
+            spawnDeathEffect(bossDeathPixelPos.x, bossDeathPixelPos.y, '#aa4dff', 2.0);
+            sfx.bossFire();
+          }
+          if(!stage4FX.ejectMesh) stage4FX.ejectMesh = makeAlienBossMesh();
+          const ep = clamp01((elapsed-EJECT_START)/(EJECT_END-EJECT_START));
+          const easeInEj = ep*ep;
+          const ey = 0.9 + easeInEj*10;
+          const exOff = easeInEj*2.6;
+          stage4FX.ejectMesh.position.set(wreckW.x+exOff, ey, wreckW.z);
+          stage4FX.ejectMesh.rotation.y = elapsed*4;
+          const emScale = Math.max(0.12, 1-easeInEj*0.85);
+          stage4FX.ejectMesh.scale.set(emScale,emScale,emScale);
+          dynamicGroup.add(stage4FX.ejectMesh);
+        }
+
+        // the warp beam, stretching from the wreck straight to the player -
+        // thick and unmistakably yellow, with a long, clear build-up
+        if(elapsed >= BEAM_START && player.alive){
+          const pw = pixelToWorld(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2);
+          const beamP = clamp01((elapsed-BEAM_START)/BEAM_BUILD);
+          const bx1=wreckW.x, by1=0.78, bz1=wreckW.z, bx2=pw.x, by2=0.55, bz2=pw.z;
+          const ddx=bx2-bx1, ddy=by2-by1, ddz=bz2-bz1;
+          const dist = Math.sqrt(ddx*ddx+ddy*ddy+ddz*ddz);
+          if(dist>0.001){
+            const beamOuter = new THREE.Mesh(geo.cylinder, basicMat(0xffe066, {transparent:true, opacity:0.3*beamP}));
+            beamOuter.scale.set(0.42*beamP+0.08, dist, 0.42*beamP+0.08);
+            beamOuter.position.set((bx1+bx2)/2, (by1+by2)/2, (bz1+bz2)/2);
+            const dir = new THREE.Vector3(ddx,ddy,ddz).normalize();
+            const beamQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
+            beamOuter.quaternion.copy(beamQuat);
+            dynamicGroup.add(beamOuter);
+            const beam = new THREE.Mesh(geo.cylinder, basicMat(0xffe066, {transparent:true, opacity:0.7*beamP}));
+            beam.scale.set(0.22*beamP+0.05, dist, 0.22*beamP+0.05);
+            beam.position.copy(beamOuter.position);
+            beam.quaternion.copy(beamQuat);
+            dynamicGroup.add(beam);
+            const beamCore = new THREE.Mesh(geo.cylinder, basicMat(0xffffff, {transparent:true, opacity:0.85*beamP}));
+            beamCore.scale.set(0.08*beamP+0.02, dist, 0.08*beamP+0.02);
+            beamCore.position.copy(beamOuter.position);
+            beamCore.quaternion.copy(beamQuat);
+            dynamicGroup.add(beamCore);
+          }
+          const ring = new THREE.Mesh(geo.ring, basicMat(0xffe066, {transparent:true, opacity:0.6*beamP, side:THREE.DoubleSide}));
+          ring.rotation.x = -Math.PI/2;
+          const ringS = 0.75+0.25*Math.sin(t*4);
+          ring.scale.set(ringS, ringS, 1);
+          ring.position.set(pw.x, 0.04, pw.z);
+          dynamicGroup.add(ring);
+          const sparkCount = 14;
+          for(let i=0;i<sparkCount;i++){
+            const phase = (t*1.6 + i/sparkCount) % 1;
+            const r = 0.42*(1-phase*0.6);
+            const ang = i*1.7 + t*3;
+            const sx = pw.x+Math.cos(ang)*r, sz = pw.z+Math.sin(ang)*r;
+            const sy = phase*2.2;
+            const sspark = new THREE.Mesh(geo.sphere, basicMat(0xffe066, {transparent:true, opacity:(1-phase)*0.9*beamP}));
+            sspark.scale.set(0.06,0.06,0.06);
+            sspark.position.set(sx, sy, sz);
+            dynamicGroup.add(sspark);
+          }
+          const warpLight = new THREE.PointLight(0xffe066, 1.4*beamP, 3.8);
+          warpLight.position.set(pw.x, 0.8, pw.z);
+          dynamicGroup.add(warpLight);
+        }
+      }
+
+      // --- Phase B: the white flash cutover - a proper flashbang hold, not
+      // just a brief peak - then swap the arena to space and reposition the player ---
+      if(bossDeathPixelPos && !stage4FX.cutoverDone && elapsed >= FLASH_FULL){
+        stage4FX.cutoverDone = true;
+        setupSpaceTheme();
+        clearAllSoftBlocks();
+        buildBoardMeshes();
+        bombs = [];
+        explosions = [];
+        player.gx = Math.floor(COLS/2); player.gy = ROWS-2;
+        player.moveDir = { dx:0, dy:0 }; player.progress = 0;
+        player.x = player.gx*TILE + (TILE-ENTITY_SIZE)/2;
+        player.y = player.gy*TILE + (TILE-ENTITY_SIZE)/2;
+        triggerShake(0.4, 7);
+      }
+      if(bossDeathPixelPos){
+        let flashOpacity = 0;
+        if(elapsed>=FLASH_START && elapsed<FLASH_FULL) flashOpacity = clamp01((elapsed-FLASH_START)/(FLASH_FULL-FLASH_START));
+        else if(elapsed>=FLASH_FULL && elapsed<FLASH_HOLD_END) flashOpacity = 1;
+        else if(elapsed>=FLASH_HOLD_END && elapsed<FLASH_FADE_END) flashOpacity = 1-clamp01((elapsed-FLASH_HOLD_END)/(FLASH_FADE_END-FLASH_HOLD_END));
+        whiteFlash.style.opacity = String(flashOpacity);
+      }
+
+      // --- Phase C: the true boss falls from high above into the new arena ---
+      if(elapsed >= FALL_START){
+        if(!descentMesh){
+          descentMesh = makeAlienBossMesh();
+          descentMesh._landed = false;
+        }
+        const p = clamp01((elapsed-FALL_START)/(FALL_END-FALL_START));
+        const y = elapsed>=FALL_END ? 0 : 10*(1-easeIn(p));
+        descentMesh.position.set(landSpot.x, Math.max(0,y), landSpot.z);
+        descentMesh.rotation.y = elapsed*3;
+        descentMesh.visible = true;
+        dynamicGroup.add(descentMesh);
+        if(elapsed >= FALL_END && !descentMesh._landed){
+          descentMesh._landed = true;
+          triggerShake(0.4, 8);
+          spawnDeathEffect(centerGx*TILE+TILE/2, centerGy*TILE+TILE/2, '#ff3b3b', 2.4);
+        }
+      }
+    }
+
+    // the hidden final boss's own entrance, played out during stage 8: a
+    // purple/gold UFO descends to the arena's center, hovers, and the
+    // crowned boss itself drops out and lands before the UFO pulls away
+    if(stage===8){
+      const totalH = KICKBROKEN_MSG_DURATION + HIDDENBOSS_UFO_DURATION;
+      const elapsedH = Math.max(0, totalH - stageTimer);
+      const clamp01h = x => Math.max(0, Math.min(1, x));
+      const easeInH = x => x*x;
+      const easeOutH = x => 1-(1-x)*(1-x);
+      const hCenterGx = Math.floor(COLS/2), hCenterGy = Math.max(1, Math.floor(ROWS/2)-2);
+      const hSpot = cellCenterToWorld(hCenterGx, hCenterGy);
+
+      const UFO_START = KICKBROKEN_MSG_DURATION;
+      const UFO_DESCEND_END = UFO_START + 1.2;
+      const UFO_HOVER_END = UFO_DESCEND_END + 0.3;
+      const BOSS_FALL_END_H = UFO_HOVER_END + 0.8;
+      const UFO_LEAVE_END = BOSS_FALL_END_H + 0.6;
+
+      if(elapsedH >= UFO_START){
+        let ufoY = 10;
+        if(elapsedH < UFO_DESCEND_END){
+          const p = clamp01h((elapsedH-UFO_START)/(UFO_DESCEND_END-UFO_START));
+          ufoY = 10 - (10-2.4)*easeOutH(p);
+        } else if(elapsedH < BOSS_FALL_END_H){
+          ufoY = 2.4 + Math.sin(performance.now()/500)*0.1;
+        } else {
+          const p = clamp01h((elapsedH-BOSS_FALL_END_H)/(UFO_LEAVE_END-BOSS_FALL_END_H));
+          ufoY = 2.4 + 9*easeInH(p);
+        }
+        const ufoOpacity = elapsedH>=BOSS_FALL_END_H ? (1-clamp01h((elapsedH-BOSS_FALL_END_H)/(UFO_LEAVE_END-BOSS_FALL_END_H))) : 1;
+        if(ufoOpacity > 0.01){
+          const s = 2.2;
+          const saucer = new THREE.Mesh(geo.sphere, basicMat(0x3a1a55, {transparent:true, opacity:0.9*ufoOpacity}));
+          saucer.scale.set(s*0.62, s*0.16, s*0.62);
+          saucer.position.set(hSpot.x, ufoY, hSpot.z);
+          dynamicGroup.add(saucer);
+          const dome = new THREE.Mesh(geo.sphere, basicMat(0xffd75e, {transparent:true, opacity:0.32*ufoOpacity}));
+          dome.scale.set(s*0.4, s*0.36, s*0.4);
+          dome.position.set(hSpot.x, ufoY+s*0.42, hSpot.z);
+          dynamicGroup.add(dome);
+          const ufoUnderGlow = new THREE.Mesh(geo.ring, basicMat(0x8a3ad0, {transparent:true, opacity:0.5*ufoOpacity, side:THREE.DoubleSide}));
+          ufoUnderGlow.rotation.x = -Math.PI/2;
+          ufoUnderGlow.scale.set(s*0.5, s*0.5, 1);
+          ufoUnderGlow.position.set(hSpot.x, ufoY-s*0.14, hSpot.z);
+          dynamicGroup.add(ufoUnderGlow);
+          const ufoLight = new THREE.PointLight(0x8a3ad0, 1.0*ufoOpacity, 4.2);
+          ufoLight.position.set(hSpot.x, ufoY, hSpot.z);
+          dynamicGroup.add(ufoLight);
+          if(elapsedH < BOSS_FALL_END_H && ufoY>0.3){
+            const beam = new THREE.Mesh(geo.cylinder, basicMat(0x8a3ad0, {transparent:true, opacity:0.22*ufoOpacity}));
+            beam.scale.set(s*0.3, ufoY, s*0.3);
+            beam.position.set(hSpot.x, ufoY/2, hSpot.z);
+            dynamicGroup.add(beam);
+          }
+        }
+      }
+
+      // the hidden boss drops out from underneath and falls the rest of the way
+      if(elapsedH >= UFO_HOVER_END){
+        if(!hiddenDescentMesh){
+          hiddenDescentMesh = makeAlienBossMesh(true, 'dual');
+          hiddenDescentMesh.scale.set(1.2,1.2,1.2);
+          hiddenDescentMesh._landed = false;
+        }
+        const p = clamp01h((elapsedH-UFO_HOVER_END)/(BOSS_FALL_END_H-UFO_HOVER_END));
+        const y = elapsedH>=BOSS_FALL_END_H ? 0 : 2.2*(1-easeInH(p));
+        hiddenDescentMesh.position.set(hSpot.x, Math.max(0,y), hSpot.z);
+        hiddenDescentMesh.rotation.y = elapsedH*2;
+        dynamicGroup.add(hiddenDescentMesh);
+        if(elapsedH >= BOSS_FALL_END_H && !hiddenDescentMesh._landed){
+          hiddenDescentMesh._landed = true;
+          triggerShake(0.35, 7);
+          spawnDeathEffect(hCenterGx*TILE+TILE/2, hCenterGy*TILE+TILE/2, '#8a3ad0', 2.0);
+        }
+      }
     }
 
     // player
     if(player.alive){
-      if(player.invincibleTimer>0){
-        const glowAlpha = 0.4 + 0.3*Math.sin(performance.now()/80);
-        ctx.save();
-        ctx.shadowColor = `rgba(255,230,80,${glowAlpha})`;
-        ctx.shadowBlur = 16;
-        drawCharacter(player, '#3d7bff', '#1c3f99');
-        ctx.restore();
-      } else {
-        drawCharacter(player, '#3d7bff', '#1c3f99');
+      if(!player.mesh3d) player.mesh3d = makeCharacterMesh(mat.playerBody, mat.playerVisor, 0xaee0ff);
+      renderCharacter3D(player, player.mesh3d, player.invincibleTimer>0, facingStringToAngle(player.facing));
+      if(player.posing){
+        // a little triumphant hop plus a rising ring of golden sparkles
+        // around the player while they hold the victory pose
+        const pt = performance.now()/1000;
+        const hop = Math.abs(Math.sin(pt*3))*0.12;
+        player.mesh3d.position.y = hop;
+        const pw = pixelToWorld(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2);
+        const sparkCount = 10;
+        for(let i=0;i<sparkCount;i++){
+          const phase = (pt*0.7 + i/sparkCount) % 1;
+          const ang = i*2.4 + pt*1.5;
+          const r = 0.5 + phase*0.3;
+          const sy = 0.3 + phase*1.6;
+          const spark = new THREE.Mesh(geo.sphere, basicMat(0xffe066, {transparent:true, opacity:0.8*(1-phase)}));
+          spark.scale.set(0.055,0.055,0.055);
+          spark.position.set(pw.x+Math.cos(ang)*r, sy, pw.z+Math.sin(ang)*r);
+          dynamicGroup.add(spark);
+        }
+        const poseGlow = makeGlowSprite(0xffe066, 2.4);
+        poseGlow.position.set(pw.x, 1.1, pw.z);
+        dynamicGroup.add(poseGlow);
+        const poseLight = new THREE.PointLight(0xffe066, 1.0, 3.2);
+        poseLight.position.set(pw.x, 1.1, pw.z);
+        dynamicGroup.add(poseLight);
       }
     }
 
-    drawDeathEffects();
+    syncBlockDebris3D();
+    syncDeathEffects3D();
 
-    if(!player.alive){
-      ctx.fillStyle = 'rgba(0,0,0,0.4)';
-      ctx.fillRect(0,0,canvas.width,canvas.height);
+    // camera shake
+    if(shakeTimer>0){
+      const sx = (Math.random()*2-1)*shakeMagnitude*shakeTimer*0.05;
+      const sy = (Math.random()*2-1)*shakeMagnitude*shakeTimer*0.05;
+      camera.position.set(cameraBase.x+sx, cameraBase.y+sy, cameraBase.z);
+    } else {
+      camera.position.copy(cameraBase);
     }
-    ctx.restore();
-  }
 
-  function drawBoss(b, size, maxHp, normalColor){
-    const flashing = b.invuln>0 && Math.floor(performance.now()/80)%2===0;
-    const cx = b.x + ENTITY_SIZE/2, cy = b.y + ENTITY_SIZE/2;
-    const half = size/2;
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.beginPath();
-    ctx.ellipse(cx, cy+half*0.9, half*0.9, 6, 0, 0, Math.PI*2);
-    ctx.fill();
-    ctx.fillStyle = flashing ? '#ffb3b3' : normalColor;
-    ctx.beginPath();
-    if(ctx.roundRect) ctx.roundRect(cx-half, cy-half, size, size, 10);
-    else ctx.rect(cx-half, cy-half, size, size);
-    ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.arc(cx-half*0.4, cy-half*0.15, 5, 0, Math.PI*2);
-    ctx.arc(cx+half*0.4, cy-half*0.15, 5, 0, Math.PI*2);
-    ctx.fill();
-    ctx.fillStyle = '#c0392b';
-    ctx.beginPath();
-    ctx.arc(cx-half*0.4, cy-half*0.15, 2.4, 0, Math.PI*2);
-    ctx.arc(cx+half*0.4, cy-half*0.15, 2.4, 0, Math.PI*2);
-    ctx.fill();
-    // hp pips above the boss
-    const pipW = 10, pipGap = 3;
-    const totalW = maxHp*pipW + (maxHp-1)*pipGap;
-    let px = cx - totalW/2;
-    for(let i=0;i<maxHp;i++){
-      ctx.fillStyle = i<b.hp ? '#ff5a5a' : 'rgba(255,255,255,0.25)';
-      ctx.fillRect(px, cy-half-14, pipW, 6);
-      px += pipW+pipGap;
-    }
-  }
-
-  function drawCharacter(e, color, dark){
-    const cx = e.x, cy = e.y;
-    ctx.fillStyle = dark;
-    ctx.fillRect(cx-1,cy+ENTITY_SIZE-4,ENTITY_SIZE+2,5);
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    if(ctx.roundRect) ctx.roundRect(cx,cy,ENTITY_SIZE,ENTITY_SIZE,6);
-    else ctx.rect(cx,cy,ENTITY_SIZE,ENTITY_SIZE);
-    ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.arc(cx+ENTITY_SIZE*0.32, cy+ENTITY_SIZE*0.4, 3, 0, Math.PI*2);
-    ctx.arc(cx+ENTITY_SIZE*0.68, cy+ENTITY_SIZE*0.4, 3, 0, Math.PI*2);
-    ctx.fill();
-    ctx.fillStyle = '#111';
-    ctx.beginPath();
-    ctx.arc(cx+ENTITY_SIZE*0.32, cy+ENTITY_SIZE*0.4, 1.4, 0, Math.PI*2);
-    ctx.arc(cx+ENTITY_SIZE*0.68, cy+ENTITY_SIZE*0.4, 1.4, 0, Math.PI*2);
-    ctx.fill();
+    renderer.render(scene, camera);
   }
 
   function loop(now){
@@ -2051,6 +5401,7 @@
     lastTime = now;
     update(dt);
     updateDeathEffects(dt);
+    updateBlockDebris(dt);
     updateBGM();
     draw();
     requestAnimationFrame(loop);

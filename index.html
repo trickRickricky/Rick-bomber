@@ -263,9 +263,59 @@
     box-shadow: 0 4px 10px rgba(0,0,0,.5), inset 0 0 0 3px #333;
   }
   #hint { font-size: 10.5px; opacity: .6; margin-top: 4px; text-align:center; }
+  #titleScreen {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: radial-gradient(circle at 50% 28%, #1b2a4a, #05070f 78%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  #titlePanel, #storyPanel { max-width: 340px; text-align: center; color: #eee; }
+  #titleLogo {
+    font-size: 25px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    margin: 0 0 16px;
+    text-shadow: 0 2px 8px rgba(0,0,0,.7), 0 0 16px rgba(255,180,70,.35);
+  }
+  #titleTagline {
+    font-size: 12.5px;
+    line-height: 1.75;
+    opacity: .82;
+    margin: 0 0 28px;
+  }
+  .storyLine {
+    font-size: 14.5px;
+    line-height: 1.8;
+    margin: 0 0 16px;
+    opacity: 0;
+    text-shadow: 0 1px 3px rgba(0,0,0,.6);
+    animation: storyFadeIn 0.7s ease forwards;
+  }
+  .storyLine:nth-child(1){ animation-delay: 0.1s; }
+  .storyLine:nth-child(2){ animation-delay: 1.0s; }
+  .storyLine:nth-child(3){ animation-delay: 1.9s; }
+  @keyframes storyFadeIn { from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:translateY(0); } }
+  #storyContinueBtn { margin-top: 12px; opacity: 0; animation: storyFadeIn 0.7s ease forwards; animation-delay: 2.7s; }
 </style>
 </head>
 <body>
+<div id="titleScreen">
+  <div id="titlePanel">
+    <h1 id="titleLogo">🤖 Rickボンバー</h1>
+    <p id="titleTagline">主人公は地球を守るロボット。<br>ハッキングされ暴走した仲間を倒し、諸悪の根源である地球外生命体と戦う——。</p>
+    <button class="bigbtn" id="startGameBtn">はじめる</button>
+  </div>
+  <div id="storyPanel" style="display:none;">
+    <p class="storyLine">仲間たちが、暴走している…!?</p>
+    <p class="storyLine">まさか、内部プログラムをハッキングされたのか…!?</p>
+    <p class="storyLine">一刻も早く犯人を突き止め、この手で止めなければ——</p>
+    <button class="bigbtn" id="storyContinueBtn">ステージ開始</button>
+  </div>
+</div>
 <div id="app">
   <h1><span id="skipToFirstBossBtn" title="最初のボスへスキップ">💣</span> Rickボンバー <span id="skipToBossBtn" title="真のラスボスへスキップ">💣</span></h1>
   <button id="muteBtn" title="サウンドON/OFF">🔊</button>
@@ -2601,6 +2651,18 @@
   destroyRayBtn.addEventListener('pointerdown', e=>{ e.preventDefault(); activateDestroyRay(); });
 
   document.getElementById('restartBtn').addEventListener('click', resetGame);
+
+  const titleScreen = document.getElementById('titleScreen');
+  const titlePanel = document.getElementById('titlePanel');
+  const storyPanel = document.getElementById('storyPanel');
+  document.getElementById('startGameBtn').addEventListener('click', ()=>{
+    titlePanel.style.display = 'none';
+    storyPanel.style.display = 'block';
+  });
+  document.getElementById('storyContinueBtn').addEventListener('click', ()=>{
+    titleScreen.style.display = 'none';
+    startGameplay();
+  });
 
   function skipToFirstBoss(){
     if(gameOver || gameWin) return;
@@ -5408,8 +5470,10 @@
     requestAnimationFrame(loop);
   }
 
-  resetGame();
-  requestAnimationFrame(loop);
+  function startGameplay(){
+    resetGame();
+    requestAnimationFrame(loop);
+  }
 })();
 </script>
 </body>

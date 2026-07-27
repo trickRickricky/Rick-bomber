@@ -419,6 +419,8 @@
     plane: new THREE.PlaneGeometry(1,1),
     torus: new THREE.TorusGeometry(0.42, 0.07, 8, 20),
     ring: new THREE.RingGeometry(0.5, 0.62, 24),
+    hexPrism: new THREE.CylinderGeometry(0.5, 0.5, 1, 6),
+    hexPoint: new THREE.CylinderGeometry(0, 0.5, 1, 6),
   };
   const boxEdges = new THREE.EdgesGeometry(geo.box);
   function addGlowEdges(mesh, colorHex, opacity){
@@ -1046,21 +1048,49 @@
 
     const wallMat = spaceMode ? mat.spaceWall : mat.wall;
     const blockMat = spaceMode ? mat.spaceBlock : mat.block;
-    const bodyMat = isTreasure ? basicMat(0xffd75e) : (isWall ? wallMat : blockMat);
-    const body = new THREE.Mesh(geo.box, bodyMat);
-    body.scale.set(isWall ? 0.92 : 0.86, h, isWall ? 0.92 : 0.86);
-    body.position.set(w.x, h/2, w.z);
-    addGlowEdges(body, isTreasure ? 0xffe066 : 0, isTreasure ? 0.9 : 0.45);
-    g.add(body);
+    const bodyMat = isTreasure ? null : (isWall ? wallMat : blockMat);
     if(isTreasure){
-      // an unmistakable golden glow so it reads as "special" - normal bombs
-      // can't touch it, only the destroy ray can crack it open
-      const glow = makeGlowSprite(0xffe066, 1.5);
-      glow.position.set(w.x, h+0.35, w.z);
-      g.add(glow);
-      const light = new THREE.PointLight(0xffe066, 0.9, 2.4);
-      light.position.set(w.x, h*0.7, w.z);
+      // a large, solid hexagonal quartz-style crystal (prism body + a
+      // sharp pointed tip, like a natural crystal spike) - cloudy, milky
+      // pale blue, with just a faint golden point deep inside it
+      const crystalMat = stdMat(0x7fa8b3, 0x0a1216, {metalness:0.15, roughness:0.55, transparent:true, opacity:0.88});
+      const prismH = 1.85, prismR = 0.42, tipH = 1.05;
+      const prism = new THREE.Mesh(geo.hexPrism, crystalMat);
+      prism.scale.set(prismR*2, prismH, prismR*2);
+      prism.position.set(w.x, prismH/2, w.z);
+      prism.rotation.y = 0.3;
+      g.add(prism);
+      const tip = new THREE.Mesh(geo.hexPoint, crystalMat);
+      tip.scale.set(prismR*2, tipH, prismR*2);
+      tip.position.set(w.x, prismH + tipH/2, w.z);
+      tip.rotation.y = 0.3;
+      g.add(tip);
+      // faint dark facet lines instead of a bright wireframe - reads the
+      // hard edges without making it look fragile or shiny
+      const prismWire = new THREE.Mesh(geo.hexPrism, new THREE.MeshBasicMaterial({ color:0x2a4550, wireframe:true, transparent:true, opacity:0.25 }));
+      prismWire.scale.copy(prism.scale);
+      prismWire.position.copy(prism.position);
+      prismWire.rotation.y = prism.rotation.y;
+      g.add(prismWire);
+      // a golden point of light buried deep inside it - bright enough to
+      // clearly read as "there's a treasure in here", with light visibly
+      // leaking out through the crystal around it
+      const orb = new THREE.Mesh(geo.sphere, basicMat(0xffd75e));
+      orb.scale.set(0.16, 0.16, 0.16);
+      orb.position.set(w.x, prismH*0.55, w.z);
+      g.add(orb);
+      const orbGlow = makeGlowSprite(0xffd75e, 1.3);
+      orbGlow.position.set(w.x, prismH*0.55, w.z);
+      g.add(orbGlow);
+      const light = new THREE.PointLight(0xffd75e, 0.95, 2.6);
+      light.position.set(w.x, prismH*0.55, w.z);
       g.add(light);
+    } else {
+      const body = new THREE.Mesh(geo.box, bodyMat);
+      body.scale.set(isWall ? 0.92 : 0.86, h, isWall ? 0.92 : 0.86);
+      body.position.set(w.x, h/2, w.z);
+      addGlowEdges(body, 0, 0.45);
+      g.add(body);
     }
 
     boardGroup.add(g);
@@ -1438,6 +1468,39 @@
   function attachCrownToPlayer(){
     if(!player.mesh3d || player.mesh3d.userData.hasCrown) return;
     player.mesh3d.userData.hasCrown = true;
+    if(crownCracked){
+      // a battered, crooked crown - dull bronze, no gems, most of the
+      // points broken off, sitting lopsided rather than centered
+      const crownMat = basicMat(0x8a7248);
+      const band = new THREE.Mesh(geo.cylinder, crownMat);
+      band.scale.set(0.24,0.07,0.24);
+      band.position.set(0.03, 1.54, 0);
+      band.rotation.z = 0.35;
+      player.mesh3d.add(band);
+      // just one surviving, bent point instead of the full ring of five
+      const point = new THREE.Mesh(geo.box, crownMat);
+      point.scale.set(0.06,0.08,0.06);
+      point.position.set(0.16, 1.6, 0.05);
+      point.rotation.z = 0.6;
+      player.mesh3d.add(point);
+      // a couple of broken-off fragments floating loose nearby, since
+      // there's nothing to proudly display here
+      const frag1 = new THREE.Mesh(geo.box, crownMat);
+      frag1.scale.set(0.05,0.05,0.05);
+      frag1.position.set(-0.14, 1.5, -0.08);
+      frag1.rotation.set(0.4, 0.3, 0.8);
+      player.mesh3d.add(frag1);
+      const frag2 = new THREE.Mesh(geo.box, crownMat);
+      frag2.scale.set(0.04,0.04,0.04);
+      frag2.position.set(0.08, 1.46, -0.14);
+      frag2.rotation.set(0.6, 0.2, 0.3);
+      player.mesh3d.add(frag2);
+      // a faint, dull glow rather than a proud golden shine
+      const crownGlow = new THREE.PointLight(0x8a7248, 0.25, 1.4);
+      crownGlow.position.y = 1.56;
+      player.mesh3d.add(crownGlow);
+      return;
+    }
     const crownMat = basicMat(0xffd75e);
     const band = new THREE.Mesh(geo.cylinder, crownMat);
     band.scale.set(0.24,0.08,0.24);
@@ -1641,6 +1704,26 @@
       playTone(784,0.14,'square',0.15,0.26);
       playTone(1047,0.28,'square',0.16,0.39);
     },
+    grandWin(){
+      // a fuller, more triumphant fanfare for the true, clean-crown ending -
+      // a rising fanfare (doubled an octave down for weight), a big held
+      // chord, and a sparkling flourish on top, instead of the plain
+      // single-note arpeggio of the regular win jingle
+      const notes = [523.25, 659.25, 784.0, 1047.0];
+      notes.forEach((f,i)=>{
+        playTone(f, 0.22, 'triangle', 0.2, i*0.15);
+        playTone(f/2, 0.24, 'square', 0.11, i*0.15);
+      });
+      const chordAt = notes.length*0.15;
+      [523.25, 659.25, 784.0, 1047.0, 1318.5].forEach(f=>{
+        playTone(f, 0.9, 'triangle', 0.13, chordAt);
+      });
+      playTone(130.8, 0.9, 'square', 0.15, chordAt);
+      const sparkleNotes = [1568.0, 2093.0, 1760.0, 2349.3];
+      sparkleNotes.forEach((f,i)=>{
+        playTone(f, 0.3, 'sine', 0.14, chordAt + 0.1 + i*0.09);
+      });
+    },
     gameOver(){
       playTone(220,0.2,'triangle',0.15,0);
       playTone(196,0.2,'triangle',0.15,0.15);
@@ -1651,6 +1734,19 @@
       playTone(880,0.18,'square',0.16,0);
       playTone(880,0.18,'square',0.16,0.28);
       playTone(880,0.24,'square',0.18,0.56);
+    },
+    ufoApproach(){
+      // a classic sci-fi "flying saucer" warble - a wavering pitch that
+      // slowly descends in register as the UFO comes down, plus a low
+      // engine hum underneath
+      const ac = ensureAudio();
+      if(!audioEnabled || !ac) return;
+      for(let i=0;i<8;i++){
+        const t = i/8;
+        const f = (500 - t*220) * (1 + 0.15*Math.sin(t*18));
+        playTone(f, 0.24, 'sine', 0.1, t*1.9);
+      }
+      playSlide(140, 70, 2.1, 'sawtooth', 0.09, 0.1);
     },
     desperationCharge(){
       playSlide(80, 900, 2.0, 'sawtooth', 0.1);
@@ -1676,6 +1772,17 @@
     bossFire(){
       playSlide(700, 200, 0.22, 'square', 0.16);
       playNoise(0.15, 0.12);
+    },
+    rayBlast(){
+      // a heavier, more impactful ray-weapon blast - a punchy sub-bass
+      // thump underneath a sharp descending zap, plus a burst of noise -
+      // used for the true boss's ray attacks and the destroy ray, so both
+      // land with real weight instead of the plainer generic bossFire
+      playSlide(1500, 200, 0.3, 'sawtooth', 0.3, 0);
+      playSlide(950, 130, 0.24, 'square', 0.22, 0.01);
+      playTone(65, 0.24, 'square', 0.28, 0);
+      playNoise(0.24, 0.24, 0);
+      playNoise(0.13, 0.18, 0.03);
     },
     trueBossWarning(){
       // darker, longer, and layered with noise hits - meant to feel far more
@@ -1788,12 +1895,32 @@
       bassDiv: 2,
       bassEvery: 1,
     },
+    // the warp-zone (stage 7): a bright, breezy major-key tune - the true
+    // boss is down, this is a brief safe moment before deciding whether to
+    // go home or push on toward whatever's hiding behind the black hole
+    clear: {
+      notes: [523.3,659.3,784.0,1047.0, 987.8,784.0,659.3,784.0, 523.3,659.3,784.0,880.0, 784.0,659.3,523.3,587.3],
+      noteDuration: 0.165,
+      wave: 'triangle',
+    },
+    // a quiet, continuous "kira-kira" twinkle for the clean-crown ending -
+    // high, delicate bell tones, played very softly (see the vol lookup in
+    // updateBGM) so it sits underneath everything else rather than
+    // demanding attention like a normal theme
+    crownSparkle: {
+      notes: [1046.5, 1318.5, 1568.0, 1318.5, 1046.5, 1318.5, 1568.0, 2093.0],
+      noteDuration: 0.34,
+      wave: 'sine',
+    },
   };
   let currentBgmKey = null;
 
   function bgmKeyForStage(){
+    if(stage===10 || stage===11 || stage===13) return crownCracked ? null : 'crownSparkle';
     if(stage>=8) return 'hiddenBoss';
-    if(stage>=4) return 'trueBoss';
+    if(stage===7) return 'clear';
+    if(stage===4) return stage4Revealed ? 'trueBoss' : 'normal';
+    if(stage>=5) return 'trueBoss';
     if(stage===3) return 'boss1';
     return 'normal';
   }
@@ -1803,6 +1930,7 @@
     const ac = ensureAudio();
     if(!ac) return;
     const key = bgmKeyForStage();
+    if(!key) return; // no theme for this stage (e.g. a cracked crown's silence)
     if(key!==currentBgmKey){
       currentBgmKey = key;
       bgmIndex = 0;
@@ -1811,7 +1939,7 @@
     const pattern = BGM_PATTERNS[key];
     if(ac.currentTime >= bgmNextTime){
       const freq = pattern.notes[bgmIndex % pattern.notes.length];
-      const vol = key==='hiddenBoss' ? 0.08 : ((key==='trueBoss') ? 0.06 : 0.11);
+      const vol = key==='hiddenBoss' ? 0.08 : (key==='trueBoss' ? 0.06 : (key==='crownSparkle' ? 0.05 : 0.11));
       playTone(freq, pattern.noteDuration*0.85, pattern.wave, vol);
       if(pattern.bassAccent){
         // configurable low-end backing pulse, distinct per theme
@@ -1901,6 +2029,9 @@
   let spaceMode = false; // true once we've warped into the hidden boss's stage
   let starField = null;
   let cutsceneFlashDone = false; // guards the one-time white flash inside a burst cutscene
+  let stage2Landed = false; // guards the one-time touchdown shake/burst for the first boss's UFO descent
+  let playerSuckedInVisual = false; // true while the stage-4 cutscene is manually puppeteering the player's mesh (being sucked into / thrown out of the UFO), so the normal per-frame render doesn't fight it
+  let stage4Revealed = false; // true once the white flash has cleared and the new true-boss arena is actually visible - gates the "真のボス降臨" banner, its warning sfx, and the BGM switch so none of them jump the gun while the screen is still white
   const BLACKHOLE_DEATH_DURATION = 1.7; // the swirling "sucked in and torn apart" cutscene
   let blackHoleDeathTarget = null; // {x,y} pixel center of the black hole doing the pulling
   let blackHoleStartPos = null; // {x,y} pixel center where the player was when it started
@@ -1908,8 +2039,8 @@
   const BOSS_HP = 3;
   const BOSS_SPEED = 105;
   const BOSS_SIZE = 40; // purely visual - collision still uses ENTITY_SIZE so it still fits corridors
-  const BOSS_INTRO_TIME = 2.0;
-  const TRUEBOSS_DESCENT_DURATION = 7.3; // eject + rocket away -> long beam warp build-up -> white flash hold -> new space arena -> true boss falls from above
+  const BOSS_INTRO_TIME = 2.6;
+  const TRUEBOSS_DESCENT_DURATION = 10.6; // eject + rocket away -> beam pulls player in -> wreck teleports away -> white flash hold/fade -> UFO warps into new arena + player thrown clear -> true boss falls from above
   const PROJECTILE_SPEED = 210;
   const PROJECTILE_SIZE = 12;
   const PROJECTILE_BURST_COUNT = 14;
@@ -2061,6 +2192,8 @@
     trueEnding = false;
     endingMessage = null;
     cutsceneFlashDone = false;
+    stage2Landed = false;
+    stage4Revealed = false;
     blackHoleDeathTarget = null;
     blackHoleStartPos = null;
     blackHoleWarpMode = false;
@@ -2531,7 +2664,7 @@
     destroyRayBtn.disabled = true;
     destroyRayBtn.innerHTML = '使用済み';
     destroyRayBeam = { x:originX, y:originY, dx:d.dx, dy:d.dy, timer:0.3 };
-    sfx.bossFire();
+    sfx.rayBlast();
     if(stage===9 && hiddenBoss && hiddenBoss.alive){
       const bx = hiddenBoss.x+ENTITY_SIZE/2, by = hiddenBoss.y+ENTITY_SIZE/2;
       let hit = false;
@@ -2718,10 +2851,12 @@
     player.canKick = true;
     stage = 2;
     stageTimer = BOSS_INTRO_TIME;
+    stage2Landed = false;
     bossBanner.textContent = '';
     bossBanner.innerHTML = '<span>⚠️ ボス登場 ⚠️</span>';
     bossBanner.classList.add('show');
     sfx.bossWarning();
+    sfx.ufoApproach();
     updateHUD();
   }
   // debug skip-to-first-boss removed (kept the function, dropped the click binding so the 💣 title icon is no longer clickable)
@@ -2750,6 +2885,7 @@
     descentMesh = null;
     stage4FX = null;
     bossDeathPixelPos = null;
+    stage4Revealed = true; // no wreck/flash cutscene in this skip path, so it's already "revealed"
     bossBanner.innerHTML = '<span>💀 真のボス降臨 💀</span>';
     bossBanner.classList.add('show');
     updateHUD();
@@ -3444,7 +3580,7 @@
           const rdist2 = Math.hypot(rdx2, rdy2) || 1;
           const fireDx = rdx2/rdist2, fireDy = rdy2/rdist2;
           projectiles.push({ x:cx, y:cy, dx:fireDx, dy:fireDy, isTrueBossRay:true });
-          sfx.bossFire();
+          sfx.rayBlast();
           triggerShake(0.15,3);
         }
         if(trueBoss.rayFired && trueBoss.phaseTimer<=-0.35){
@@ -3471,7 +3607,7 @@
           const rdx = pcx-bcx, rdy = pcy-bcy;
           const rdist = Math.hypot(rdx, rdy) || 1;
           projectiles.push({ x:bcx, y:bcy, dx:rdx/rdist, dy:rdy/rdist, isTrueBossRay:true });
-          sfx.bossFire();
+          sfx.rayBlast();
           triggerShake(0.12, 2);
           trueBoss.periodicRayTimer = 2.6 + Math.random()*1.6;
         }
@@ -3776,7 +3912,7 @@
         const hitCell = ex.cells.find(c=>tileOverlapsEntity(c.gx,c.gy,boss));
         if(hitCell){
           boss.hp--;
-          boss.invuln = 0.6;
+          boss.invuln = 1.0;
           if(boss.hp<=0){
             boss.alive = false;
             bossDeathPixelPos = { x: boss.x+ENTITY_SIZE/2, y: boss.y+ENTITY_SIZE/2 };
@@ -3792,7 +3928,7 @@
         const tCell = occupiedCell(trueBoss);
         if(ex.cells.some(c=>c.gx===tCell.gx && c.gy===tCell.gy)){
           trueBoss.hp--;
-          trueBoss.invuln = 0.6;
+          trueBoss.invuln = 1.0;
           if(trueBoss.hp<=0){
             trueBoss.alive = false;
             // an immediate small pop, then a much bigger slow-motion burst
@@ -3821,13 +3957,19 @@
             sfx.hiddenBossAngry();
           }
           hiddenBoss.hp--;
-          hiddenBoss.invuln = 0.6;
+          hiddenBoss.invuln = 1.0;
           if(hiddenBoss.hp<=0){
             hiddenBoss.alive = false;
             spawnDeathEffect(hiddenBoss.x+ENTITY_SIZE/2, hiddenBoss.y+ENTITY_SIZE/2, '#ffd75e', 2.4);
             spawnSlowBurst(hiddenBoss.x+ENTITY_SIZE/2, hiddenBoss.y+ENTITY_SIZE/2, '#ffd75e', 28, HIDDENBOSS_CROWN_DURATION-0.6);
             spawnSlowBurst(hiddenBoss.x+ENTITY_SIZE/2, hiddenBoss.y+ENTITY_SIZE/2, '#8a3ad0', 20, HIDDENBOSS_CROWN_DURATION-0.8);
             sfx.trueBossDeath();
+            if(crownCracked){
+              bgmPlaying = false;
+            }
+            // a clean crown keeps a quiet, continuous "kira-kira" sparkle
+            // loop playing instead (handled by bgmKeyForStage), rather
+            // than a one-shot chime or silence
             score += 2000;
             crownPos = { gx: hCell.gx, gy: hCell.gy };
             crownTaken = false;
@@ -3850,22 +3992,22 @@
       // regular enemies cleared - trigger the first boss's intro
       stage = 2;
       stageTimer = BOSS_INTRO_TIME;
+      stage2Landed = false;
       bossBanner.textContent = '';
       bossBanner.innerHTML = '<span>⚠️ ボス登場 ⚠️</span>';
       bossBanner.classList.add('show');
       sfx.bossWarning();
+      sfx.ufoApproach();
     } else if(stage===3 && boss && !boss.alive){
       // first boss defeated - it was a decoy; the true boss's descent
       // cutscene handles smoking the wreck, the beam warp, the white
       // flash, and swapping the arena to space itself
       stage = 4;
       stageTimer = TRUEBOSS_DESCENT_DURATION;
+      stage4Revealed = false;
       projectiles = [];
       explosions = [];
       bombs = [];
-      bossBanner.innerHTML = '<span>💀 真のボス降臨 💀</span>';
-      bossBanner.classList.add('show');
-      sfx.trueBossWarning();
     }
 
     // the ray gun, dropped where the true boss fell - picking it up while
@@ -4268,7 +4410,7 @@
     if(win){
       clearElapsedMs = performance.now() - gameStartTime;
       overlayText.textContent = `${endingMessage || '真のボスを倒した！'} クリアタイム: ${formatClearTime(clearElapsedMs)}`;
-      sfx.win();
+      if(trueEnding && !crownCracked) sfx.grandWin(); else sfx.win();
     } else {
       overlayText.textContent = endingMessage || 'もう一度挑戦しよう！';
       sfx.gameOver();
@@ -4898,6 +5040,51 @@
       renderCharacter3D(en, en.mesh3d, false, Math.atan2(en.dir.dx, en.dir.dy));
     }
 
+    // the first boss's own entrance, played out during stage 2: its saucer
+    // descends from high above down to its usual hover height, right as
+    // the "boss incoming" banner and UFO sound play - by the time it lands
+    // stageTimer runs out and the real boss takes over at the same spot
+    if(stage===2){
+      const elapsed2 = BOSS_INTRO_TIME - stageTimer;
+      const clamp012 = x => Math.max(0, Math.min(1, x));
+      const easeOut2 = x => 1-(1-x)*(1-x);
+      const bCenterGx = Math.floor(COLS/2), bCenterGy = Math.floor(ROWS/2);
+      const bSpot = cellCenterToWorld(bCenterGx, bCenterGy);
+      const s2 = (BOSS_SIZE/TILE) * 1.8;
+      const restY = s2*0.46;
+      const DESCEND_END2 = BOSS_INTRO_TIME - 0.5;
+      const p2 = clamp012(elapsed2/DESCEND_END2);
+      const ufoY2 = elapsed2 < DESCEND_END2 ? (9 - (9-restY)*easeOut2(p2)) : restY + Math.sin(performance.now()/500)*0.05*s2;
+
+      const saucer2 = new THREE.Mesh(geo.sphere, mat.bossBody);
+      saucer2.scale.set(s2*0.62, s2*0.16, s2*0.62);
+      saucer2.position.set(bSpot.x, ufoY2, bSpot.z);
+      dynamicGroup.add(saucer2);
+      const dome2 = new THREE.Mesh(geo.sphere, basicMat(0xff5a3a, {transparent:true, opacity:0.35}));
+      dome2.scale.set(s2*0.4, s2*0.36, s2*0.4);
+      dome2.position.set(bSpot.x, ufoY2+s2*0.42, bSpot.z);
+      dynamicGroup.add(dome2);
+      const underGlow2 = new THREE.Mesh(geo.ring, basicMat(0x1fa8a0, {transparent:true, opacity:0.5, side:THREE.DoubleSide}));
+      underGlow2.rotation.x = -Math.PI/2;
+      underGlow2.scale.set(s2*0.5, s2*0.5, 1);
+      underGlow2.position.set(bSpot.x, Math.max(0.02, ufoY2-s2*0.14), bSpot.z);
+      dynamicGroup.add(underGlow2);
+      const ufoLight2 = new THREE.PointLight(0x1fa8a0, 0.9, 4.0);
+      ufoLight2.position.set(bSpot.x, ufoY2, bSpot.z);
+      dynamicGroup.add(ufoLight2);
+      if(elapsed2 < DESCEND_END2){
+        // a descending spotlight beam, brightest right as it's about to touch down
+        const beam2 = new THREE.Mesh(geo.cylinder, basicMat(0xff5a3a, {transparent:true, opacity:0.2}));
+        beam2.scale.set(s2*0.3, ufoY2, s2*0.3);
+        beam2.position.set(bSpot.x, ufoY2/2, bSpot.z);
+        dynamicGroup.add(beam2);
+      } else if(!stage2Landed){
+        stage2Landed = true;
+        triggerShake(0.3, 6);
+        spawnDeathEffect(bCenterGx*TILE+TILE/2, bCenterGy*TILE+TILE/2, '#1fa8a0', 1.6);
+      }
+    }
+
     // first boss
     if(stage===3 && boss && boss.alive){
       renderBoss3D(boss, BOSS_SIZE, BOSS_HP, mat.bossBody, false, Math.atan2(boss.dir.dx, boss.dir.dy));
@@ -5369,30 +5556,58 @@
 
     // true boss's dramatic entrance, played out during the stage-4 intro:
     //   A) the first boss's UFO doesn't explode - it sits wrecked and
-    //      smoking right where it died, a beam of light stretching out to
-    //      lock onto the player
+    //      smoking right where it died; the true boss bursts out and
+    //      rockets away, then a tractor beam locks onto the player and
+    //      visibly hauls them up off the ground and into the wreck
     //   B) a white flash cuts over: the arena itself swaps to the space
-    //      theme and the player is repositioned inside it
+    //      theme
     //   C) the true boss falls from high above into the new space arena
-    //      and lands with an impact right before the fight starts for real
+    //      and lands with an impact
+    //   D) the very same wrecked, still-smoking UFO warps into the new
+    //      arena with a sudden burst, and the player gets thrown clear of
+    //      it, landing in the arena right before the fight starts for real
     if(stage===4){
       if(!stage4FX) stage4FX = { cutoverDone: !bossDeathPixelPos };
+      playerSuckedInVisual = false;
       const EJECT_START = 0.6, EJECT_END = 1.6;
-      const BEAM_START = 1.9, BEAM_BUILD = 1.6;
-      const FLASH_START = 3.9, FLASH_FULL = 4.4, FLASH_HOLD_END = 5.0, FLASH_FADE_END = 5.8;
-      const FALL_START = bossDeathPixelPos ? FLASH_FULL : 0;
-      const FALL_END = FALL_START + 2.3;
+      const BEAM_START = 1.9, PULLIN_END = 3.8;
+      const BEAM_BUILD = 1.6;
+      // once the player is fully swallowed, the wreck itself teleports away
+      // with a burst (rather than just sitting there until the flash)
+      const VANISH_START = PULLIN_END, VANISH_END = VANISH_START + 0.5;
+      const FLASH_START = VANISH_END, FLASH_FULL = FLASH_START+0.5, FLASH_HOLD_END = FLASH_FULL+0.6, FLASH_FADE_END = FLASH_HOLD_END+0.8;
+      // the UFO warp-in + throw only happens once the flash has fully
+      // cleared, so it's actually visible instead of hiding behind white
+      const WARPIN_START = FLASH_FADE_END + 0.1;
+      const WARPIN_BURST_END = WARPIN_START + 0.4;
+      const EJECT2_START = WARPIN_START + 0.55;
+      const EJECT2_END = EJECT2_START + 0.7;
       const TOTAL = TRUEBOSS_DESCENT_DURATION;
+      const WRECK2_END = TOTAL;
+      // the true boss only starts falling once the player has actually
+      // landed, so the two big moments don't compete for attention
+      const FALL_START = bossDeathPixelPos ? (EJECT2_END + 0.15) : 0;
+      const FALL_END = FALL_START + 2.3;
       const elapsed = Math.max(0, TOTAL - stageTimer);
       const clamp01 = x => Math.max(0, Math.min(1, x));
       const easeIn = x => x*x;
 
       const centerGx = Math.floor(COLS/2), centerGy = Math.max(1, Math.floor(ROWS/2)-2);
+      // the player stays hidden from the normal render the *entire* time
+      // between being pulled into the wreck and actually landing after
+      // being thrown clear of it later - otherwise they'd flicker into
+      // view standing normally during the quiet gap in between
+      const pullInStartTime = BEAM_START + BEAM_BUILD*0.5;
+      if(bossDeathPixelPos && !stage4FX.ejectLanded && elapsed >= pullInStartTime){
+        playerSuckedInVisual = true;
+      }
       const landSpot = cellCenterToWorld(centerGx, centerGy);
 
       // --- Phase A: the wrecked, smoking UFO - the true boss visibly
-      // ejects from it and rockets away, then a beam locks onto the player ---
-      if(bossDeathPixelPos && elapsed < FLASH_FULL){
+      // ejects from it and rockets away, then a beam locks onto the player
+      // and visibly hauls them up off the ground and into the wreck, which
+      // then itself teleports away in a burst once it's swallowed them ---
+      if(bossDeathPixelPos && elapsed < VANISH_END){
         const wreckW = pixelToWorld(bossDeathPixelPos.x, bossDeathPixelPos.y);
         const t = performance.now()/1000;
 
@@ -5419,11 +5634,30 @@
           dynamicGroup.add(stage4FX.ejectMesh);
         }
 
-        // the warp beam, stretching from the wreck straight to the player -
-        // thick and unmistakably yellow, with a long, clear build-up
+        // the tractor beam, stretching from the wreck straight to the
+        // player - thick and unmistakably yellow, with a long, clear
+        // build-up before it actually starts reeling them in
         if(elapsed >= BEAM_START && player.alive){
-          const pw = pixelToWorld(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2);
+          const pw0 = pixelToWorld(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2);
           const beamP = clamp01((elapsed-BEAM_START)/BEAM_BUILD);
+          // once the beam has built up, the player visibly leaves the
+          // ground and gets hauled up into the wreck rather than just
+          // standing lit up underneath it
+          const pullP = clamp01((elapsed-(BEAM_START+BEAM_BUILD*0.5))/(PULLIN_END-(BEAM_START+BEAM_BUILD*0.5)));
+          const pullEase = pullP*pullP;
+          const pw = { x: pw0.x + (wreckW.x-pw0.x)*pullEase, z: pw0.z + (wreckW.z-pw0.z)*pullEase };
+          if(pullP > 0 && player.mesh3d){
+            playerSuckedInVisual = true;
+            const liftY = 0.35 + pullEase*3.0;
+            const suckScale = Math.max(0.04, 1-pullEase*0.97);
+            if(pullEase < 0.99){
+              player.mesh3d.position.set(pw.x, liftY, pw.z);
+              player.mesh3d.scale.set(suckScale, suckScale, suckScale);
+              player.mesh3d.rotation.y += 0.35;
+              player.mesh3d.rotation.z = pullEase*1.6;
+              dynamicGroup.add(player.mesh3d);
+            }
+          }
           const bx1=wreckW.x, by1=0.78, bz1=wreckW.z, bx2=pw.x, by2=0.55, bz2=pw.z;
           const ddx=bx2-bx1, ddy=by2-by1, ddz=bz2-bz1;
           const dist = Math.sqrt(ddx*ddx+ddy*ddy+ddz*ddz);
@@ -5446,11 +5680,11 @@
             beamCore.quaternion.copy(beamQuat);
             dynamicGroup.add(beamCore);
           }
-          const ring = new THREE.Mesh(geo.ring, basicMat(0xffe066, {transparent:true, opacity:0.6*beamP, side:THREE.DoubleSide}));
+          const ring = new THREE.Mesh(geo.ring, basicMat(0xffe066, {transparent:true, opacity:0.6*beamP*(1-pullEase), side:THREE.DoubleSide}));
           ring.rotation.x = -Math.PI/2;
           const ringS = 0.75+0.25*Math.sin(t*4);
           ring.scale.set(ringS, ringS, 1);
-          ring.position.set(pw.x, 0.04, pw.z);
+          ring.position.set(pw0.x, 0.04, pw0.z);
           dynamicGroup.add(ring);
           const sparkCount = 14;
           for(let i=0;i<sparkCount;i++){
@@ -5458,7 +5692,7 @@
             const r = 0.42*(1-phase*0.6);
             const ang = i*1.7 + t*3;
             const sx = pw.x+Math.cos(ang)*r, sz = pw.z+Math.sin(ang)*r;
-            const sy = phase*2.2;
+            const sy = 0.4 + phase*(0.6+pullEase*2.2);
             const sspark = new THREE.Mesh(geo.sphere, basicMat(0xffe066, {transparent:true, opacity:(1-phase)*0.9*beamP}));
             sspark.scale.set(0.06,0.06,0.06);
             sspark.position.set(sx, sy, sz);
@@ -5468,10 +5702,30 @@
           warpLight.position.set(pw.x, 0.8, pw.z);
           dynamicGroup.add(warpLight);
         }
+
+        // once the player is fully swallowed, the wreck itself teleports
+        // away in a bright expanding burst rather than just sitting there
+        if(elapsed >= VANISH_START){
+          const vp = clamp01((elapsed-VANISH_START)/(VANISH_END-VANISH_START));
+          if(!stage4FX.vanishBurstDone){
+            stage4FX.vanishBurstDone = true;
+            triggerShake(0.25, 5);
+          }
+          const vrs = 0.4+vp*2.6;
+          const vRing = new THREE.Mesh(geo.ring, basicMat(0xffe066, {transparent:true, opacity:0.75*(1-vp), side:THREE.DoubleSide}));
+          vRing.rotation.x = -Math.PI/2;
+          vRing.scale.set(vrs, vrs, 1);
+          vRing.position.set(wreckW.x, 0.15, wreckW.z);
+          dynamicGroup.add(vRing);
+          const vFlash = makeGlowSprite(0xffe066, 1.6+vp*2.8);
+          vFlash.position.set(wreckW.x, 0.9, wreckW.z);
+          dynamicGroup.add(vFlash);
+        }
       }
 
       // --- Phase B: the white flash cutover - a proper flashbang hold, not
-      // just a brief peak - then swap the arena to space and reposition the player ---
+      // just a brief peak - then swap the arena to space and reposition the
+      // player (still invisible - they're inside the wreck at this point) ---
       if(bossDeathPixelPos && !stage4FX.cutoverDone && elapsed >= FLASH_FULL){
         stage4FX.cutoverDone = true;
         setupSpaceTheme();
@@ -5483,6 +5737,7 @@
         player.moveDir = { dx:0, dy:0 }; player.progress = 0;
         player.x = player.gx*TILE + (TILE-ENTITY_SIZE)/2;
         player.y = player.gy*TILE + (TILE-ENTITY_SIZE)/2;
+        if(player.mesh3d) player.mesh3d.scale.set(1,1,1);
         triggerShake(0.4, 7);
       }
       if(bossDeathPixelPos){
@@ -5493,11 +5748,26 @@
         whiteFlash.style.opacity = String(flashOpacity);
       }
 
+      // once the flash has fully cleared and the new arena is actually
+      // visible, THEN show the "真のボス降臨" banner, play its warning
+      // sting, and let the BGM switch over - none of it jumps the gun
+      // while the screen is still white
+      if(bossDeathPixelPos && !stage4Revealed && elapsed >= FLASH_FADE_END){
+        stage4Revealed = true;
+        bossBanner.innerHTML = '<span>💀 真のボス降臨 💀</span>';
+        bossBanner.classList.add('show');
+        sfx.trueBossWarning();
+      }
+
       // --- Phase C: the true boss falls from high above into the new arena ---
       if(elapsed >= FALL_START){
         if(!descentMesh){
           descentMesh = makeAlienBossMesh();
           descentMesh._landed = false;
+        }
+        if(!descentMesh._laughStarted){
+          descentMesh._laughStarted = true;
+          sfx.trueBossLaugh();
         }
         const p = clamp01((elapsed-FALL_START)/(FALL_END-FALL_START));
         const y = elapsed>=FALL_END ? 0 : 10*(1-easeIn(p));
@@ -5509,6 +5779,58 @@
           descentMesh._landed = true;
           triggerShake(0.4, 8);
           spawnDeathEffect(centerGx*TILE+TILE/2, centerGy*TILE+TILE/2, '#ff3b3b', 2.4);
+        }
+      }
+
+      // --- Phase D: the same wrecked, still-smoking UFO warps into the new
+      // arena with a sudden burst - the player was still inside it - and a
+      // moment later gets thrown clear, landing right where they'll fight ---
+      if(bossDeathPixelPos && elapsed >= WARPIN_START && elapsed < WRECK2_END){
+        const wreck2Gx = Math.floor(COLS/2), wreck2Gy = ROWS-3;
+        const wreck2W = cellCenterToWorld(wreck2Gx, wreck2Gy);
+        if(!stage4FX.warpInBurstDone){
+          stage4FX.warpInBurstDone = true;
+          triggerShake(0.35, 7);
+          spawnDeathEffect(wreck2Gx*TILE+TILE/2, wreck2Gy*TILE+TILE/2, '#ffe066', 2.2);
+        }
+        renderUfoWreck(wreck2W.x, wreck2W.z);
+        // a sudden expanding ring right at the instant it warps in - the
+        // "ブワンッ" pop, distinct from a gentle materialization
+        const burstP = clamp01((elapsed-WARPIN_START)/(WARPIN_BURST_END-WARPIN_START));
+        if(burstP < 1){
+          const brs = 0.3+burstP*2.6;
+          const burstRing = new THREE.Mesh(geo.ring, basicMat(0xffe066, {transparent:true, opacity:0.85*(1-burstP), side:THREE.DoubleSide}));
+          burstRing.rotation.x = -Math.PI/2;
+          burstRing.scale.set(brs, brs, 1);
+          burstRing.position.set(wreck2W.x, 0.1, wreck2W.z);
+          dynamicGroup.add(burstRing);
+          const burstFlash = makeGlowSprite(0xffe066, 3.2*(1-burstP)+0.4);
+          burstFlash.position.set(wreck2W.x, 0.6, wreck2W.z);
+          dynamicGroup.add(burstFlash);
+        }
+        // the player, thrown clear of the wreck, arcs out and lands right
+        // where they'll actually stand for the fight
+        if(elapsed >= EJECT2_START && player.mesh3d){
+          playerSuckedInVisual = true;
+          const landW = pixelToWorld(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2);
+          const ejP = clamp01((elapsed-EJECT2_START)/(EJECT2_END-EJECT2_START));
+          const arcY = Math.sin(Math.PI*ejP)*1.5;
+          const tx = wreck2W.x + (landW.x-wreck2W.x)*ejP;
+          const tz = wreck2W.z + (landW.z-wreck2W.z)*ejP;
+          player.mesh3d.position.set(tx, arcY, tz);
+          player.mesh3d.scale.set(1,1,1);
+          player.mesh3d.rotation.y += 0.5;
+          player.mesh3d.rotation.z = (1-ejP)*1.4;
+          dynamicGroup.add(player.mesh3d);
+          if(ejP >= 1){
+            player.mesh3d.rotation.z = 0;
+            if(!stage4FX.ejectLanded){
+              stage4FX.ejectLanded = true;
+              triggerShake(0.25, 5);
+              spawnDeathEffect(landW.x, landW.z, '#3d7bff', 1.3);
+            }
+            playerSuckedInVisual = false;
+          }
         }
       }
     }
@@ -5577,6 +5899,10 @@
           hiddenDescentMesh.scale.set(1.2,1.2,1.2);
           hiddenDescentMesh._landed = false;
         }
+        if(!hiddenDescentMesh._laughStarted){
+          hiddenDescentMesh._laughStarted = true;
+          sfx.hiddenBossLaugh();
+        }
         const p = clamp01h((elapsedH-UFO_HOVER_END)/(BOSS_FALL_END_H-UFO_HOVER_END));
         const y = elapsedH>=BOSS_FALL_END_H ? 0 : 2.2*(1-easeInH(p));
         hiddenDescentMesh.position.set(hSpot.x, Math.max(0,y), hSpot.z);
@@ -5593,6 +5919,7 @@
     // player
     if(player.alive){
       if(!player.mesh3d) player.mesh3d = makeCharacterMesh(mat.playerBody, mat.playerVisor, 0xaee0ff);
+      if(!playerSuckedInVisual){
       renderCharacter3D(player, player.mesh3d, player.invincibleTimer>0, facingStringToAngle(player.facing));
       if(player.posing){
         // a little triumphant hop either way, but the sparkle effect
@@ -5640,6 +5967,7 @@
           poseLight.position.set(pw.x, 1.1, pw.z);
           dynamicGroup.add(poseLight);
         }
+      }
       }
     }
 

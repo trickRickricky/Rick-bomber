@@ -3372,7 +3372,40 @@
           trueBoss.phase = 'normal'; // back to business as usual
           trueBoss.invuln = 0.6; // damageable again from here on
         }
+      } else if(trueBoss.periodicRayCharging){
+        // plants itself and stares the player down for a beat before
+        // firing - this is the "always coming" periodic ray, separate
+        // from the one-time desperation finisher, and runs throughout the
+        // whole normal fight
+        const pcx0 = player.x+ENTITY_SIZE/2, pcy0 = player.y+ENTITY_SIZE/2;
+        const bcx0 = trueBoss.x+ENTITY_SIZE/2, bcy0 = trueBoss.y+ENTITY_SIZE/2;
+        const rdx0 = pcx0-bcx0, rdy0 = pcy0-bcy0;
+        if(Math.abs(rdx0) > Math.abs(rdy0)){ trueBoss.faceDx = rdx0<0 ? -1 : 1; trueBoss.faceDy = 0; }
+        else { trueBoss.faceDx = 0; trueBoss.faceDy = rdy0<0 ? -1 : 1; }
+        trueBoss.periodicRayChargeTimer -= dt;
+        if(trueBoss.periodicRayChargeTimer<=0){
+          trueBoss.periodicRayCharging = false;
+          // aim precisely at wherever the player actually is right now -
+          // fully tracking, not limited to the four cardinal directions
+          const pcx = player.x+ENTITY_SIZE/2, pcy = player.y+ENTITY_SIZE/2;
+          const bcx = trueBoss.x+ENTITY_SIZE/2, bcy = trueBoss.y+ENTITY_SIZE/2;
+          const rdx = pcx-bcx, rdy = pcy-bcy;
+          const rdist = Math.hypot(rdx, rdy) || 1;
+          projectiles.push({ x:bcx, y:bcy, dx:rdx/rdist, dy:rdy/rdist, isTrueBossRay:true });
+          sfx.bossFire();
+          triggerShake(0.12, 2);
+          trueBoss.periodicRayTimer = 2.6 + Math.random()*1.6;
+        }
       } else {
+        // ticks down between periodic ray shots - only while it's out of
+        // its one-time desperation sequence (this whole branch is phase
+        // 'normal') and not already mid-charge
+        trueBoss.periodicRayTimer -= dt;
+        if(trueBoss.periodicRayTimer<=0){
+          trueBoss.periodicRayCharging = true;
+          trueBoss.periodicRayChargeTimer = 0.45;
+        }
+
         // stall detection: if it hasn't actually changed cells in a while
         // (e.g. stuck in a corner surrounded by its own bombs), force a
         // plain random open direction, ignoring the chase bias. If truly
@@ -3447,7 +3480,7 @@
       // remember which way it's actually moving so its 3D model can turn to
       // face that direction; while it charges/unleashes its attack it turns
       // to stare down the player instead, for a bit of extra menace
-      if(trueBoss.phase==='charging' || trueBoss.phase==='dropping' || trueBoss.phase==='attacking' || trueBoss.phase==='rayattack'){
+      if(trueBoss.phase==='charging' || trueBoss.phase==='dropping' || trueBoss.phase==='attacking' || trueBoss.phase==='rayattack' || trueBoss.periodicRayCharging){
         const pcx = player.x+ENTITY_SIZE/2, pcy = player.y+ENTITY_SIZE/2;
         const bcx = trueBoss.x+ENTITY_SIZE/2, bcy = trueBoss.y+ENTITY_SIZE/2;
         const ddx = pcx-bcx, ddy = pcy-bcy;
@@ -4024,6 +4057,11 @@
     trueBoss.phase = 'normal';
     trueBoss.desperationTriggered = false;
     trueBoss.phaseTimer = 0;
+    // periodic tracking ray shot, fired repeatedly throughout the whole
+    // normal fight (separate from the one-time HP-1 desperation finisher)
+    trueBoss.periodicRayTimer = 2.2 + Math.random()*1.2;
+    trueBoss.periodicRayCharging = false;
+    trueBoss.periodicRayChargeTimer = 0;
   }
 
   // Clears the arena for the white-hole/black-hole warp-zone stage and

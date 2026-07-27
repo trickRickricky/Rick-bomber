@@ -5587,29 +5587,51 @@
       if(!player.mesh3d) player.mesh3d = makeCharacterMesh(mat.playerBody, mat.playerVisor, 0xaee0ff);
       renderCharacter3D(player, player.mesh3d, player.invincibleTimer>0, facingStringToAngle(player.facing));
       if(player.posing){
-        // a little triumphant hop plus a rising ring of golden sparkles
-        // around the player while they hold the victory pose
+        // a little triumphant hop either way, but the sparkle effect
+        // differs depending on which crown was actually picked up
         const pt = performance.now()/1000;
         const hop = Math.abs(Math.sin(pt*3))*0.12;
         player.mesh3d.position.y = hop;
         const pw = pixelToWorld(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2);
-        const sparkCount = 10;
-        for(let i=0;i<sparkCount;i++){
-          const phase = (pt*0.7 + i/sparkCount) % 1;
-          const ang = i*2.4 + pt*1.5;
-          const r = 0.5 + phase*0.3;
-          const sy = 0.3 + phase*1.6;
-          const spark = new THREE.Mesh(geo.sphere, basicMat(0xffe066, {transparent:true, opacity:0.8*(1-phase)}));
-          spark.scale.set(0.055,0.055,0.055);
-          spark.position.set(pw.x+Math.cos(ang)*r, sy, pw.z+Math.sin(ang)*r);
-          dynamicGroup.add(spark);
+        if(crownCracked){
+          // no triumphant golden shine for a cracked crown - just a few
+          // dull, dark dust motes drifting downward instead of bright
+          // sparkles rising up, and no bright glow/light at all
+          const dustCount = 6;
+          for(let i=0;i<dustCount;i++){
+            const phase = (pt*0.5 + i/dustCount) % 1;
+            const ang = i*2.9 + pt*0.6;
+            const r = 0.4 + phase*0.25;
+            const sy = 1.05 - phase*0.85;
+            const dust = new THREE.Mesh(geo.sphere, basicMat(0x6b6152, {transparent:true, opacity:0.45*(1-phase)}));
+            dust.scale.set(0.045,0.045,0.045);
+            dust.position.set(pw.x+Math.cos(ang)*r, sy, pw.z+Math.sin(ang)*r);
+            dynamicGroup.add(dust);
+          }
+          const poseGlow = makeGlowSprite(0x6b6152, 1.0);
+          poseGlow.position.set(pw.x, 0.9, pw.z);
+          dynamicGroup.add(poseGlow);
+        } else {
+          // a rising ring of golden sparkles around the player while they
+          // hold the victory pose
+          const sparkCount = 10;
+          for(let i=0;i<sparkCount;i++){
+            const phase = (pt*0.7 + i/sparkCount) % 1;
+            const ang = i*2.4 + pt*1.5;
+            const r = 0.5 + phase*0.3;
+            const sy = 0.3 + phase*1.6;
+            const spark = new THREE.Mesh(geo.sphere, basicMat(0xffe066, {transparent:true, opacity:0.8*(1-phase)}));
+            spark.scale.set(0.055,0.055,0.055);
+            spark.position.set(pw.x+Math.cos(ang)*r, sy, pw.z+Math.sin(ang)*r);
+            dynamicGroup.add(spark);
+          }
+          const poseGlow = makeGlowSprite(0xffe066, 2.4);
+          poseGlow.position.set(pw.x, 1.1, pw.z);
+          dynamicGroup.add(poseGlow);
+          const poseLight = new THREE.PointLight(0xffe066, 1.0, 3.2);
+          poseLight.position.set(pw.x, 1.1, pw.z);
+          dynamicGroup.add(poseLight);
         }
-        const poseGlow = makeGlowSprite(0xffe066, 2.4);
-        poseGlow.position.set(pw.x, 1.1, pw.z);
-        dynamicGroup.add(poseGlow);
-        const poseLight = new THREE.PointLight(0xffe066, 1.0, 3.2);
-        poseLight.position.set(pw.x, 1.1, pw.z);
-        dynamicGroup.add(poseLight);
       }
     }
 

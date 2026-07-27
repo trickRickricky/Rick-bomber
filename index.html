@@ -1692,6 +1692,13 @@
       playTone(160, 0.08, 'sawtooth', 0.13);
       playTone(110, 0.09, 'square', 0.1, 0.05);
     },
+    dangerousBombPlace(){
+      // an unmistakable "uh oh" cue for the hidden boss's every-5th
+      // Dangerous Bomb - lower and creepier than its usual bomb-place blip
+      playTone(90, 0.1, 'sawtooth', 0.16);
+      playTone(60, 0.14, 'square', 0.14, 0.06);
+      playSlide(500, 260, 0.2, 'sine', 0.1, 0.1);
+    },
     whiteHoleEnter(){
       // bright, rising, airy - a gentle "swept away safely" feeling
       playSlide(300, 1400, 0.9, 'sine', 0.16, 0);
@@ -2129,6 +2136,16 @@
           if(grid[cy][cx]===1) break; // hard wall stops the blast completely
           if(cx===gx && cy===gy) return true;
           if(grid[cy][cx]===2 || grid[cy][cx]===3) break; // block absorbs the blast, same as a real explosion
+        }
+      }
+      if(b.dangerous){
+        const diagDirs = [[1,1],[1,-1],[-1,1],[-1,-1]];
+        for(const [dx,dy] of diagDirs){
+          const cx = b.gx+dx, cy = b.gy+dy;
+          if(cx<0||cy<0||cx>=COLS||cy>=ROWS) continue;
+          if(!grid[cy]) continue;
+          if(grid[cy][cx]===1 || grid[cy][cx]===3) continue;
+          if(cx===gx && cy===gy) return true;
         }
       }
     }
@@ -2609,7 +2626,7 @@
     updateHUD();
   }
 
-  function placeBombFor(entity){
+  function placeBombFor(entity, dangerous){
     if(!entity.alive || entity.bombsAvailable<=0) return false;
     const {gx,gy} = occupiedCell(entity);
     if(bombAtCell(gx,gy)) return false;
@@ -2617,7 +2634,8 @@
       gx,gy,timer:BOMB_FUSE,exploded:false,settled:false,
       rolling:false, rollDx:0, rollDy:0,
       cx:gx*TILE+TILE/2, cy:gy*TILE+TILE/2,
-      owner: entity
+      owner: entity,
+      dangerous: !!dangerous
     });
     entity.bombsAvailable--;
     return true;
@@ -2860,6 +2878,7 @@
     const owner = bomb.owner || player;
     owner.bombsAvailable = Math.min(owner.bombsAvailable+1, owner.maxBombs);
     const cells = [{gx:bomb.gx, gy:bomb.gy}];
+    const core3x3 = bomb.dangerous ? [{gx:bomb.gx, gy:bomb.gy}] : null;
     const newItems = [];
     const triggered = [];
     // If the player is still standing right on the bomb when it goes off,
@@ -2914,6 +2933,47 @@
         }
         cells.push({gx,gy});
         armCells.push({gx,gy});
+        if(core3x3 && r===1) core3x3.push({gx,gy});
+        const chained = bombAtCell(gx,gy);
+        if(chained && chained!==bomb && !chained.exploded){
+          triggered.push(chained);
+        }
+      }
+    }
+    if(bomb.dangerous){
+      // the Dangerous Bomb blasts a full 5x5 block centered on itself, on
+      // top of the full row/column cross above. Each cell in the block is
+      // checked on its own (a "blob" fill) rather than ray-cast like the
+      // cross, so it doesn't matter whether cells further out are already
+      // covered by the cross - duplicates are just skipped.
+      const blockOffsets = [];
+      for(let ddy=-2; ddy<=2; ddy++){
+        for(let ddx=-2; ddx<=2; ddx++){
+          if(ddx===0 && ddy===0) continue;
+          blockOffsets.push([ddx,ddy]);
+        }
+      }
+      for(const [dx,dy] of blockOffsets){
+        const gx = bomb.gx+dx, gy = bomb.gy+dy;
+        if(gx<0||gy<0||gx>=COLS||gy>=ROWS) continue;
+        if(gridSnapshot[gy][gx]===1) continue; // hard walls still block it
+        if(gridSnapshot[gy][gx]===3) continue; // treasure blocks are immune
+        if(gridSnapshot[gy][gx]===2){
+          if(grid[gy][gx]===2){
+            grid[gy][gx]=0;
+            score += 10;
+            spawnBlockDebris(gx,gy);
+            removeTileMesh(gx,gy);
+            if(Math.random()<ITEM_DROP_CHANCE){
+              const type = ITEM_TYPES[Math.floor(Math.random()*ITEM_TYPES.length)];
+              newItems.push({gx,gy,type});
+            }
+          }
+          safeCells.push({gx,gy,timer:SAFE_GRACE});
+          continue;
+        }
+        if(!cells.some(c=>c.gx===gx && c.gy===gy)) cells.push({gx,gy});
+        if(!core3x3.some(c=>c.gx===gx && c.gy===gy)) core3x3.push({gx,gy});
         const chained = bombAtCell(gx,gy);
         if(chained && chained!==bomb && !chained.exploded){
           triggered.push(chained);
@@ -2923,7 +2983,7 @@
     // explosion burns any *pre-existing* item caught in the blast (not the ones it just dropped)
     items = items.filter(it=>!cells.some(c=>c.gx===it.gx && c.gy===it.gy));
     items.push(...newItems);
-    explosions.push({cells, timer:EXPLOSION_DURATION, owner});
+    explosions.push({cells, timer:EXPLOSION_DURATION, owner, core3x3});
     sfx.explosion();
     updateHUD();
     return triggered;
@@ -3617,7 +3677,11 @@
 
       hiddenBoss.bombTimer -= dt;
       if(hiddenBoss.bombTimer<=0 && !hInDanger){
-        if(placeBombFor(hiddenBoss)) sfx.trueBossBombPlace();
+        const wouldBeDangerous = ((hiddenBoss.bombPlaceCount||0) + 1) % 3 === 0;
+        if(placeBombFor(hiddenBoss, wouldBeDangerous)){
+          hiddenBoss.bombPlaceCount = (hiddenBoss.bombPlaceCount||0) + 1;
+          if(wouldBeDangerous) sfx.dangerousBombPlace(); else sfx.trueBossBombPlace();
+        }
         hiddenBoss.bombTimer = 0.5 + Math.random()*0.4;
       }
 
@@ -4171,6 +4235,7 @@
     hiddenBoss.canKick = true;
     hiddenBoss.changeTimer = 0;
     hiddenBoss.bombTimer = 0.6 + Math.random()*0.4;
+    hiddenBoss.bombPlaceCount = 0;
     hiddenBoss.dir = { dx:0, dy:1 };
     hiddenBoss.phase = 'normal';
     hiddenBoss.cageTriggered = false;
@@ -4689,8 +4754,24 @@
     // explosions - warm energy blast slabs, classic fire coloring
     for(const ex of explosions){
       const alpha = Math.max(0, ex.timer/EXPLOSION_DURATION);
+      const coreSet = ex.core3x3 ? new Set(ex.core3x3.map(c=>c.gx+','+c.gy)) : null;
       for(const c of ex.cells){
         const w = cellCenterToWorld(c.gx, c.gy);
+        const isCore = coreSet && coreSet.has(c.gx+','+c.gy);
+        if(isCore){
+          // the Dangerous Bomb's 5x5 core - noticeably bigger and tinted
+          // purple/green so it's unmistakably a different, heavier blast
+          // than the thin cross reaching across the rest of the row/column
+          const outer = new THREE.Mesh(geo.box, basicMat(0x9dff5a, {transparent:true, opacity:0.5*alpha+0.15}));
+          outer.scale.set(1.0, 0.1+0.55*alpha, 1.0);
+          outer.position.set(w.x, 0.06+0.24*alpha, w.z);
+          dynamicGroup.add(outer);
+          const inner = new THREE.Mesh(geo.box, basicMat(0x8a3ad0, {transparent:true, opacity:0.75*alpha}));
+          inner.scale.set(0.72,0.55+0.55*alpha,0.72);
+          inner.position.set(w.x, 0.24+0.28*alpha, w.z);
+          dynamicGroup.add(inner);
+          continue;
+        }
         const outer = new THREE.Mesh(geo.box, mat.explosionOuter.clone());
         outer.material.opacity = 0.45*alpha+0.1;
         outer.scale.set(0.9, 0.06+0.3*alpha, 0.9);
@@ -4710,6 +4791,44 @@
       const w = pixelToWorld(b.cx, b.cy);
       const pulse = 1 + 0.12*Math.sin(performance.now()/100);
       const isTrueBossBomb = b.owner===trueBoss || b.owner===hiddenBoss;
+      if(b.dangerous){
+        // the hidden boss's "Dangerous Bomb" - a classic Bomberman nod:
+        // jet-black shell, a little skull face, and sickly purple-green
+        // sparks/glow instead of the usual red, plus a pulsing warning
+        // ring on the floor so it reads as unmistakably different (and it
+        // also has a much shorter fuse than a normal bomb)
+        const dpulse = 1 + 0.22*Math.sin(performance.now()/70);
+        const body = new THREE.Mesh(geo.sphere, basicMat(0x151018));
+        body.scale.set(0.56*dpulse,0.56*dpulse,0.56*dpulse);
+        body.position.set(w.x, 0.5, w.z);
+        dynamicGroup.add(body);
+        // skull face: two eye sockets + a small nose divot
+        const eyeMat = basicMat(0xd8ffb0);
+        const eyeL = new THREE.Mesh(geo.sphere, eyeMat);
+        eyeL.scale.set(0.09,0.09,0.05);
+        eyeL.position.set(w.x-0.16, 0.56, w.z+0.5);
+        dynamicGroup.add(eyeL);
+        const eyeR = new THREE.Mesh(geo.sphere, eyeMat);
+        eyeR.scale.set(0.09,0.09,0.05);
+        eyeR.position.set(w.x+0.16, 0.56, w.z+0.5);
+        dynamicGroup.add(eyeR);
+        const fuseTip = new THREE.Mesh(geo.sphere, basicMat(0x9dff5a));
+        fuseTip.scale.set(0.15,0.15,0.15);
+        fuseTip.position.set(w.x, 0.5+0.56*dpulse*0.95, w.z);
+        dynamicGroup.add(fuseTip);
+        const glow = makeGlowSprite(0x8a3ad0, 2.4);
+        glow.position.set(w.x, 0.5, w.z);
+        dynamicGroup.add(glow);
+        const light = new THREE.PointLight(0x9dff5a, 0.9, 2.2);
+        light.position.set(w.x, 0.4, w.z);
+        dynamicGroup.add(light);
+        const warnRing = new THREE.Mesh(geo.ring, basicMat(0x9dff5a, {transparent:true, opacity:0.35+0.2*Math.sin(performance.now()/90), side:THREE.DoubleSide}));
+        warnRing.rotation.x = -Math.PI/2;
+        warnRing.scale.set(0.7,0.7,1);
+        warnRing.position.set(w.x, 0.02, w.z);
+        dynamicGroup.add(warnRing);
+        continue;
+      }
       const sparkColor = isTrueBossBomb ? 0xff2020 : 0xdddddd;
       const body = new THREE.Mesh(geo.sphere, isTrueBossBomb ? mat.trueBossBomb : mat.bomb);
       body.scale.set(0.52*pulse,0.52*pulse,0.52*pulse);

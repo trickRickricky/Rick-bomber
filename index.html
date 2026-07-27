@@ -258,6 +258,19 @@
     touch-action: none;
   }
   #destroyRayBtn:active { transform: scale(0.94); }
+  #allyBombBtn {
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    border: none;
+    background: radial-gradient(circle at 35% 30%, #ffb35a, #a05a1a 70%);
+    color: #3a1e00;
+    font-size: 9px;
+    line-height: 1.15;
+    font-weight: bold;
+    box-shadow: 0 4px 10px rgba(0,0,0,.5), inset 0 0 0 3px #7a4a14;
+    touch-action: none;
+  }
+  #allyBombBtn:active { transform: scale(0.94); }
   #destroyRayBtn:disabled {
     background: radial-gradient(circle at 35% 30%, #777, #444 70%);
     color: #aaa;
@@ -349,6 +362,7 @@
     <div id="actionBtns">
       <button id="bombBtn">爆弾<br>設置</button>
       <div id="smallBtnRow">
+        <button id="allyBombBtn" style="display:none;">仲間爆破<br>装置起動</button>
         <button id="destroyRayBtn" style="display:none;">破壊光線<br>1回のみ</button>
         <button id="invincibleBtn">無敵<br>5秒</button>
       </div>
@@ -2089,6 +2103,10 @@
   let gameStartTime = 0;
   let clearElapsedMs = 0;
   let gameOver = false, gameWin = false;
+  // NOT reset by resetGame() - counts how many times stage 1 has been
+  // cleared this browser session; once it reaches 3, the "仲間爆破装置起動"
+  // skip button becomes available on every subsequent restart
+  let stage1ClearCount = 0;
   let lastTime = 0;
 
   const elapsedTimeEl = document.getElementById('elapsedTime');
@@ -2103,9 +2121,14 @@
   const bossBanner = document.getElementById('bossBanner');
   const hintEl = document.getElementById('hint');
   const HINT_BASE = 'スマホ: 左のパッドをスライドで移動 / 爆弾設置と無敵ボタン(1回だけ)。PC: 矢印キー・WASD+スペース(設置)/Z(無敵)';
-  const HINT_WITH_RAY = HINT_BASE + ' / X(破壊光線・1回のみ)';
+  function refreshHintText(){
+    let text = HINT_BASE;
+    if(destroyRayMode) text += ' / X(破壊光線・1回のみ)';
+    if(allyBombBtn.style.display !== 'none') text += ' / B(仲間爆破装置起動)';
+    hintEl.textContent = text;
+  }
   function updateHintForRayGun(){
-    hintEl.textContent = HINT_WITH_RAY;
+    refreshHintText();
   }
   const itemToast = document.getElementById('itemToast');
   let itemToastTimer = 0;
@@ -2237,7 +2260,8 @@
     destroyRayBtn.disabled = false;
     destroyRayBtn.innerHTML = '破壊光線<br>1回のみ';
     destroyRayBtn.style.display = 'none';
-    hintEl.textContent = HINT_BASE;
+    allyBombBtn.style.display = stage1ClearCount>=3 ? '' : 'none';
+    refreshHintText();
     if(audioCtx) bgmPlaying = true;
     updateHUD();
   }
@@ -2674,6 +2698,41 @@
   // warp zone (stage 7) it can crack open exactly one of the four corner
   // treasure blocks, but doing so spends the only shot, so it's no longer
   // available later against the hidden boss (and vice versa).
+  // "仲間爆破" - available only after clearing stage 1 at least once this
+  // session, so repeat attempts don't have to grind through the same wave
+  // of regular enemies every single restart. Instantly detonates all of
+  // stage 1's regular enemies and fully gears up the player, then removes
+  // itself for the rest of this run.
+  function useAllyBomb(){
+    if(stage!==1 || gameOver || gameWin) return;
+    let count = 0;
+    for(const en of enemies){
+      if(en.alive){
+        en.alive = false;
+        const ex = en.x+ENTITY_SIZE/2, ey = en.y+ENTITY_SIZE/2;
+        // way over the top: a sharp initial pop plus a big, lingering
+        // slow-motion burst in two colors for every single enemy
+        spawnDeathEffect(ex, ey, '#ff6b3d', 2.6);
+        spawnSlowBurst(ex, ey, '#ffcf4d', 22, 1.1);
+        spawnSlowBurst(ex, ey, '#ff3b1a', 16, 0.9);
+        count++;
+      }
+    }
+    if(count>0){
+      triggerShake(0.6, 14);
+      sfx.explosion();
+      sfx.trueBossDeath();
+    }
+    player.maxBombs = MAX_BOMBS;
+    player.bombsAvailable = MAX_BOMBS;
+    player.fireRange = MAX_FIRE;
+    player.speedLevel = MAX_SPEED_LEVEL;
+    player.speed = BASE_SPEED + (MAX_SPEED_LEVEL-1)*SPEED_STEP;
+    allyBombBtn.style.display = 'none';
+    refreshHintText();
+    updateHUD();
+  }
+
   function activateDestroyRay(){
     if(gameOver || gameWin || !player.alive) return;
     if(!destroyRayMode) return;
@@ -2819,6 +2878,7 @@
         break;
       case 'z': case 'Z': if(!e.repeat) activateInvincibility(); e.preventDefault(); break;
       case 'x': case 'X': if(!e.repeat && destroyRayMode) activateDestroyRay(); e.preventDefault(); break;
+      case 'b': case 'B': if(!e.repeat && allyBombBtn.style.display!=='none') useAllyBomb(); e.preventDefault(); break;
     }
   });
   window.addEventListener('keyup', e=>{
@@ -2838,6 +2898,9 @@
 
   const destroyRayBtn = document.getElementById('destroyRayBtn');
   destroyRayBtn.addEventListener('pointerdown', e=>{ e.preventDefault(); activateDestroyRay(); });
+
+  const allyBombBtn = document.getElementById('allyBombBtn');
+  allyBombBtn.addEventListener('pointerdown', e=>{ e.preventDefault(); useAllyBomb(); });
 
   document.getElementById('restartBtn').addEventListener('click', resetGame);
 
@@ -4035,6 +4098,9 @@
       if(!pendingEnd) pendingEnd = { isWin:false, timer: 0.9 };
     } else if(stage===1 && enemies.every(e=>!e.alive)){
       // regular enemies cleared - trigger the first boss's intro
+      stage1ClearCount++;
+      allyBombBtn.style.display = 'none';
+      refreshHintText();
       stage = 2;
       stageTimer = BOSS_INTRO_TIME;
       stage2Landed = false;

@@ -928,6 +928,17 @@
   mat.spaceWall = [spaceWallSideMat,spaceWallSideMat,spaceWallTopMat,spaceWallSideMat,spaceWallSideMat,spaceWallSideMat];
   mat.spaceBlock = [spaceBlockSideMat,spaceBlockSideMat,spaceBlockTopMat,spaceBlockSideMat,spaceBlockSideMat,spaceBlockSideMat];
 
+  // the same wall/block textures, tinted crimson/violet with a hotter
+  // emissive glow - reused specifically for the hidden final boss's arena
+  // so its walls and blocks read as clearly different from the true
+  // boss's cooler cyan-lit stage, not just a straight reskin
+  const hiddenWallSideMat = stdMat(0xffabc0, 0x2a0a14, {map:spaceWallTexture, roughness:0.5, metalness:0.5});
+  const hiddenWallTopMat = stdMat(0xffabc0, 0x2a0a14, {map:spaceWallTopTexture, roughness:0.45, metalness:0.55});
+  const hiddenBlockSideMat = stdMat(0xd9a0ff, 0x2a0a1e, {map:spaceBlockTexture, roughness:0.55, metalness:0.2});
+  const hiddenBlockTopMat = stdMat(0xd9a0ff, 0x2a0a1e, {map:spaceBlockTopTexture, roughness:0.55, metalness:0.2});
+  mat.hiddenWall = [hiddenWallSideMat,hiddenWallSideMat,hiddenWallTopMat,hiddenWallSideMat,hiddenWallSideMat,hiddenWallSideMat];
+  mat.hiddenBlock = [hiddenBlockSideMat,hiddenBlockSideMat,hiddenBlockTopMat,hiddenBlockSideMat,hiddenBlockSideMat,hiddenBlockSideMat];
+
   function createFloorTexture(){
     const res = 64;
     const cvs = document.createElement('canvas');
@@ -994,6 +1005,12 @@
   const spaceFloorMat = new THREE.MeshStandardMaterial({
     map: spaceFloorTexture, roughness:0.7, metalness:0.25
   });
+  // same floor texture, tinted crimson/violet - reused for the hidden final
+  // boss's own arena so it doesn't look like a plain reskin of the true
+  // boss's blue-black space floor
+  const hiddenFloorMat = new THREE.MeshStandardMaterial({
+    map: spaceFloorTexture, roughness:0.7, metalness:0.25, color: 0xffabc0
+  });
 
   function createSkyTexture(){
     const cvs = document.createElement('canvas');
@@ -1025,7 +1042,7 @@
   function buildBoardMeshes(){
     disposeGroup(boardGroup);
     tileMeshes = [];
-    const floorMesh = new THREE.Mesh(floorGeo, spaceMode ? spaceFloorMat : floorMat);
+    const floorMesh = new THREE.Mesh(floorGeo, spaceMode ? (stage>=8 ? hiddenFloorMat : spaceFloorMat) : floorMat);
     floorMesh.rotation.x = -Math.PI/2;
     floorMesh.position.set(0,0,0);
     boardGroup.add(floorMesh);
@@ -1046,8 +1063,8 @@
     const h = isWall ? 1.0 : 0.55;
     const g = new THREE.Group();
 
-    const wallMat = spaceMode ? mat.spaceWall : mat.wall;
-    const blockMat = spaceMode ? mat.spaceBlock : mat.block;
+    const wallMat = spaceMode ? (stage>=8 ? mat.hiddenWall : mat.spaceWall) : mat.wall;
+    const blockMat = spaceMode ? (stage>=8 ? mat.hiddenBlock : mat.spaceBlock) : mat.block;
     const bodyMat = isTreasure ? null : (isWall ? wallMat : blockMat);
     if(isTreasure){
       // a large, solid hexagonal quartz-style crystal (prism body + a
@@ -2028,6 +2045,7 @@
   let posePlayerStart = null; // {x,y} pixel position the player walks from during the victory pose cutscene
   let spaceMode = false; // true once we've warped into the hidden boss's stage
   let starField = null;
+  let hiddenArenaDecor = null; // persistent decorative backdrop (broken ring + dying star) unique to the hidden final boss's arena, distinguishing it from the true boss's space stage
   let cutsceneFlashDone = false; // guards the one-time white flash inside a burst cutscene
   let stage2Landed = false; // guards the one-time touchdown shake/burst for the first boss's UFO descent
   let playerSuckedInVisual = false; // true while the stage-4 cutscene is manually puppeteering the player's mesh (being sucked into / thrown out of the UFO), so the normal per-frame render doesn't fight it
@@ -2036,6 +2054,9 @@
   let blackHoleDeathTarget = null; // {x,y} pixel center of the black hole doing the pulling
   let blackHoleStartPos = null; // {x,y} pixel center where the player was when it started
   let blackHoleWarpMode = false; // true if invincible - ends in a warp instead of a death
+  let blackHoleEjectPhase = false; // true during the brief "spat back out" cutscene right after warping into the hidden boss's arena, before the UFO reveal begins
+  let playerDizzyTimer = 0; // counts down after landing from the black hole eject - shows a little "seeing stars" effect circling overhead
+  const BLACKHOLE_EJECT_DURATION = 1.7; // a black hole portal blinks open, the player tumbles out of it, then it closes
   const BOSS_HP = 3;
   const BOSS_SPEED = 105;
   const BOSS_SIZE = 40; // purely visual - collision still uses ENTITY_SIZE so it still fits corridors
@@ -2197,6 +2218,8 @@
     blackHoleDeathTarget = null;
     blackHoleStartPos = null;
     blackHoleWarpMode = false;
+    blackHoleEjectPhase = false;
+    playerDizzyTimer = 0;
     whiteFlash.style.opacity = '0';
     descentMesh = null;
     stage4FX = null;
@@ -3143,6 +3166,7 @@
     }
     if(crownCrackEffectTimer>0) crownCrackEffectTimer -= dt;
     if(shieldBreakEffectTimer>0) shieldBreakEffectTimer -= dt;
+    if(playerDizzyTimer>0) playerDizzyTimer -= dt;
     if(itemToastTimer>0){
       itemToastTimer -= dt;
       if(itemToastTimer<=0) itemToast.classList.remove('show');
@@ -3209,9 +3233,27 @@
       return;
     }
 
+    // right after warping into the hidden boss's arena: a black hole
+    // portal blinks open and the player visibly tumbles back out of it,
+    // before the "kick broken" message and the UFO reveal begin (the
+    // actual visual puppeteering happens in draw(), keyed off stageTimer)
+    if(stage===8 && blackHoleEjectPhase){
+      stageTimer -= dt;
+      if(stageTimer<=0){
+        blackHoleEjectPhase = false;
+        stageTimer = KICKBROKEN_MSG_DURATION + HIDDENBOSS_UFO_DURATION;
+        cutsceneFlashDone = false;
+        bossBanner.textContent = '';
+        bossBanner.innerHTML = '<span style="font-size:18px">🔧 キック機構が壊れてしまった… 🔧</span>';
+        bossBanner.classList.add('show');
+        updateHUD();
+      }
+      return;
+    }
+
     // stage 8: the hidden final boss's reveal intro - the kick-broken
     // message, then its own UFO descends and drops it off
-    if(stage===8){
+    if(stage===8 && !blackHoleEjectPhase){
       stageTimer -= dt;
       const elapsedH = (KICKBROKEN_MSG_DURATION+HIDDENBOSS_UFO_DURATION) - stageTimer;
       if(!cutsceneFlashDone && elapsedH >= KICKBROKEN_MSG_DURATION){
@@ -3255,6 +3297,7 @@
     // stage 12: not-invincible black hole death - the player visibly
     // spirals into the hole, accelerating as it grows, then is torn apart
     // in a burst right at the core
+
     if(stage===12 && blackHoleDeathTarget){
       stageTimer -= dt;
       const progress = Math.min(1, 1 - Math.max(0,stageTimer)/BLACKHOLE_DEATH_DURATION);
@@ -3296,14 +3339,16 @@
           player.canKick = false;
           player.invincibleTimer = 0;
           player.invinciblePulseTimer = 0;
-          setupSpaceTheme();
-          blackHoleDeathTarget = null;
           stage = 8;
-          stageTimer = KICKBROKEN_MSG_DURATION + HIDDENBOSS_UFO_DURATION;
+          setupSpaceTheme();
+          clearAllSoftBlocks();
+          buildBoardMeshes();
+          blackHoleDeathTarget = null;
+          // don't jump straight to the UFO reveal - the "spat back out of
+          // the black hole" cutscene plays first
+          blackHoleEjectPhase = true;
           cutsceneFlashDone = false;
-          bossBanner.textContent = '';
-          bossBanner.innerHTML = '<span style="font-size:18px">🔧 キック機構が壊れてしまった… 🔧</span>';
-          bossBanner.classList.add('show');
+          stageTimer = BLACKHOLE_EJECT_DURATION;
           updateHUD();
         } else {
           endingMessage = 'ブラックホールに飲み込まれてしまった…';
@@ -4366,6 +4411,7 @@
   function teardownSpaceTheme(){
     spaceMode = false;
     if(starField){ scene.remove(starField); starField = null; }
+    if(hiddenArenaDecor){ scene.remove(hiddenArenaDecor); hiddenArenaDecor = null; }
   }
 
   // The hidden final boss: the true boss's own master, one size bigger,
@@ -5537,8 +5583,46 @@
       dynamicGroup.add(burst2);
     }
     if(spaceMode){
-      scene.background = new THREE.Color(0x05040f);
-      scene.fog.color = new THREE.Color(0x140a24);
+      if(stage>=8){
+        // the hidden final boss's own arena: a starker crimson/violet
+        // "final showdown" palette, clearly different from the true
+        // boss's cooler blue-black space, while still unmistakably space
+        scene.background = new THREE.Color(0x12050f);
+        scene.fog.color = new THREE.Color(0x2a0a1c);
+        if(starField) starField.material.color.set(0xffc9d6);
+        if(!hiddenArenaDecor){
+          hiddenArenaDecor = new THREE.Group();
+          // a huge cracked energy ring looming in the distance, tying
+          // back to the crown/hidden-boss motif
+          const ringOuter = new THREE.Mesh(geo.ring, basicMat(0xff3b6b, {transparent:true, opacity:0.35, side:THREE.DoubleSide}));
+          ringOuter.scale.set(13, 13, 1);
+          ringOuter.position.set(0, 9, -22);
+          ringOuter.rotation.x = 1.2;
+          hiddenArenaDecor.add(ringOuter);
+          const ringInner = new THREE.Mesh(geo.ring, basicMat(0x8a3ad0, {transparent:true, opacity:0.45, side:THREE.DoubleSide}));
+          ringInner.scale.set(10.5, 10.5, 1);
+          ringInner.position.copy(ringOuter.position);
+          ringInner.rotation.x = 1.2;
+          ringInner.rotation.z = 0.5;
+          hiddenArenaDecor.add(ringInner);
+          // a dim, dying crimson star glowing behind it all
+          const dyingStar = makeGlowSprite(0xff3b3b, 9);
+          dyingStar.position.set(-6, 12, -24);
+          hiddenArenaDecor.add(dyingStar);
+          const dyingStarCore = new THREE.Mesh(geo.sphere, basicMat(0xffb37a));
+          dyingStarCore.scale.set(1.1,1.1,1.1);
+          dyingStarCore.position.copy(dyingStar.position);
+          hiddenArenaDecor.add(dyingStarCore);
+          scene.add(hiddenArenaDecor);
+        }
+        const decorT = performance.now()/1000;
+        hiddenArenaDecor.children[0].rotation.z = decorT*0.06;
+        hiddenArenaDecor.children[1].rotation.z = -decorT*0.09 + 0.5;
+      } else {
+        scene.background = new THREE.Color(0x05040f);
+        scene.fog.color = new THREE.Color(0x140a24);
+        if(starField) starField.material.color.set(0xffffff);
+      }
     } else if(stage===12 && blackHoleDeathTarget){
       const progress = Math.min(1, 1 - Math.max(0,stageTimer)/BLACKHOLE_DEATH_DURATION);
       scene.background = new THREE.Color(0xbfe3ff).lerp(new THREE.Color(0x05020a), progress);
@@ -5835,10 +5919,101 @@
       }
     }
 
+    // right after warping through the black hole, the player is spat back
+    // out into the hidden boss's arena: a dark portal blinks open at their
+    // landing spot, they tumble out of it, and the portal closes again -
+    // before the "kick broken" message and the UFO reveal begin
+    if(stage===8 && blackHoleEjectPhase){
+      playerSuckedInVisual = true;
+      const ejElapsed = BLACKHOLE_EJECT_DURATION - stageTimer;
+      const clamp01ej = x => Math.max(0, Math.min(1, x));
+      const landX = player.gx*TILE + (TILE-ENTITY_SIZE)/2 + ENTITY_SIZE/2;
+      const landY = player.gy*TILE + (TILE-ENTITY_SIZE)/2 + ENTITY_SIZE/2;
+      const pw = pixelToWorld(landX, landY);
+      // the portal opens above the landing spot (there usually isn't
+      // enough headroom below the player's low starting row), and they
+      // fall out of it down into their actual starting position
+      const portalGy = Math.max(1, player.gy - 3);
+      const portalX = player.gx*TILE + (TILE-ENTITY_SIZE)/2 + ENTITY_SIZE/2;
+      const portalY = portalGy*TILE + (TILE-ENTITY_SIZE)/2 + ENTITY_SIZE/2;
+      const pPortal = pixelToWorld(portalX, portalY);
+      const OPEN_END = 0.5, EJECT_START = 0.35, EJECT_END = 1.15, CLOSE_START = 1.2;
+      // the portal itself: grows open, holds, then collapses shut again -
+      // as big and dramatic as the spiral pull-in that led here
+      let portalScale = 0;
+      if(ejElapsed < OPEN_END) portalScale = clamp01ej(ejElapsed/OPEN_END);
+      else if(ejElapsed < CLOSE_START) portalScale = 1;
+      else portalScale = Math.max(0, 1-clamp01ej((ejElapsed-CLOSE_START)/(BLACKHOLE_EJECT_DURATION-CLOSE_START)));
+      if(portalScale > 0.02){
+        const t = performance.now()/1000;
+        const core = new THREE.Mesh(geo.sphere, basicMat(0x0a0612, {transparent:true, opacity:0.9*portalScale}));
+        core.scale.set(2.2*portalScale, 2.2*portalScale, 2.2*portalScale);
+        core.position.set(pPortal.x, 1.6, pPortal.z);
+        dynamicGroup.add(core);
+        for(let i=0;i<4;i++){
+          const ringR = (2.2 + i*0.7) * portalScale;
+          const ring = new THREE.Mesh(geo.ring, basicMat(0x8a3ad0, {transparent:true, opacity:(0.55-i*0.11)*portalScale, side:THREE.DoubleSide}));
+          ring.rotation.x = Math.PI/2.4 + Math.sin(t*0.6+i)*0.12;
+          ring.rotation.z = t*-1.6*(i%2===0?1:-1);
+          ring.scale.set(ringR, ringR, 1);
+          ring.position.set(pPortal.x, 1.6, pPortal.z);
+          dynamicGroup.add(ring);
+        }
+        const glow = makeGlowSprite(0x8a3ad0, 8*portalScale);
+        glow.position.set(pPortal.x, 1.6, pPortal.z);
+        dynamicGroup.add(glow);
+        const light = new THREE.PointLight(0x8a3ad0, 1.8*portalScale, 9);
+        light.position.set(pPortal.x, 1.6, pPortal.z);
+        dynamicGroup.add(light);
+        // orbiting particles swirling into/out of the opening, matching
+        // the warp-zone portal's look but scaled to this burst
+        const swirlCount = 18;
+        for(let i=0;i<swirlCount;i++){
+          const phase = (t*1.3 + i/swirlCount) % 1;
+          const r = 3.2*portalScale*(1-phase) + 0.15;
+          const ang = i*1.4 + t*2.4;
+          const px = pPortal.x+Math.cos(ang)*r, pz = pPortal.z+Math.sin(ang)*r;
+          const particle = new THREE.Mesh(geo.sphere, basicMat(0x8a3ad0, {transparent:true, opacity:0.75*(1-phase)*portalScale}));
+          particle.scale.set(0.1,0.1,0.1);
+          particle.position.set(px, 1.6, pz);
+          dynamicGroup.add(particle);
+        }
+      }
+      // the player falls out of the portal above and tumbles down into
+      // their actual landing spot, spinning head over heels several
+      // times, popping out larger-than-life before settling back down to
+      // their normal size as they land
+      if(ejElapsed >= EJECT_START && player.alive && player.mesh3d){
+        playerSuckedInVisual = true;
+        const ep = clamp01ej((ejElapsed-EJECT_START)/(EJECT_END-EJECT_START));
+        const easeInFall = ep*ep;
+        const fx = pPortal.x + (pw.x-pPortal.x)*easeInFall;
+        const fz = pPortal.z + (pw.z-pPortal.z)*easeInFall;
+        const fy = (1.6 + (0-1.6)*easeInFall) + Math.sin(Math.PI*ep)*0.4;
+        player.mesh3d.position.set(fx, Math.max(0,fy), fz);
+        const suckScale = ep>=1 ? 1 : Math.min(1, 0.2+ep*0.8);
+        player.mesh3d.scale.set(suckScale, suckScale, suckScale);
+        player.mesh3d.rotation.y = ep * Math.PI * 3.5;
+        player.mesh3d.rotation.z = ep*Math.PI*4;
+        dynamicGroup.add(player.mesh3d);
+        if(ep >= 1){
+          player.mesh3d.rotation.z = 0;
+          player.mesh3d.scale.set(1,1,1);
+          if(!cutsceneFlashDone){
+            cutsceneFlashDone = true;
+            triggerShake(0.25, 5);
+            spawnDeathEffect(landX, landY, '#8a3ad0', 1.4);
+            playerDizzyTimer = 1.5;
+          }
+          playerSuckedInVisual = false;
+        }
+      }
+    }
+
     // the hidden final boss's own entrance, played out during stage 8: a
     // purple/gold UFO descends to the arena's center, hovers, and the
     // crowned boss itself drops out and lands before the UFO pulls away
-    if(stage===8){
+    if(stage===8 && !blackHoleEjectPhase){
       const totalH = KICKBROKEN_MSG_DURATION + HIDDENBOSS_UFO_DURATION;
       const elapsedH = Math.max(0, totalH - stageTimer);
       const clamp01h = x => Math.max(0, Math.min(1, x));
@@ -5921,6 +6096,25 @@
       if(!player.mesh3d) player.mesh3d = makeCharacterMesh(mat.playerBody, mat.playerVisor, 0xaee0ff);
       if(!playerSuckedInVisual){
       renderCharacter3D(player, player.mesh3d, player.invincibleTimer>0, facingStringToAngle(player.facing));
+      if(playerDizzyTimer>0){
+        // a little "seeing stars" effect circling overhead, right after
+        // tumbling out of the black hole
+        const dt2 = performance.now()/1000;
+        const dizzyFade = Math.min(1, playerDizzyTimer/1.5);
+        const pwD = pixelToWorld(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2);
+        const starCount = 3;
+        for(let i=0;i<starCount;i++){
+          const ang = dt2*4 + i*(Math.PI*2/starCount);
+          const sx = pwD.x + Math.cos(ang)*0.32;
+          const sz = pwD.z + Math.sin(ang)*0.32;
+          const sy = 1.55 + Math.sin(dt2*3+i)*0.04;
+          const star = new THREE.Mesh(geo.icosa, basicMat(0xffe066, {transparent:true, opacity:0.9*dizzyFade}));
+          star.scale.set(0.07,0.07,0.07);
+          star.position.set(sx, sy, sz);
+          star.rotation.y = dt2*2;
+          dynamicGroup.add(star);
+        }
+      }
       if(player.posing){
         // a little triumphant hop either way, but the sparkle effect
         // differs depending on which crown was actually picked up

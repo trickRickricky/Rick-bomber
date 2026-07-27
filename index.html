@@ -352,7 +352,7 @@
       </div>
     </div>
   </div>
-  <div id="hint">スマホ: 左のパッドをスライドで移動 / 爆弾設置と無敵ボタン(1回だけ)。PC: 矢印キー・WASD+スペース(設置)/Z(無敵)</div>
+  <div id="hint"></div>
 </div>
 
 
@@ -1940,6 +1940,12 @@
   const overlayTitle = document.getElementById('overlayTitle');
   const overlayText = document.getElementById('overlayText');
   const bossBanner = document.getElementById('bossBanner');
+  const hintEl = document.getElementById('hint');
+  const HINT_BASE = 'スマホ: 左のパッドをスライドで移動 / 爆弾設置と無敵ボタン(1回だけ)。PC: 矢印キー・WASD+スペース(設置)/Z(無敵)';
+  const HINT_WITH_RAY = HINT_BASE + ' / X(破壊光線・1回のみ)';
+  function updateHintForRayGun(){
+    hintEl.textContent = HINT_WITH_RAY;
+  }
   const itemToast = document.getElementById('itemToast');
   let itemToastTimer = 0;
   function showItemToast(text, duration){
@@ -2066,6 +2072,7 @@
     destroyRayBtn.disabled = false;
     destroyRayBtn.innerHTML = '破壊光線<br>1回のみ';
     destroyRayBtn.style.display = 'none';
+    hintEl.textContent = HINT_BASE;
     if(audioCtx) bgmPlaying = true;
     updateHUD();
   }
@@ -2745,6 +2752,7 @@
     destroyRayBtn.style.display = '';
     destroyRayBtn.disabled = false;
     destroyRayBtn.innerHTML = '破壊光線<br>1回のみ';
+    updateHintForRayGun();
     rayGunPos = null; // no physical pickup needed since it's already granted above
     setupSpaceTheme();
     bossBanner.classList.remove('show');
@@ -3799,6 +3807,7 @@
         destroyRayBtn.style.display = '';
         destroyRayBtn.disabled = false;
         destroyRayBtn.innerHTML = '破壊光線<br>1回のみ';
+        updateHintForRayGun();
       }
     }
 

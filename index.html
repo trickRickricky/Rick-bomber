@@ -2119,9 +2119,9 @@
     for(const b of bombs){
       if(b.exploded) continue;
       if(b.gx===gx && b.gy===gy) return true;
-      const range = (b.owner && b.owner.fireRange) || 2;
       const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
       for(const [dx,dy] of dirs){
+        const range = (b.owner===hiddenBoss) ? (dy===0 ? COLS : ROWS) : ((b.owner && b.owner.fireRange) || 2);
         for(let r=1; r<=range; r++){
           const cx = b.gx+dx*r, cy = b.gy+dy*r;
           if(cx<0||cy<0||cx>=COLS||cy>=ROWS) break;
@@ -2859,7 +2859,6 @@
     bomb.exploded = true;
     const owner = bomb.owner || player;
     owner.bombsAvailable = Math.min(owner.bombsAvailable+1, owner.maxBombs);
-    const range = owner.fireRange;
     const cells = [{gx:bomb.gx, gy:bomb.gy}];
     const newItems = [];
     const triggered = [];
@@ -2870,6 +2869,10 @@
     const playerOnBombOrigin = playerCell.gx===bomb.gx && playerCell.gy===bomb.gy;
     const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
     for(const [dx,dy] of dirs){
+      // the hidden final boss's bombs blast clean across the entire row
+      // and column (blocked only by walls/blocks, same as normal), rather
+      // than stopping after its usual fire range
+      const range = (owner===hiddenBoss) ? (dy===0 ? COLS : ROWS) : owner.fireRange;
       const armCells = [];
       for(let r=1; r<=range; r++){
         const gx = bomb.gx + dx*r, gy = bomb.gy + dy*r;

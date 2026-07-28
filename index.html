@@ -3820,19 +3820,23 @@
     const t1 = FPS_GOD_DESCEND_DURATION*1000+150;
     const t2 = t1+2800;
     const t3 = t2+2800;
+    const t4 = t3+2200;
     setTimeout(()=>{
       if(fpsEpoch===epoch) showItemToast('「あなたは創造神である<br>私を倒した。」', 2.8);
     }, t1);
     setTimeout(()=>{
-      if(fpsEpoch===epoch) showItemToast('「もう破壊神そのものです。<br>使いなさい」', 2.8);
+      if(fpsEpoch===epoch) showItemToast('「もう気付いてるはず。<br>使いなさい。」', 2.8);
     }, t2);
+    setTimeout(()=>{
+      if(fpsEpoch===epoch) showItemToast('「破壊神よ。」', 2.2);
+    }, t3);
     setTimeout(()=>{
       if(fpsEpoch===epoch && fpsPhase==='god_appear'){
         fpsPhase = 'rick_ready';
         rickBombBtn.style.display = '';
         refreshHintText();
       }
-    }, t3);
+    }, t4);
   }
 
   // The finale: the player turns the god beam's power on the whole planet
@@ -3845,7 +3849,7 @@
     rickBombBtn.style.display = 'none';
     shieldBtn.style.display = 'none';
     refreshHintText();
-    showItemToast('「さようなら地球」', 2.2);
+    showItemToast('「Rickボンバー！」', 2.2);
     sfx.trueBossWarning();
   }
 

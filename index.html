@@ -64,6 +64,9 @@
   #skipToPortalBtn {
     display: none;
   }
+  #skipToHeavenBtn {
+    display: none;
+  }
   #hud {
     display: flex;
     flex-wrap: wrap;
@@ -144,14 +147,20 @@
   #itemToast {
     position: absolute;
     left: 50%;
-    top: 24%;
+    top: 22%;
     transform: translate(-50%, 0);
-    padding: 5px 14px;
-    background: rgba(0,0,0,0.55);
+    max-width: 90%;
+    box-sizing: border-box;
+    padding: 6px 16px;
+    background: rgba(0,0,0,0.6);
     border-radius: 8px;
     color: #ffe066;
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: bold;
+    line-height: 1.55;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: break-word;
     text-shadow: 0 0 6px rgba(255,224,102,0.8), 0 1px 3px rgba(0,0,0,.7);
     pointer-events: none;
     opacity: 0;
@@ -217,6 +226,11 @@
     flex-shrink: 0;
   }
   #bombBtn:active { transform: scale(0.94); }
+  #bombBtn.goldenReady {
+    background: radial-gradient(circle at 35% 30%, #ffe066, #a0790f 70%);
+    color: #3a2a00;
+    box-shadow: 0 4px 12px rgba(0,0,0,.5), inset 0 0 0 3px #7a5a10, 0 0 18px 4px rgba(255,224,102,0.7);
+  }
   #actionBtns {
     display: flex;
     flex-direction: column;
@@ -334,6 +348,7 @@
   <h1><span id="skipToFirstBossBtn" title="最初のボスへスキップ">💣</span> Rickボンバー <span id="skipToBossBtn" title="真のラスボスへスキップ">💣</span></h1>
   <button id="muteBtn" title="サウンドON/OFF">🔊</button>
   <button id="skipToPortalBtn" title="ワープゾーンへスキップ">🤖</button>
+  <button id="skipToHeavenBtn" title="神ステージ前のホワイトホールへスキップ">👼</button>
   <div id="hud">
     <div>タイム <span class="val" id="elapsedTime">0:00.0</span></div>
     <div>敵 <span class="val" id="enemyCount">0</span></div>
@@ -520,6 +535,7 @@
     bombUp: makeEmojiTexture('💣'),
     fireUp: makeEmojiTexture('🔥'),
     speedUp: makeEmojiTexture('🛼'),
+    relic: makeEmojiTexture('✨'),
   };
   function makeGlowSprite(colorHex, size){
     const m = new THREE.SpriteMaterial({ map:glowTexture, color:colorHex, blending:THREE.AdditiveBlending, transparent:true, depthWrite:false });
@@ -953,6 +969,17 @@
   mat.hiddenWall = [hiddenWallSideMat,hiddenWallSideMat,hiddenWallTopMat,hiddenWallSideMat,hiddenWallSideMat,hiddenWallSideMat];
   mat.hiddenBlock = [hiddenBlockSideMat,hiddenBlockSideMat,hiddenBlockTopMat,hiddenBlockSideMat,hiddenBlockSideMat,hiddenBlockSideMat];
 
+  // the secret heaven stage's own walls/blocks - the same textures again,
+  // bleached bright gold-white instead of tinted dark, for an unmistakably
+  // different, radiant final arena
+  const heavenWallSideMat = stdMat(0xfff6d8, 0x3a3010, {map:spaceWallTexture, roughness:0.4, metalness:0.25});
+  const heavenWallTopMat = stdMat(0xfff6d8, 0x3a3010, {map:spaceWallTopTexture, roughness:0.35, metalness:0.3});
+  const heavenBlockSideMat = stdMat(0xffe9a8, 0x332a10, {map:spaceBlockTexture, roughness:0.45, metalness:0.1});
+  const heavenBlockTopMat = stdMat(0xffe9a8, 0x332a10, {map:spaceBlockTopTexture, roughness:0.45, metalness:0.1});
+  mat.heavenWall = [heavenWallSideMat,heavenWallSideMat,heavenWallTopMat,heavenWallSideMat,heavenWallSideMat,heavenWallSideMat];
+  mat.heavenBlock = [heavenBlockSideMat,heavenBlockSideMat,heavenBlockTopMat,heavenBlockSideMat,heavenBlockSideMat,heavenBlockSideMat];
+  mat.godBody = stdMat(0xfff2c0, 0xffcc55, {metalness:0.55, roughness:0.2});
+
   function createFloorTexture(){
     const res = 64;
     const cvs = document.createElement('canvas');
@@ -1025,6 +1052,11 @@
   const hiddenFloorMat = new THREE.MeshStandardMaterial({
     map: spaceFloorTexture, roughness:0.7, metalness:0.25, color: 0xffabc0
   });
+  // same floor texture again, bleached bright and gold - the secret
+  // heaven stage's floor, unmistakably different from either space arena
+  const heavenFloorMat = new THREE.MeshStandardMaterial({
+    map: spaceFloorTexture, roughness:0.4, metalness:0.15, color: 0xfff0c2
+  });
 
   function createSkyTexture(){
     const cvs = document.createElement('canvas');
@@ -1056,7 +1088,7 @@
   function buildBoardMeshes(){
     disposeGroup(boardGroup);
     tileMeshes = [];
-    const floorMesh = new THREE.Mesh(floorGeo, spaceMode ? (stage>=8 ? hiddenFloorMat : spaceFloorMat) : floorMat);
+    const floorMesh = new THREE.Mesh(floorGeo, heavenMode ? heavenFloorMat : (spaceMode ? (stage>=8 ? hiddenFloorMat : spaceFloorMat) : floorMat));
     floorMesh.rotation.x = -Math.PI/2;
     floorMesh.position.set(0,0,0);
     boardGroup.add(floorMesh);
@@ -1077,8 +1109,8 @@
     const h = isWall ? 1.0 : 0.55;
     const g = new THREE.Group();
 
-    const wallMat = spaceMode ? (stage>=8 ? mat.hiddenWall : mat.spaceWall) : mat.wall;
-    const blockMat = spaceMode ? (stage>=8 ? mat.hiddenBlock : mat.spaceBlock) : mat.block;
+    const wallMat = heavenMode ? mat.heavenWall : (spaceMode ? (stage>=8 ? mat.hiddenWall : mat.spaceWall) : mat.wall);
+    const blockMat = heavenMode ? mat.heavenBlock : (spaceMode ? (stage>=8 ? mat.hiddenBlock : mat.spaceBlock) : mat.block);
     const bodyMat = isTreasure ? null : (isWall ? wallMat : blockMat);
     if(isTreasure){
       // a large, solid hexagonal quartz-style crystal (prism body + a
@@ -1555,6 +1587,40 @@
     player.mesh3d.add(crownGlow);
   }
 
+  // Grows a glowing halo and a pair of feathered wings on the player -
+  // used only for the special ascension ending, on top of whatever crown
+  // they're already wearing.
+  function attachAngelToPlayer(){
+    if(!player.mesh3d || player.mesh3d.userData.hasWings) return;
+    player.mesh3d.userData.hasWings = true;
+    const haloMat = basicMat(0xfff6d8, {transparent:true, opacity:0.9});
+    const halo = new THREE.Mesh(geo.ring, haloMat);
+    halo.rotation.x = -Math.PI/2.3;
+    halo.scale.set(0.22, 0.22, 1);
+    halo.position.set(0, 1.9, 0.02);
+    player.mesh3d.add(halo);
+    const haloGlow = makeGlowSprite(0xfff6d8, 0.9);
+    haloGlow.position.set(0, 1.9, 0.02);
+    player.mesh3d.add(haloGlow);
+    const haloLight = new THREE.PointLight(0xfff6d8, 0.9, 2.6);
+    haloLight.position.y = 1.85;
+    player.mesh3d.add(haloLight);
+    const wingMat = basicMat(0xffffff, {transparent:true, opacity:0.92});
+    for(const side of [-1,1]){
+      const wing = new THREE.Group();
+      for(let i=0;i<4;i++){
+        const feather = new THREE.Mesh(geo.icosa, wingMat);
+        feather.scale.set(0.12-i*0.014, 0.05, 0.22-i*0.03);
+        feather.position.set(side*(0.12+i*0.1), 0.05-i*0.03, -0.05-i*0.05);
+        feather.rotation.y = side*0.5;
+        wing.add(feather);
+      }
+      wing.position.set(side*0.16, 1.15, -0.06);
+      wing.rotation.z = side*0.25;
+      player.mesh3d.add(wing);
+    }
+  }
+
   // ---------- iOS Safari zoom prevention ----------
   // iOS Safari can still trigger pinch-zoom and double-tap-zoom even with
   // user-scalable=no in the viewport meta tag (it's ignored in some
@@ -1734,6 +1800,34 @@
       playTone(659,0.14,'square',0.15,0.13);
       playTone(784,0.14,'square',0.15,0.26);
       playTone(1047,0.28,'square',0.16,0.39);
+    },
+    godWarning(){
+      // a long, swelling "ファーー" - a bright choir-like chord that fades
+      // in slowly, holds, then fades back out. No sharp attack, no noise
+      // hits like the other boss warnings - genuinely its own sound.
+      if(!audioEnabled) return;
+      const ac = ensureAudio();
+      if(!ac) return;
+      const t0 = ac.currentTime;
+      const attack = 1.1, hold = 1.0, release = 1.3;
+      const total = attack + hold + release;
+      const chord = [392.0, 523.25, 659.25, 784.0, 1046.5]; // G C E G C - bright, open
+      chord.forEach((f,i)=>{
+        const osc = ac.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(f*0.985, t0);
+        osc.frequency.linearRampToValueAtTime(f, t0+attack*0.6);
+        const gain = ac.createGain();
+        const vol = Math.max(0.02, 0.11 - i*0.014);
+        gain.gain.setValueAtTime(0.0001, t0);
+        gain.gain.exponentialRampToValueAtTime(vol, t0+attack);
+        gain.gain.setValueAtTime(vol, t0+attack+hold);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0+total);
+        osc.connect(gain).connect(ac.destination);
+        osc.start(t0);
+        osc.stop(t0+total+0.05);
+      });
+      playNoise(attack+hold, 0.05, 0);
     },
     grandWin(){
       // a fuller, more triumphant fanfare for the true, clean-crown ending -
@@ -1943,11 +2037,24 @@
       noteDuration: 0.34,
       wave: 'sine',
     },
+    // the secret heaven stage: a grand, hymn-like theme - bright major-key
+    // chords with a solemn, steady sub-bass foundation, distinct from
+    // every other theme in the game
+    heaven: {
+      notes: [523.3,659.3,784.0,659.3, 698.5,880.0,1047.0,880.0, 587.3,698.5,880.0,698.5, 784.0,987.8,1174.7,987.8],
+      noteDuration: 0.24,
+      wave: 'triangle',
+      bassAccent: true,
+      bassWave: 'sine',
+      bassDiv: 2,
+      bassEvery: 2,
+    },
   };
   let currentBgmKey = null;
 
   function bgmKeyForStage(){
-    if(stage===10 || stage===11 || stage===13) return crownCracked ? null : 'crownSparkle';
+    if(stage>=20) return 'heaven';
+    if(stage===10 || stage===11 || stage===13 || stage===14) return crownCracked ? null : 'crownSparkle';
     if(stage>=8) return 'hiddenBoss';
     if(stage===7) return 'clear';
     if(stage===4) return stage4Revealed ? 'trueBoss' : 'normal';
@@ -2031,6 +2138,11 @@
   let blockDebris = [];
   let shakeTimer = 0, shakeMagnitude = 0;
   let pendingEnd = null; // { isWin, timer } - delays the end screen until the death animation finishes
+  let pendingHeavenRespawn = null; // { timer } - dying in the heaven stage doesn't end the game; it delays a return trip to the crown room instead
+  let godIntroTimer = 0; // freezes both the player and the god until the "降臨" reveal banner clears
+  let godDyingTimer = 0; // counts down the god's slow fade-out death sequence before it's actually finalized
+  let altarsReplaced = false; // true once the player has returned from defeating the god - the altars are gone, replaced by pickable treasures
+  let sneakyTreasureTaken = false; // true if the player grabbed any of those bonus treasures before taking the crown
   let endingMessage = null; // optional overlay text override for the various new endings
   let trueEnding = false; // set once the player actually claims the hidden boss's crown
   // 1 = clearing normal enemies, 2 = boss intro, 3 = boss fight,
@@ -2057,6 +2169,15 @@
   let crownCrackEffectTimer = 0; // drives the crown-cracking flash/particle burst
   let shieldBreakEffectTimer = 0; // a smaller purple burst for a shield-only hit (no crown crack)
   let posePlayerStart = null; // {x,y} pixel position the player walks from during the victory pose cutscene
+  // four offering altars in the crown room's corners - always present
+  // regardless of the crown's state, hinting at the treasure-offering
+  // subplot without doing anything mechanically on their own
+  const altarPositions = [
+    { gx:1, gy:1 },
+    { gx:COLS-2, gy:1 },
+    { gx:1, gy:ROWS-2 },
+    { gx:COLS-2, gy:ROWS-2 },
+  ];
   let spaceMode = false; // true once we've warped into the hidden boss's stage
   let starField = null;
   let hiddenArenaDecor = null; // persistent decorative backdrop (broken ring + dying star) unique to the hidden final boss's arena, distinguishing it from the true boss's space stage
@@ -2074,6 +2195,15 @@
   const BOSS_HP = 3;
   const BOSS_SPEED = 105;
   const BOSS_SIZE = 40; // purely visual - collision still uses ENTITY_SIZE so it still fits corridors
+
+  // --- the secret heaven stage: a hidden true-final boss, reachable only
+  // after collecting all 4 treasures across past runs (only one is ever
+  // obtainable per run) and then beating the hidden boss with its crown
+  // still intact ---
+  const GOD_HP = 100;
+  const GOD_SIZE = BOSS_SIZE;
+  const RELIC_TOTAL = 7;
+  const HEAVEN_FLASH_DURATION = 2.2;
   const BOSS_INTRO_TIME = 2.6;
   const TRUEBOSS_DESCENT_DURATION = 10.6; // eject + rocket away -> beam pulls player in -> wreck teleports away -> white flash hold/fade -> UFO warps into new arena + player thrown clear -> true boss falls from above
   const PROJECTILE_SPEED = 210;
@@ -2102,11 +2232,30 @@
   let score = 0;
   let gameStartTime = 0;
   let clearElapsedMs = 0;
+  // patched to true only in the debug build - lets the invincibility
+  // button be reused freely for testing instead of locking after one use
+  const DEBUG_MODE = false;
   let gameOver = false, gameWin = false;
   // NOT reset by resetGame() - counts how many times stage 1 has been
   // cleared this browser session; once it reaches 3, the "仲間爆破装置起動"
   // skip button becomes available on every subsequent restart
   let stage1ClearCount = 0;
+  // NOT reset by resetGame() - which treasure types have ever been
+  // collected across past runs this session (only one is obtainable per
+  // run, so this tracks progress toward the secret heaven stage)
+  let treasuresEverCollected = new Set();
+  // per-run heaven-stage state (all reset by resetGame())
+  let heavenGateActive = false; // true once a clean-crown hidden-boss kill unlocks the white hole, if all 4 treasures have ever been found
+  let heavenGatePos = null; // {gx,gy} where that white hole sits
+  let heavenMode = false; // true once inside the heaven stage itself
+  let godBoss = null;
+  let relicsCollected = 0;
+  let goldenBombCharged = false; // true once all 7 relics are in hand - the next bomb the player places is the golden judgement bomb (20 damage instead of 1)
+  let godDefeated = false; // true once the god has been beaten this run - taking the clean crown afterward triggers the special ascension ending instead of the normal one
+  let heavenReturnGatePos = null; // {gx,gy} - the white hole that appears in the heaven stage once the god falls, leading back to the crown room
+  let playerAscending = false; // true while the stage-14 "transcended" cutscene is manually puppeteering the player (wings/halo, flying off)
+  const ASCEND_DURATION = 4.2;
+  let godTranscended = false; // true if the special ascension ending played out - swaps the win title/message
   let lastTime = 0;
 
   const elapsedTimeEl = document.getElementById('elapsedTime');
@@ -2133,7 +2282,7 @@
   const itemToast = document.getElementById('itemToast');
   let itemToastTimer = 0;
   function showItemToast(text, duration){
-    itemToast.textContent = text;
+    itemToast.innerHTML = text;
     itemToast.classList.add('show');
     itemToastTimer = duration || 1.6;
   }
@@ -2203,6 +2352,11 @@
     itemToast.classList.remove('show');
     posePlayerStart = null;
     pendingEnd = null;
+    pendingHeavenRespawn = null;
+    godIntroTimer = 0;
+    godDyingTimer = 0;
+    altarsReplaced = false;
+    sneakyTreasureTaken = false;
     const spots = [[COLS-2,1],[1,ROWS-2],[COLS-2,ROWS-2]];
     enemies = spots.slice(0,ENEMY_COUNT).map(([x,y])=>makeEntity(x,y,ENEMY_SPEED));
     bombs = [];
@@ -2243,6 +2397,17 @@
     blackHoleWarpMode = false;
     blackHoleEjectPhase = false;
     playerDizzyTimer = 0;
+    heavenGateActive = false;
+    heavenGatePos = null;
+    teardownHeavenTheme();
+    godBoss = null;
+    relicsCollected = 0;
+    goldenBombCharged = false;
+    bombBtn.classList.remove('goldenReady');
+    godDefeated = false;
+    heavenReturnGatePos = null;
+    playerAscending = false;
+    godTranscended = false;
     whiteFlash.style.opacity = '0';
     descentMesh = null;
     stage4FX = null;
@@ -2275,7 +2440,8 @@
 
   function updateHUD(){
     elapsedTimeEl.textContent = formatShortTime(performance.now() - gameStartTime);
-    if(stage===9 && hiddenBoss) enemyCountEl.textContent = `HP${hiddenBoss.hp}`;
+    if(stage===21 && godBoss) enemyCountEl.textContent = `HP${godBoss.hp}`;
+    else if(stage===9 && hiddenBoss) enemyCountEl.textContent = `HP${hiddenBoss.hp}`;
     else if(stage===5 && trueBoss) enemyCountEl.textContent = `HP${trueBoss.hp}`;
     else if(stage===3 && boss) enemyCountEl.textContent = `HP${boss.hp}`;
     else enemyCountEl.textContent = enemies.filter(e=>e.alive).length;
@@ -2680,12 +2846,15 @@
 
   function activateInvincibility(){
     if(gameOver || gameWin || !player.alive) return;
-    if(player.invincibleUsed || player.invincibleTimer>0) return;
+    if(player.invincibleTimer>0) return;
+    if(!DEBUG_MODE && player.invincibleUsed) return;
     player.invincibleUsed = true;
     player.invincibleTimer = 5.0;
     player.invinciblePulseTimer = 0;
-    invincibleBtn.disabled = true;
-    invincibleBtn.innerHTML = '使用済み';
+    if(!DEBUG_MODE){
+      invincibleBtn.disabled = true;
+      invincibleBtn.innerHTML = '使用済み';
+    }
     sfx.invincibleActivate();
   }
 
@@ -2843,7 +3012,7 @@
     updateHUD();
   }
 
-  function placeBombFor(entity, dangerous){
+  function placeBombFor(entity, dangerous, golden){
     if(!entity.alive || entity.bombsAvailable<=0) return false;
     const {gx,gy} = occupiedCell(entity);
     if(bombAtCell(gx,gy)) return false;
@@ -2852,7 +3021,8 @@
       rolling:false, rollDx:0, rollDy:0,
       cx:gx*TILE+TILE/2, cy:gy*TILE+TILE/2,
       owner: entity,
-      dangerous: !!dangerous
+      dangerous: !!dangerous,
+      golden: !!golden
     });
     entity.bombsAvailable--;
     return true;
@@ -2860,7 +3030,22 @@
 
   function placeBomb(){
     if(gameOver || gameWin || !player.alive) return;
-    if(placeBombFor(player)){ updateHUD(); sfx.bombPlace(); }
+    const isGolden = goldenBombCharged;
+    if(placeBombFor(player, false, isGolden)){
+      updateHUD();
+      if(isGolden){
+        goldenBombCharged = false;
+        bombBtn.classList.remove('goldenReady');
+        sfx.win();
+        if(stage===21 && godBoss){
+          relicsCollected = 0;
+          items = items.filter(it=>it.type!=='relic');
+          spawnRelics();
+        }
+      } else {
+        sfx.bombPlace();
+      }
+    }
   }
 
   window.addEventListener('keydown', e=>{
@@ -2978,6 +3163,46 @@
   }
   // debug skip-to-true-boss removed (kept the function, dropped the click binding so the 💣 title icon is no longer clickable)
 
+  // debug-only: jump straight to the crown room with the secret heaven
+  // gate already active, as if the player had found all 4 treasures
+  // across past runs and just beat the hidden boss with a clean crown
+  function skipToHeavenGate(){
+    if(gameOver || gameWin) return;
+    enemies.forEach(en=>en.alive=false);
+    boss = null; trueBoss = null; hiddenBoss = null; godBoss = null;
+    bombs = []; explosions = []; rainBombs = []; projectiles = []; safeCells = []; items = [];
+    rayGunTaken = true;
+    player.hasRayGun = true;
+    destroyRayMode = true;
+    player.destroyRayUsed = true;
+    destroyRayBtn.style.display = 'none';
+    crownCracked = false;
+    treasuresEverCollected = new Set(['ring','earring','necklace','goldbar']);
+    crownPos = { gx: Math.floor(COLS/2), gy: Math.max(1, Math.floor(ROWS/2)-2) };
+    crownTaken = false;
+    heavenGateActive = true;
+    heavenGatePos = { gx: Math.floor(COLS/2), gy: ROWS-2 };
+    setupSpaceTheme();
+    bossBanner.classList.remove('show');
+    whiteFlash.style.opacity = '0';
+    cutsceneFlashDone = false;
+    player.maxBombs = MAX_BOMBS;
+    player.bombsAvailable = MAX_BOMBS;
+    player.fireRange = MAX_FIRE;
+    player.speedLevel = MAX_SPEED_LEVEL;
+    player.speed = BASE_SPEED + (MAX_SPEED_LEVEL-1)*SPEED_STEP;
+    player.canKick = true;
+    player.gx = Math.floor(COLS/2); player.gy = ROWS-4;
+    player.moveDir = { dx:0, dy:0 }; player.progress = 0;
+    player.x = player.gx*TILE + (TILE-ENTITY_SIZE)/2;
+    player.y = player.gy*TILE + (TILE-ENTITY_SIZE)/2;
+    player.alive = true;
+    clearAllSoftBlocks();
+    buildBoardMeshes();
+    stage = 11;
+    updateHUD();
+  }
+
   function skipToPortalZone(){
     if(gameOver || gameWin) return;
     enemies.forEach(en=>en.alive=false);
@@ -3021,6 +3246,7 @@
     updateHUD();
   }
   // debug skip-to-portal-zone removed (kept the function, dropped the click binding; the 🤖 icon itself is now hidden via CSS)
+  // debug skip-to-heaven-gate removed (kept the function, dropped the click binding; the 👼 icon itself is hidden via CSS)
 
   const muteBtn = document.getElementById('muteBtn');
   muteBtn.addEventListener('click', ()=>{
@@ -3083,7 +3309,22 @@
     if(TREASURE_INFO[type]){
       const name = TREASURE_INFO[type].name;
       collectedTreasures.push(name);
+      treasuresEverCollected.add(type);
+      if(altarsReplaced) sneakyTreasureTaken = true;
       showItemToast(`${name}を手に入れた`, 1.6);
+      return;
+    }
+    if(type==='relic'){
+      relicsCollected++;
+      if(relicsCollected>=RELIC_TOTAL){
+        goldenBombCharged = true;
+        bombBtn.classList.add('goldenReady');
+        showItemToast('神器が揃った…<br>黄金の裁きの爆弾!', 2.0);
+        sfx.win();
+      } else {
+        showItemToast(`神器を手に入れた(${relicsCollected}/${RELIC_TOTAL})`, 1.4);
+      }
+      sfx.stepItem();
       return;
     }
     switch(type){
@@ -3211,9 +3452,9 @@
       }
     }
     // explosion burns any *pre-existing* item caught in the blast (not the ones it just dropped)
-    items = items.filter(it=>!cells.some(c=>c.gx===it.gx && c.gy===it.gy));
+    items = items.filter(it=>it.type==='relic' || !cells.some(c=>c.gx===it.gx && c.gy===it.gy));
     items.push(...newItems);
-    explosions.push({cells, timer:EXPLOSION_DURATION, owner, core3x3});
+    explosions.push({cells, timer:EXPLOSION_DURATION, owner, core3x3, golden: !!bomb.golden});
     sfx.explosion();
     updateHUD();
     return triggered;
@@ -3238,6 +3479,30 @@
       timeStopTimer -= dt;
       return; // brief hitstop freeze - everything else pauses for the beat
     }
+    if(stage===21 && godIntroTimer>0){
+      godIntroTimer -= dt;
+      return; // neither the player nor the god can act until the reveal banner clears
+    }
+    if(stage===21 && godDyingTimer>0){
+      godDyingTimer -= dt;
+      if(godDyingTimer<=0){
+        godDyingTimer = 0;
+        godBoss.alive = false;
+        godDefeated = true;
+        spawnDeathEffect(godBoss.x+ENTITY_SIZE/2, godBoss.y+ENTITY_SIZE/2, '#fff2c0', 2.6);
+        spawnSlowBurst(godBoss.x+ENTITY_SIZE/2, godBoss.y+ENTITY_SIZE/2, '#fff2c0', 32, 2.2);
+        spawnSlowBurst(godBoss.x+ENTITY_SIZE/2, godBoss.y+ENTITY_SIZE/2, '#ffe066', 22, 1.8);
+        sfx.trueBossDeath();
+        sfx.win();
+        // no ending here - a white hole opens up instead, leading back
+        // to the crown room to decide how this really ends
+        heavenReturnGatePos = { gx: Math.floor(COLS/2), gy: Math.floor(ROWS/2) };
+        items = items.filter(it=>it.type!=='relic');
+        score += 5000;
+        updateHUD();
+      }
+      return; // the world holds still while the god slowly fades away
+    }
 
     // Let the death animation actually play before showing the end screen,
     // instead of instantly covering it up.
@@ -3247,6 +3512,38 @@
         if(pendingEnd.isWin){ gameWin = true; showOverlay(true); }
         else { gameOver = true; showOverlay(false); }
         pendingEnd = null;
+      }
+      return;
+    }
+
+    // dying in the heaven stage doesn't end the run - after the death
+    // animation plays, it's back to the crown room to try the god again
+    if(pendingHeavenRespawn){
+      pendingHeavenRespawn.timer -= dt;
+      if(pendingHeavenRespawn.timer<=0){
+        pendingHeavenRespawn = null;
+        teardownHeavenTheme();
+        setupSpaceTheme();
+        godBoss = null;
+        relicsCollected = 0;
+        goldenBombCharged = false;
+        bombBtn.classList.remove('goldenReady');
+        bombs = []; explosions = []; projectiles = []; items = [];
+        heavenReturnGatePos = null;
+        heavenGateActive = true;
+        heavenGatePos = { gx: Math.floor(COLS/2), gy: ROWS-2 };
+        player.alive = true;
+        player.gx = Math.floor(COLS/2); player.gy = ROWS-3;
+        player.moveDir = { dx:0, dy:0 }; player.progress = 0;
+        player.x = player.gx*TILE + (TILE-ENTITY_SIZE)/2;
+        player.y = player.gy*TILE + (TILE-ENTITY_SIZE)/2;
+        player.facing = 'up';
+        player.invincibleTimer = 0;
+        clearAllSoftBlocks();
+        buildBoardMeshes();
+        stage = 11;
+        cutsceneFlashDone = false;
+        updateHUD();
       }
       return;
     }
@@ -3451,6 +3748,81 @@
       }
       return;
     }
+
+    // stage 14: having already beaten the god this run, taking the crown
+    // now triggers something greater - wings and a halo, a walk to center,
+    // then flying off into the light entirely
+    if(stage===14){
+      stageTimer -= dt;
+      const elapsedA = ASCEND_DURATION - stageTimer;
+      const WALK_END = ASCEND_DURATION*0.3;
+      const centerX = Math.floor(COLS/2)*TILE + (TILE-ENTITY_SIZE)/2;
+      const centerY = Math.floor(ROWS/2)*TILE + (TILE-ENTITY_SIZE)/2;
+      if(elapsedA < WALK_END && posePlayerStart){
+        const p = Math.min(1, elapsedA/WALK_END);
+        const ease = 1-(1-p)*(1-p);
+        const dx = centerX - posePlayerStart.x, dy = centerY - posePlayerStart.y;
+        player.x = posePlayerStart.x + dx*ease;
+        player.y = posePlayerStart.y + dy*ease;
+        if(Math.abs(dx)>Math.abs(dy)) player.facing = dx<0 ? 'left' : 'right';
+        else player.facing = dy<0 ? 'up' : 'down';
+      } else {
+        player.x = centerX;
+        player.y = centerY;
+        player.facing = 'down';
+        playerAscending = true;
+      }
+      if(stageTimer<=0){
+        // playerAscending stays true here on purpose - they've flown off
+        // for good, so the normal render should never resume and show
+        // them standing back at the center again
+        godTranscended = true;
+        trueEnding = true;
+        endingMessage = '綺麗な王冠を手に入れるだけでなく、神をも越える存在になってしまった'
+          + (sneakyTreasureTaken ? '。宝物もこっそりくすねちゃった' : '');
+        if(!pendingEnd) pendingEnd = { isWin:true, timer:0.6 };
+      }
+      return;
+    }
+
+    // stage 20: the flash into the secret heaven stage - ramps to full
+    // white, swaps the whole arena over at the peak, then fades
+    if(stage===20){
+      stageTimer -= dt;
+      const elH = HEAVEN_FLASH_DURATION - stageTimer;
+      const FLASH_PEAK = HEAVEN_FLASH_DURATION*0.4;
+      let flashOpacity = 0;
+      if(elH < FLASH_PEAK) flashOpacity = Math.min(1, elH/FLASH_PEAK);
+      else flashOpacity = Math.max(0, 1-((elH-FLASH_PEAK)/(HEAVEN_FLASH_DURATION-FLASH_PEAK)));
+      whiteFlash.style.opacity = String(flashOpacity);
+      if(!cutsceneFlashDone && elH>=FLASH_PEAK){
+        cutsceneFlashDone = true;
+        setupHeavenTheme();
+        buildBoardMeshes();
+        bombs = []; explosions = []; projectiles = []; items = [];
+        player.gx = Math.floor(COLS/2); player.gy = ROWS-2;
+        player.moveDir = { dx:0, dy:0 }; player.progress = 0;
+        player.x = player.gx*TILE + (TILE-ENTITY_SIZE)/2;
+        player.y = player.gy*TILE + (TILE-ENTITY_SIZE)/2;
+        player.facing = 'up';
+        player.canKick = false;
+        spawnGodBoss();
+        spawnRelics();
+        triggerShake(0.3, 6);
+      }
+      if(stageTimer<=0){
+        stage = 21;
+        godIntroTimer = 2.4;
+        bossBanner.textContent = '';
+        bossBanner.innerHTML = '<span>😇 創造神、降臨 😇</span>';
+        bossBanner.classList.add('show');
+        sfx.godWarning();
+        setTimeout(()=>bossBanner.classList.remove('show'), 2400);
+        updateHUD();
+      }
+      return;
+    }
+
     let rawDx=0, rawDy=0;
     if(joyActive && (Math.abs(joyVec.x)>0.15 || Math.abs(joyVec.y)>0.15)){
       rawDx = joyVec.x; rawDy = joyVec.y;
@@ -3474,7 +3846,12 @@
       if(player.invincibleTimer<=0){
         player.invincibleTimer = 0;
         if(!gameOver && !gameWin){
-          invincibleBtn.innerHTML = '使用済み';
+          if(DEBUG_MODE){
+            invincibleBtn.disabled = false;
+            invincibleBtn.innerHTML = '無敵<br>5秒';
+          } else {
+            invincibleBtn.innerHTML = '使用済み';
+          }
         }
       }
     }
@@ -3560,6 +3937,26 @@
         }
         boss.attackTimer = 2.6 + Math.random()*1.2;
         sfx.bossFire();
+      }
+    }
+
+    // the secret true final boss: never moves, never bombs - just keeps
+    // unloading wild, randomly-aimed bursts of light lasers in every
+    // direction, forcing the player to dodge while hunting for relics
+    if(stage===21 && godBoss && godBoss.alive && !godBoss.dying){
+      if(godBoss.invuln>0) godBoss.invuln -= dt;
+      godBoss.attackTimer -= dt;
+      if(godBoss.attackTimer<=0){
+        const cx = godBoss.x+ENTITY_SIZE/2, cy = godBoss.y+ENTITY_SIZE/2;
+        const count = 10 + Math.floor(Math.random()*5);
+        const angleOffset = Math.random()*Math.PI*2;
+        for(let i=0;i<count;i++){
+          const angle = angleOffset + (i/count)*Math.PI*2 + (Math.random()-0.5)*0.3;
+          projectiles.push({ x:cx, y:cy, dx:Math.cos(angle), dy:Math.sin(angle) });
+        }
+        godBoss.attackTimer = 1.0 + Math.random()*0.7;
+        sfx.rayBlast();
+        triggerShake(0.12, 3);
       }
     }
 
@@ -4074,6 +4471,12 @@
             sfx.trueBossDeath();
             if(crownCracked){
               bgmPlaying = false;
+            } else if(treasuresEverCollected.size>=4){
+              // every treasure has been found across past runs, and this
+              // crown came off clean - a second white hole opens up,
+              // offering the choice of the normal ending or pushing on
+              heavenGateActive = true;
+              heavenGatePos = { gx: Math.floor(COLS/2), gy: ROWS-2 };
             }
             // a clean crown keeps a quiet, continuous "kira-kira" sparkle
             // loop playing instead (handled by bgmKeyForStage), rather
@@ -4091,11 +4494,40 @@
           }
         }
       }
+      if(stage===21 && godBoss && godBoss.alive && godBoss.invuln<=0 && ex.owner!==godBoss){
+        const hitCell = ex.cells.find(c=>tileOverlapsEntity(c.gx,c.gy,godBoss));
+        if(hitCell){
+          const dmg = ex.golden ? 20 : 1;
+          godBoss.hp = Math.max(0, godBoss.hp - dmg);
+          godBoss.invuln = ex.golden ? 1.4 : 0.5;
+          if(!ex.golden){
+            // a normal bomb briefly staggers it, holding off the next
+            // barrage for a moment as a small reward for landing a hit
+            godBoss.attackTimer = Math.max(godBoss.attackTimer, 2.2);
+          }
+          if(ex.golden){
+            triggerShake(0.4, 9);
+            spawnDeathEffect(godBoss.x+ENTITY_SIZE/2, godBoss.y+ENTITY_SIZE/2, '#fff2c0', 2.4);
+          }
+          if(godBoss.hp<=0 && !godBoss.dying){
+            godBoss.dying = true;
+            godDyingTimer = 2.6;
+            triggerShake(0.4, 9);
+            sfx.godWarning();
+          } else if(godBoss.hp>0){
+            sfx.bossHit();
+          }
+        }
+      }
     }
     explosions = explosions.filter(ex=>ex.timer>0);
 
     if(!player.alive){
-      if(!pendingEnd) pendingEnd = { isWin:false, timer: 0.9 };
+      if(stage===21){
+        if(!pendingHeavenRespawn) pendingHeavenRespawn = { timer: 0.9 };
+      } else if(!pendingEnd){
+        pendingEnd = { isWin:false, timer: 0.9 };
+      }
     } else if(stage===1 && enemies.every(e=>!e.alive)){
       // regular enemies cleared - trigger the first boss's intro
       stage1ClearCount++;
@@ -4167,8 +4599,28 @@
       }
     }
 
+    // the four offering altars in the crown room - only shown for a clean
+    // crown, until the god falls and they're replaced by actual treasures
+    if(player.alive && !altarsReplaced && !crownCracked && (stage===10 || stage===11 || stage===13)){
+      const pcA = occupiedCell(player);
+      const onAltar = altarPositions.some(a=>a.gx===pcA.gx && a.gy===pcA.gy);
+      if(onAltar){
+        if(!player._onAltar){
+          player._onAltar = true;
+          if(heavenGateActive){
+            showItemToast('宝を集めし者よ、<br>我のもとに来るがよい', 2.0);
+          } else {
+            showItemToast('「宝物を供えよ…」<br>と書いてあるようだ…', 1.8);
+          }
+        }
+      } else {
+        player._onAltar = false;
+      }
+    }
+
     // the crown, left behind after the hidden final boss falls - touching
-    // it is the true, complete ending
+    // it is the true, complete ending (or something even greater, if the
+    // god has already fallen this run)
     if(player.alive && stage===11 && crownPos && !crownTaken){
       const pc = occupiedCell(player);
       if(pc.gx===crownPos.gx && pc.gy===crownPos.gy){
@@ -4177,8 +4629,59 @@
         attachCrownToPlayer();
         posePlayerStart = { x: player.x, y: player.y };
         player.moveDir = { dx:0, dy:0 }; player.progress = 0;
-        stage = 13;
-        stageTimer = CROWN_POSE_DURATION;
+        if(godDefeated && !crownCracked){
+          stage = 14;
+          stageTimer = ASCEND_DURATION;
+        } else {
+          stage = 13;
+          stageTimer = CROWN_POSE_DURATION;
+        }
+        updateHUD();
+        return;
+      }
+    }
+    // the secret second white hole - stepping into it instead of taking
+    // the crown pushes on into the hidden heaven stage
+    if(player.alive && stage===11 && heavenGateActive && heavenGatePos){
+      const pg = occupiedCell(player);
+      if(pg.gx===heavenGatePos.gx && pg.gy===heavenGatePos.gy){
+        heavenGateActive = false;
+        heavenGatePos = null;
+        stage = 20;
+        stageTimer = HEAVEN_FLASH_DURATION;
+        cutsceneFlashDone = false;
+        triggerShake(0.3, 5);
+        sfx.whiteHoleEnter();
+        updateHUD();
+        return;
+      }
+    }
+    // once the god has fallen, its white hole leads back to the crown
+    // room - the crown (if not yet taken) is still waiting there
+    if(player.alive && stage===21 && godDefeated && heavenReturnGatePos){
+      const pg = occupiedCell(player);
+      if(pg.gx===heavenReturnGatePos.gx && pg.gy===heavenReturnGatePos.gy){
+        heavenReturnGatePos = null;
+        teardownHeavenTheme();
+        setupSpaceTheme();
+        bombs = []; explosions = []; projectiles = []; items = [];
+        player.gx = Math.floor(COLS/2); player.gy = ROWS-3;
+        player.moveDir = { dx:0, dy:0 }; player.progress = 0;
+        player.x = player.gx*TILE + (TILE-ENTITY_SIZE)/2;
+        player.y = player.gy*TILE + (TILE-ENTITY_SIZE)/2;
+        player.facing = 'up';
+        clearAllSoftBlocks();
+        buildBoardMeshes();
+        stage = 11;
+        cutsceneFlashDone = false;
+        triggerShake(0.3, 5);
+        sfx.whiteHoleEnter();
+        // the altars are gone now - each one has left a treasure behind
+        altarsReplaced = true;
+        items.push({ gx:altarPositions[0].gx, gy:altarPositions[0].gy, type:'ring' });
+        items.push({ gx:altarPositions[1].gx, gy:altarPositions[1].gy, type:'earring' });
+        items.push({ gx:altarPositions[2].gx, gy:altarPositions[2].gy, type:'necklace' });
+        items.push({ gx:altarPositions[3].gx, gy:altarPositions[3].gy, type:'goldbar' });
         updateHUD();
         return;
       }
@@ -4371,6 +4874,39 @@
     boss.attackTimer = 2 + Math.random();
   }
 
+  // The secret true final boss: a motionless creator-god idol that never
+  // chases or bombs - it just keeps unleashing wild bursts of light lasers
+  // in every direction while the player scrambles for the seven relics.
+  function spawnGodBoss(){
+    const bx = Math.floor(COLS/2), by = Math.floor(ROWS/2);
+    godBoss = makeEntity(bx, by, 0);
+    godBoss.hp = GOD_HP;
+    godBoss.invuln = 1.2;
+    godBoss.attackTimer = 1.8;
+    godBoss._landedFX = false;
+    godBoss.dying = false;
+  }
+
+  // Scatters the seven relics across open floor tiles, away from the
+  // hard-wall pillars, so the player has to actually cross the god's line
+  // of fire to gather them all.
+  function spawnRelics(){
+    const candidates = [];
+    for(let y=1;y<ROWS-1;y++){
+      for(let x=1;x<COLS-1;x++){
+        if(!isSolidTile(x,y)) candidates.push({gx:x,gy:y});
+      }
+    }
+    for(let i=candidates.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      const tmp = candidates[i]; candidates[i] = candidates[j]; candidates[j] = tmp;
+    }
+    const picks = candidates.slice(0, RELIC_TOTAL);
+    for(const c of picks){
+      items.push({ gx:c.gx, gy:c.gy, type:'relic' });
+    }
+  }
+
   // The true boss is basically a player: fully upgraded (max bombs, max
   // fire power, max speed) and equipped with bomb kick, wandering the map,
   // dropping bombs, and kicking any it runs into - just like you can.
@@ -4480,6 +5016,36 @@
     if(hiddenArenaDecor){ scene.remove(hiddenArenaDecor); hiddenArenaDecor = null; }
   }
 
+  let heavenDecor = null; // persistent decorative backdrop (rays of light + halo) for the secret heaven stage
+  function setupHeavenTheme(){
+    heavenMode = true;
+    spaceMode = false;
+    if(starField){ scene.remove(starField); starField = null; }
+    if(hiddenArenaDecor){ scene.remove(hiddenArenaDecor); hiddenArenaDecor = null; }
+    if(!heavenDecor){
+      heavenDecor = new THREE.Group();
+      // a huge radiant halo looming above, and soft golden light shafts
+      const halo = new THREE.Mesh(geo.ring, basicMat(0xfff2c0, {transparent:true, opacity:0.5, side:THREE.DoubleSide}));
+      halo.scale.set(11, 11, 1);
+      halo.position.set(0, 14, -18);
+      halo.rotation.x = 1.3;
+      heavenDecor.add(halo);
+      const halo2 = new THREE.Mesh(geo.ring, basicMat(0xffffff, {transparent:true, opacity:0.35, side:THREE.DoubleSide}));
+      halo2.scale.set(8.5, 8.5, 1);
+      halo2.position.copy(halo.position);
+      halo2.rotation.x = 1.3;
+      heavenDecor.add(halo2);
+      const sunGlow = makeGlowSprite(0xfffbe0, 10);
+      sunGlow.position.set(0, 15, -19);
+      heavenDecor.add(sunGlow);
+      scene.add(heavenDecor);
+    }
+  }
+  function teardownHeavenTheme(){
+    heavenMode = false;
+    if(heavenDecor){ scene.remove(heavenDecor); heavenDecor = null; }
+  }
+
   // The hidden final boss: the true boss's own master, one size bigger,
   // crowned, and far more relentless - it re-plans its chase far more
   // often and drops bombs on a much shorter cooldown, with none of the
@@ -4517,12 +5083,12 @@
   }
 
   function showOverlay(win){
-    overlayTitle.textContent = win ? (trueEnding ? '完全クリア！ 👑' : 'YOU WIN! 🎉') : 'GAME OVER 💥';
+    overlayTitle.textContent = win ? (godTranscended ? '神クリア！ 😇' : (trueEnding ? '完全クリア！ 👑' : 'YOU WIN! 🎉')) : 'GAME OVER 💥';
     bgmPlaying = false;
     if(win){
       clearElapsedMs = performance.now() - gameStartTime;
       overlayText.textContent = `${endingMessage || '真のボスを倒した！'} クリアタイム: ${formatClearTime(clearElapsedMs)}`;
-      if(trueEnding && !crownCracked) sfx.grandWin(); else sfx.win();
+      if(godTranscended || (trueEnding && !crownCracked)) sfx.grandWin(); else sfx.win();
     } else {
       overlayText.textContent = endingMessage || 'もう一度挑戦しよう！';
       sfx.gameOver();
@@ -4773,7 +5339,88 @@
     return new THREE.CanvasTexture(cvs);
   }
 
-  function renderBoss3D(b, size, maxHp, bodyMat, isFinal, facingAngle){
+  // A proper dedicated model for the secret true final boss - a radiant
+  // idol with a tapered robed body, a glowing core, a floating halo, and
+  // a pair of large feathered wings - built once and reused, rather than
+  // just tinting the same UFO saucer shape used everywhere else.
+  function makeGodMesh(){
+    const g = new THREE.Group();
+    const bodyMat = mat.godBody;
+    const robeLower = new THREE.Mesh(geo.hexPrism, bodyMat);
+    robeLower.scale.set(0.55, 0.9, 0.55);
+    robeLower.position.set(0, 0.45, 0);
+    g.add(robeLower);
+    const robeTop = new THREE.Mesh(geo.hexPoint, bodyMat);
+    robeTop.scale.set(0.55, 0.4, 0.55);
+    robeTop.position.set(0, 0.9+0.2, 0);
+    g.add(robeTop);
+    const head = new THREE.Mesh(geo.sphere, bodyMat);
+    head.scale.set(0.32,0.32,0.32);
+    head.position.set(0, 1.25, 0);
+    g.add(head);
+    const core = new THREE.Mesh(geo.sphere, basicMat(0xffffff, {transparent:true, opacity:0.9}));
+    core.scale.set(0.16,0.16,0.16);
+    core.position.set(0, 0.75, 0.28);
+    g.add(core);
+    const coreLight = new THREE.PointLight(0xfff6d8, 1.3, 3.6);
+    coreLight.position.set(0, 0.75, 0);
+    g.add(coreLight);
+    // large layered-feather wings, spreading wide from the back
+    const wingMat = basicMat(0xffffff, {transparent:true, opacity:0.92});
+    for(const side of [-1,1]){
+      const wing = new THREE.Group();
+      for(let i=0;i<6;i++){
+        const t = i/5;
+        const feather = new THREE.Mesh(geo.icosa, wingMat);
+        feather.scale.set(0.22-t*0.05, 0.09, 0.55-t*0.3);
+        feather.position.set(side*(0.3+t*0.95), 0.15-t*0.25, -0.1-t*0.55);
+        feather.rotation.y = side*(0.3+t*0.15);
+        feather.rotation.z = side*0.1;
+        wing.add(feather);
+      }
+      wing.position.set(side*0.32, 0.95, -0.15);
+      wing.rotation.z = side*0.15;
+      g.userData['wing'+side] = wing;
+      g.add(wing);
+    }
+    // a halo, floating above the head - the boss's real signature, not an
+    // afterthought bolted onto a saucer
+    const halo = new THREE.Mesh(geo.ring, basicMat(0xfff2c0, {transparent:true, opacity:0.85, side:THREE.DoubleSide}));
+    halo.rotation.x = -Math.PI/2.3;
+    halo.scale.set(0.42, 0.42, 1);
+    halo.position.set(0, 1.65, 0.05);
+    g.add(halo);
+    const haloGlow = makeGlowSprite(0xfff6d8, 1.8);
+    haloGlow.position.set(0, 1.65, 0.05);
+    g.add(haloGlow);
+    const haloLight = new THREE.PointLight(0xfff2c0, 0.9, 2.8);
+    haloLight.position.set(0, 1.65, 0);
+    g.add(haloLight);
+    const shadow = new THREE.Mesh(geo.ring, basicMat(0x000000, {transparent:true, opacity:0.3, side:THREE.DoubleSide}));
+    shadow.rotation.x = -Math.PI/2;
+    shadow.scale.set(0.6,0.6,1);
+    shadow.position.y = 0.015;
+    g.add(shadow);
+    return g;
+  }
+
+  function renderGodBoss(b, yOffset){
+    if(!b.mesh3d) b.mesh3d = makeGodMesh();
+    const w = pixelToWorld(b.x+ENTITY_SIZE/2, b.y+ENTITY_SIZE/2);
+    const t = performance.now()/1000;
+    const hover = Math.sin(t*1.3)*0.08;
+    const scaleFactor = (GOD_SIZE/TILE)*1.5;
+    b.mesh3d.scale.set(scaleFactor, scaleFactor, scaleFactor);
+    b.mesh3d.position.set(w.x, (yOffset||0)+hover, w.z);
+    b.mesh3d.rotation.y = t*0.15;
+    const wingFlap = Math.sin(t*2.2)*0.18;
+    const wingL = b.mesh3d.userData['wing-1'], wingR = b.mesh3d.userData['wing1'];
+    if(wingL) wingL.rotation.z = -0.15 - wingFlap;
+    if(wingR) wingR.rotation.z = 0.15 + wingFlap;
+    dynamicGroup.add(b.mesh3d);
+  }
+
+  function renderBoss3D(b, size, maxHp, bodyMat, isFinal, facingAngle, showBar, yOffset){
     const w = pixelToWorld(b.x+ENTITY_SIZE/2, b.y+ENTITY_SIZE/2);
     const flashing = b.invuln>0 && Math.floor(performance.now()/80)%2===0;
     const s = (size/TILE) * 1.8;
@@ -4874,12 +5521,14 @@
 
     // health bar - a canvas-drawn sprite, always billboarded to face the
     // camera, so it's clearly readable no matter the viewing angle
-    const barTex = makeHpBarTexture(b.hp, maxHp);
-    const bar = new THREE.Sprite(new THREE.SpriteMaterial({ map:barTex, depthTest:false }));
-    bar.scale.set(1.3, 0.22, 1);
-    bar.position.set(0, s*1.7, 0);
-    bar.renderOrder = 999;
-    g.add(bar);
+    if(showBar!==false){
+      const barTex = makeHpBarTexture(b.hp, maxHp);
+      const bar = new THREE.Sprite(new THREE.SpriteMaterial({ map:barTex, depthTest:false }));
+      bar.scale.set(1.3, 0.22, 1);
+      bar.position.set(0, s*1.7, 0);
+      bar.renderOrder = 999;
+      g.add(bar);
+    }
 
     if(facingAngle!==undefined && facingAngle!==null){
       if(b._facingAngle===undefined) b._facingAngle = facingAngle;
@@ -4889,7 +5538,7 @@
       g.rotation.y = b._facingAngle;
     }
 
-    g.position.set(w.x, 0, w.z);
+    g.position.set(w.x, yOffset||0, w.z);
     dynamicGroup.add(g);
   }
 
@@ -5091,6 +5740,35 @@
         dynamicGroup.add(warnRing);
         continue;
       }
+      if(b.golden){
+        // the player's golden judgement bomb - unmistakably radiant, no
+        // dark shell at all, with a bright halo ring underneath
+        const gpulse = 1 + 0.16*Math.sin(performance.now()/90);
+        const body = new THREE.Mesh(geo.sphere, basicMat(0xffd75e));
+        body.scale.set(0.54*gpulse,0.54*gpulse,0.54*gpulse);
+        body.position.set(w.x, 0.5, w.z);
+        dynamicGroup.add(body);
+        const highlight = new THREE.Mesh(geo.sphere, basicMat(0xffffff, {transparent:true, opacity:0.6}));
+        highlight.scale.set(0.12,0.12,0.12);
+        highlight.position.set(w.x-0.14, 0.68, w.z+0.14);
+        dynamicGroup.add(highlight);
+        const fuseTip = new THREE.Mesh(geo.sphere, basicMat(0xfff6d8));
+        fuseTip.scale.set(0.14,0.14,0.14);
+        fuseTip.position.set(w.x, 0.5+0.54*gpulse*0.95, w.z);
+        dynamicGroup.add(fuseTip);
+        const glow = makeGlowSprite(0xffe066, 2.2);
+        glow.position.set(w.x, 0.5, w.z);
+        dynamicGroup.add(glow);
+        const light = new THREE.PointLight(0xffd75e, 1.0, 2.6);
+        light.position.set(w.x, 0.4, w.z);
+        dynamicGroup.add(light);
+        const ring = new THREE.Mesh(geo.ring, basicMat(0xffe066, {transparent:true, opacity:0.5+0.2*Math.sin(performance.now()/100), side:THREE.DoubleSide}));
+        ring.rotation.x = -Math.PI/2;
+        ring.scale.set(0.65,0.65,1);
+        ring.position.set(w.x, 0.02, w.z);
+        dynamicGroup.add(ring);
+        continue;
+      }
       const sparkColor = isTrueBossBomb ? 0xff2020 : 0xdddddd;
       const body = new THREE.Mesh(geo.sphere, isTrueBossBomb ? mat.trueBossBomb : mat.bomb);
       body.scale.set(0.52*pulse,0.52*pulse,0.52*pulse);
@@ -5200,6 +5878,66 @@
     // first boss
     if(stage===3 && boss && boss.alive){
       renderBoss3D(boss, BOSS_SIZE, BOSS_HP, mat.bossBody, false, Math.atan2(boss.dir.dx, boss.dir.dy));
+    }
+
+    // the secret true final boss: a creator-god idol, radiant and still,
+    // same silhouette size as the very first boss but unmistakably divine
+    if(stage===21 && godBoss && godBoss.alive){
+      if(godBoss.dying){
+        // a slow, quiet fade - rising gently and dissolving into light
+        // rather than a violent burst, over the whole death sequence
+        const fadeP = Math.max(0, Math.min(1, 1-(godDyingTimer/2.6)));
+        const riseY = fadeP*2.6;
+        renderGodBoss(godBoss, riseY);
+        const shrink = Math.max(0.04, 1-fadeP*0.9);
+        godBoss.mesh3d.scale.multiplyScalar(shrink);
+        const fadeAlpha = Math.max(0, 1-fadeP);
+        godBoss.mesh3d.traverse(o=>{
+          if(o.material){ o.material.transparent = true; o.material.opacity = fadeAlpha; }
+        });
+        const gwF = pixelToWorld(godBoss.x+ENTITY_SIZE/2, godBoss.y+ENTITY_SIZE/2);
+        const fadeGlow = makeGlowSprite(0xfff6d8, 2.4*fadeAlpha+0.6);
+        fadeGlow.position.set(gwF.x, riseY, gwF.z);
+        dynamicGroup.add(fadeGlow);
+        // a slow drift of light motes rising and dispersing around it
+        const tF = performance.now()/1000;
+        for(let i=0;i<10;i++){
+          const phase = (tF*0.35 + i/10) % 1;
+          const ang = i*2.1 + tF*0.4;
+          const r = 0.5 + phase*1.2;
+          const mote = new THREE.Mesh(geo.sphere, basicMat(0xfff2c0, {transparent:true, opacity:0.7*(1-phase)*fadeAlpha}));
+          mote.scale.set(0.06,0.06,0.06);
+          mote.position.set(gwF.x+Math.cos(ang)*r, riseY+phase*1.8, gwF.z+Math.sin(ang)*r);
+          dynamicGroup.add(mote);
+        }
+      } else if(godIntroTimer>0){
+        // descends from high above in a column of light while the reveal
+        // banner is still up - lands right as the freeze ends
+        const descP = Math.max(0, Math.min(1, 1-(godIntroTimer/2.4)));
+        const descEase = descP*descP;
+        const dropY = 10*(1-descEase);
+        renderGodBoss(godBoss, dropY);
+        const gwD = pixelToWorld(godBoss.x+ENTITY_SIZE/2, godBoss.y+ENTITY_SIZE/2);
+        const beamH = Math.max(0.2, dropY+3.2);
+        const beam = new THREE.Mesh(geo.cylinder, basicMat(0xfff6d8, {transparent:true, opacity:0.3}));
+        beam.scale.set(0.9, beamH, 0.9);
+        beam.position.set(gwD.x, dropY+beamH/2, gwD.z);
+        dynamicGroup.add(beam);
+        const beamCore = new THREE.Mesh(geo.cylinder, basicMat(0xffffff, {transparent:true, opacity:0.5}));
+        beamCore.scale.set(0.32, beamH, 0.32);
+        beamCore.position.copy(beam.position);
+        dynamicGroup.add(beamCore);
+        const descGlow = makeGlowSprite(0xfff6d8, 2.2);
+        descGlow.position.set(gwD.x, dropY, gwD.z);
+        dynamicGroup.add(descGlow);
+        if(descP>=1 && !godBoss._landedFX){
+          godBoss._landedFX = true;
+          triggerShake(0.4, 8);
+          spawnDeathEffect(godBoss.x+ENTITY_SIZE/2, godBoss.y+ENTITY_SIZE/2, '#fff2c0', 2.6);
+        }
+      } else {
+        renderGodBoss(godBoss, 0);
+      }
     }
 
     // true boss - a space lifeform, deliberately unlike anything mechanical
@@ -5432,6 +6170,29 @@
       dynamicGroup.add(light);
     }
 
+    // the four offering altars, standing in the crown room's corners -
+    // only for a clean crown, gone once the god has fallen and left
+    // treasures in their place instead
+    if(!altarsReplaced && !crownCracked && (stage===10 || stage===11 || stage===13)){
+      const altarMat = stdMat(0x8a8a92, 0x0a0a0c, {roughness:0.65, metalness:0.25});
+      const tA = performance.now()/1000;
+      for(const a of altarPositions){
+        const aw = cellCenterToWorld(a.gx, a.gy);
+        const base = new THREE.Mesh(geo.cylinder, altarMat);
+        base.scale.set(0.5, 0.5, 0.5);
+        base.position.set(aw.x, 0.25, aw.z);
+        dynamicGroup.add(base);
+        const rim = new THREE.Mesh(geo.torus, altarMat);
+        rim.scale.set(0.38, 0.38, 0.38);
+        rim.rotation.x = Math.PI/2;
+        rim.position.set(aw.x, 0.52, aw.z);
+        dynamicGroup.add(rim);
+        const glow = makeGlowSprite(0xaab0d8, 0.7+0.08*Math.sin(tA*1.3));
+        glow.position.set(aw.x, 0.6, aw.z);
+        dynamicGroup.add(glow);
+      }
+    }
+
     // the crown left behind after the hidden final boss falls. During
     // stage 10 it's flung high into the air, spinning wildly, before
     // slowly twirling back down to land - a big, unmissable beat since
@@ -5526,6 +6287,18 @@
       const glowSprite = makeGlowSprite(crownCracked ? 0x8a7248 : 0xffd75e, stage===10 ? 2.0 : 1.4);
       glowSprite.position.set(w.x, y+0.07, w.z);
       dynamicGroup.add(glowSprite);
+    }
+
+    // the secret second white hole, only ever present alongside a clean
+    // crown when every treasure has been found across past runs
+    if(stage===11 && heavenGateActive && heavenGatePos){
+      renderPortalHole(heavenGatePos.gx, heavenGatePos.gy, true);
+    }
+
+    // once the god falls, a white hole opens in the heaven stage leading
+    // back to the crown room
+    if(stage===21 && godDefeated && heavenReturnGatePos){
+      renderPortalHole(heavenReturnGatePos.gx, heavenReturnGatePos.gy, true);
     }
 
     // last-stand desperation attack telegraph, expressed as the whole scene
@@ -5648,7 +6421,15 @@
       burst2.position.set(w.x, 0.05, w.z);
       dynamicGroup.add(burst2);
     }
-    if(spaceMode){
+    if(heavenMode){
+      scene.background = new THREE.Color(0xfff3d6);
+      scene.fog.color = new THREE.Color(0xffe9b8);
+      if(heavenDecor){
+        const decorTH = performance.now()/1000;
+        heavenDecor.children[0].rotation.z = decorTH*0.05;
+        heavenDecor.children[1].rotation.z = -decorTH*0.08;
+      }
+    } else if(spaceMode){
       if(stage>=8){
         // the hidden final boss's own arena: a starker crimson/violet
         // "final showdown" palette, clearly different from the true
@@ -6157,10 +6938,47 @@
       }
     }
 
+    // stage 14: the special ascension - wings and a halo bloom, then the
+    // player rises up and flies off into the light for good
+    if(stage===14){
+      const elapsedA = ASCEND_DURATION - stageTimer;
+      const WALK_END = ASCEND_DURATION*0.3;
+      const RISE_START = WALK_END + 0.5;
+      if(playerAscending && player.mesh3d){
+        attachAngelToPlayer();
+        const pw14 = pixelToWorld(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2);
+        const rp = Math.max(0, Math.min(1, (elapsedA-RISE_START)/(ASCEND_DURATION-RISE_START)));
+        const easeInA = rp*rp;
+        const liftY = easeInA*11;
+        const driftZ = pw14.z - easeInA*4;
+        player.mesh3d.position.set(pw14.x, liftY, driftZ);
+        player.mesh3d.rotation.y += 0.02;
+        player.mesh3d.scale.set(1,1,1);
+        dynamicGroup.add(player.mesh3d);
+        // a rising trail of golden sparkles left behind as they climb
+        const t14 = performance.now()/1000;
+        for(let i=0;i<8;i++){
+          const phase = (t14*0.8 + i/8) % 1;
+          const sy = liftY*(1-phase) - 0.3;
+          const sang = i*1.9 + t14*1.5;
+          const sr = 0.35;
+          const sspark = new THREE.Mesh(geo.sphere, basicMat(0xfff2c0, {transparent:true, opacity:0.8*(1-phase)}));
+          sspark.scale.set(0.05,0.05,0.05);
+          sspark.position.set(pw14.x+Math.cos(sang)*sr, Math.max(0,sy), driftZ+Math.sin(sang)*sr);
+          dynamicGroup.add(sspark);
+        }
+        if(rp>=1){
+          const bigGlow = makeGlowSprite(0xfff6d8, 3.2);
+          bigGlow.position.set(pw14.x, liftY, driftZ);
+          dynamicGroup.add(bigGlow);
+        }
+      }
+    }
+
     // player
     if(player.alive){
       if(!player.mesh3d) player.mesh3d = makeCharacterMesh(mat.playerBody, mat.playerVisor, 0xaee0ff);
-      if(!playerSuckedInVisual){
+      if(!playerSuckedInVisual && !playerAscending){
       renderCharacter3D(player, player.mesh3d, player.invincibleTimer>0, facingStringToAngle(player.facing));
       if(playerDizzyTimer>0){
         // a little "seeing stars" effect circling overhead, right after

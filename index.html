@@ -3738,8 +3738,7 @@
         triggerShake(0.3, 6);
         sfx.win();
         canvas.classList.add('warping');
-        bombBtn.classList.remove('godBeamActive');
-        bombBtn.innerHTML = '爆弾<br>設置';
+        bombBtn.innerHTML = '神ビーム';
         updateHUD();
       }
     }
@@ -3835,6 +3834,7 @@
         fpsPhase = 'rick_ready';
         rickBombBtn.style.display = '';
         refreshHintText();
+        showItemToast('Rickボンバーが<br>使えるようになった', 2.6);
       }
     }, t4);
   }
@@ -4249,6 +4249,7 @@
 
   function placeBomb(){
     if(gameOver || gameWin || !player.alive) return;
+    if(stage===22 || stage===24 || stage===25) return;
     if(fpsActive){ fireFPSShot(); return; }
     if(shooterActive){ fireShooterShot(); return; }
     if(godBeamMode){ fireGodBeam(); return; }

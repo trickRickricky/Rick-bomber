@@ -67,6 +67,12 @@
   #skipToHeavenBtn {
     display: none;
   }
+  #skipToShooterBtn {
+    display: none;
+  }
+  #skipToDinosBtn {
+    display: none;
+  }
   #hud {
     display: flex;
     flex-wrap: wrap;
@@ -182,6 +188,10 @@
     box-shadow: 0 4px 10px rgba(0,0,0,.4);
     touch-action: none;
   }
+  #godRestartBtn {
+    background: linear-gradient(180deg,#fff6d8,#ffb347);
+    color: #3a2200;
+  }
   #controls {
     margin-top: 8px;
     width: 100%;
@@ -230,6 +240,17 @@
     background: radial-gradient(circle at 35% 30%, #ffe066, #a0790f 70%);
     color: #3a2a00;
     box-shadow: 0 4px 12px rgba(0,0,0,.5), inset 0 0 0 3px #7a5a10, 0 0 18px 4px rgba(255,224,102,0.7);
+  }
+  #bombBtn.godBeamActive {
+    background: radial-gradient(circle at 35% 30%, #fff6d8, #ffb347 55%, #8a5a10 100%);
+    color: #3a2200;
+    font-size: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.5), inset 0 0 0 3px #ffe066, 0 0 24px 6px rgba(255,230,150,0.85);
+    animation: godBeamPulse 1.1s ease-in-out infinite alternate;
+  }
+  @keyframes godBeamPulse {
+    from { box-shadow: 0 4px 12px rgba(0,0,0,.5), inset 0 0 0 3px #ffe066, 0 0 16px 4px rgba(255,230,150,0.6); }
+    to { box-shadow: 0 4px 12px rgba(0,0,0,.5), inset 0 0 0 3px #fff6d8, 0 0 30px 10px rgba(255,230,150,0.95); }
   }
   #actionBtns {
     display: flex;
@@ -290,6 +311,64 @@
     color: #aaa;
     box-shadow: 0 4px 10px rgba(0,0,0,.5), inset 0 0 0 3px #333;
   }
+  #shieldBtn {
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    border: none;
+    background: radial-gradient(circle at 35% 30%, #6fb3ff, #1a5fc0 70%);
+    color: #fff;
+    font-size: 10.5px;
+    font-weight: bold;
+    box-shadow: 0 4px 10px rgba(0,0,0,.5), inset 0 0 0 3px #123f80;
+    touch-action: none;
+  }
+  #shieldBtn:active, #shieldBtn.shieldActive {
+    background: radial-gradient(circle at 35% 30%, #bfe0ff, #3a7fd8 70%);
+    transform: scale(0.94);
+  }
+  #rickBombBtn {
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    border: none;
+    background: radial-gradient(circle at 35% 30%, #fff2b0, #d43a3a 75%);
+    color: #3a0000;
+    font-size: 10.5px;
+    font-weight: bold;
+    box-shadow: 0 4px 10px rgba(0,0,0,.5), inset 0 0 0 3px #7a1414, 0 0 20px 5px rgba(255,80,40,0.7);
+    touch-action: none;
+    animation: godBeamPulse 0.9s ease-in-out infinite alternate;
+  }
+  #shieldOverlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(200,20,20,0.28);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s ease;
+    z-index: 30;
+  }
+  #shieldOverlay.show { opacity: 1; }
+  #fpsBossBarWrap {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 82%;
+    height: 14px;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.55);
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.25);
+    z-index: 31;
+    display: none;
+    overflow: hidden;
+  }
+  #fpsBossBarWrap.show { display: block; }
+  #fpsBossBarFill {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg,#ff5555,#ff2020);
+    transition: width 0.15s ease;
+  }
   #hint { font-size: 10.5px; opacity: .6; margin-top: 4px; text-align:center; }
   #titleScreen {
     position: fixed;
@@ -327,7 +406,33 @@
   .storyLine:nth-child(2){ animation-delay: 1.0s; }
   .storyLine:nth-child(3){ animation-delay: 1.9s; }
   @keyframes storyFadeIn { from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:translateY(0); } }
+  #game.warping {
+    animation: spaceWarp 0.95s ease-in forwards;
+  }
+  @keyframes spaceWarp {
+    0% { filter: blur(0px) hue-rotate(0deg) saturate(1); transform: scale(1) skewX(0deg) skewY(0deg); }
+    25% { filter: blur(1.5px) hue-rotate(50deg) saturate(1.3); transform: scale(1.02) skewX(1deg) skewY(-0.5deg); }
+    50% { filter: blur(4px) hue-rotate(140deg) saturate(1.6); transform: scale(1.06) skewX(-1.5deg) skewY(1deg); }
+    75% { filter: blur(7px) hue-rotate(230deg) saturate(1.9); transform: scale(1.11) skewX(2deg) skewY(-1.5deg); }
+    100% { filter: blur(11px) hue-rotate(320deg) saturate(2.2); transform: scale(1.18) skewX(-2.5deg) skewY(2deg); }
+  }
   #storyContinueBtn { margin-top: 12px; opacity: 0; animation: storyFadeIn 0.7s ease forwards; animation-delay: 2.7s; }
+  .storyLine:nth-child(4){ animation-delay: 2.8s; }
+  .storyLine:nth-child(5){ animation-delay: 3.7s; }
+  .storyLine:nth-child(6){ animation-delay: 4.6s; }
+  #epilogueScreen {
+    position: fixed;
+    inset: 0;
+    z-index: 210;
+    background: radial-gradient(circle at 50% 28%, #1b2a4a, #05070f 78%);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  #epilogueScreen.show { display: flex; }
+  #epiloguePanel { max-width: 340px; text-align: center; color: #eee; }
+  #epilogueContinueBtn { margin-top: 12px; opacity: 0; animation: storyFadeIn 0.7s ease forwards; animation-delay: 5.6s; }
 </style>
 </head>
 <body>
@@ -344,11 +449,24 @@
     <button class="bigbtn" id="storyContinueBtn">ステージ開始</button>
   </div>
 </div>
+<div id="epilogueScreen">
+  <div id="epiloguePanel">
+    <p class="storyLine">私は地球を守るロボット。</p>
+    <p class="storyLine">しかし、破壊神にもなったのだ。</p>
+    <p class="storyLine">こうするしかなかった。</p>
+    <p class="storyLine">これで地球が乗っ取られることはない。</p>
+    <p class="storyLine">ある意味、地球を守ったといえよう。</p>
+    <p class="storyLine">さようなら、地球よ。</p>
+    <button class="bigbtn" id="epilogueContinueBtn">任務完了</button>
+  </div>
+</div>
 <div id="app">
   <h1><span id="skipToFirstBossBtn" title="最初のボスへスキップ">💣</span> Rickボンバー <span id="skipToBossBtn" title="真のラスボスへスキップ">💣</span></h1>
   <button id="muteBtn" title="サウンドON/OFF">🔊</button>
   <button id="skipToPortalBtn" title="ワープゾーンへスキップ">🤖</button>
   <button id="skipToHeavenBtn" title="神ステージ前のホワイトホールへスキップ">👼</button>
+  <button id="skipToShooterBtn" title="シューティングパートへスキップ">🚀</button>
+  <button id="skipToDinosBtn" title="恐竜FPSパートへスキップ">🦕</button>
   <div id="hud">
     <div>タイム <span class="val" id="elapsedTime">0:00.0</span></div>
     <div>敵 <span class="val" id="enemyCount">0</span></div>
@@ -362,11 +480,16 @@
     <div id="bossBanner"><span>⚠️ ボス登場 ⚠️</span></div>
     <div id="itemToast"></div>
     <div id="whiteFlash"></div>
+    <div id="shieldOverlay"></div>
+    <div id="fpsBossBarWrap">
+      <div id="fpsBossBarFill"></div>
+    </div>
     <div id="overlay">
       <h2 id="overlayTitle">GAME OVER</h2>
       <p id="overlayText">もう一度挑戦しよう！</p>
       <button class="bigbtn" id="screenshotBtn">📸 スクリーンショット</button>
       <button class="bigbtn" id="restartBtn">リスタート</button>
+      <button class="bigbtn" id="godRestartBtn" style="display:none;">😇 神でリスタート</button>
       <p id="restartHint">PC: スペースキーでもリスタートできます</p>
     </div>
   </div>
@@ -379,6 +502,8 @@
       <div id="smallBtnRow">
         <button id="allyBombBtn" style="display:none;">仲間爆破<br>装置起動</button>
         <button id="destroyRayBtn" style="display:none;">破壊光線<br>1回のみ</button>
+        <button id="shieldBtn" style="display:none;">シールド</button>
+        <button id="rickBombBtn" style="display:none;">Rick<br>ボンバー</button>
         <button id="invincibleBtn">無敵<br>5秒</button>
       </div>
     </div>
@@ -1839,6 +1964,62 @@
       });
       playNoise(attack+hold, 0.05, 0);
     },
+    creatorGodFanfare(){
+      // a bright, punchy "ファーー!" trumpet-like fanfare - a quick
+      // ascending triad hit with a sustained top note, layered on top of
+      // the slower godWarning swell for a proper "something arrives!"
+      // sting rather than just a slow fade-in
+      playTone(523.25, 0.5, 'sawtooth', 0.16, 0);
+      playTone(659.25, 0.5, 'sawtooth', 0.16, 0.08);
+      playTone(783.99, 1.1, 'sawtooth', 0.2, 0.16);
+      playTone(1046.5, 1.3, 'sawtooth', 0.16, 0.16);
+      playTone(261.6, 1.3, 'square', 0.12, 0.16);
+      playNoise(0.15, 0.1, 0.16);
+    },
+    godBeam(){
+      // the transcended player's own god beam - bright and heavy at once:
+      // a fast golden shimmer riding on top of a deep sub-bass thump, so
+      // it reads as holy but still lands with real weight, distinct from
+      // both the plain bossFire and the harsher rayBlast
+      playSlide(600, 2400, 0.16, 'sine', 0.18, 0);
+      playSlide(2000, 500, 0.32, 'sawtooth', 0.24, 0.04);
+      playTone(75, 0.32, 'square', 0.26, 0);
+      playTone(1046.5, 0.3, 'sine', 0.13, 0.1);
+      playTone(1568.0, 0.3, 'sine', 0.11, 0.14);
+      playNoise(0.22, 0.16, 0.03);
+    },
+    crownGateOpen(){
+      // the crown cracking open into the mystery gate - a sharp shatter
+      // burst up front, then a low, ominous swelling drone underneath,
+      // quite unlike the bright, welcoming godWarning chord
+      playNoise(0.4, 0.28, 0);
+      playSlide(700, 90, 0.5, 'sawtooth', 0.2, 0.02);
+      playTone(65, 1.2, 'sine', 0.16, 0.1);
+      playTone(97.5, 1.2, 'sine', 0.1, 0.15);
+      playTone(987.8, 0.7, 'sine', 0.09, 0.5);
+    },
+    shooterShot(){
+      // a light, quick golden "pew" - meant to be mashed rapidly without
+      // getting fatiguing or muddying into a wall of noise
+      playSlide(1400, 900, 0.08, 'sine', 0.11, 0);
+      playTone(1800, 0.05, 'square', 0.05, 0.01);
+    },
+    shooterEnemyPop(){
+      playTone(500, 0.08, 'triangle', 0.13);
+      playTone(250, 0.1, 'triangle', 0.11, 0.05);
+      playNoise(0.08, 0.08, 0);
+    },
+    shooterEnemyFire(){
+      playSlide(300, 120, 0.14, 'sawtooth', 0.08);
+    },
+    shieldBlock(){
+      // a solid metallic "clang" plus a bright shimmer - reads as a clean,
+      // successful block rather than a hit taken
+      playTone(180, 0.1, 'square', 0.2);
+      playTone(90, 0.14, 'square', 0.16, 0.02);
+      playSlide(1200, 1800, 0.18, 'sine', 0.14, 0.03);
+      playNoise(0.06, 0.1, 0);
+    },
     grandWin(){
       // a fuller, more triumphant fanfare for the true, clean-crown ending -
       // a rising fanfare (doubled an octave down for weight), a big held
@@ -2059,10 +2240,50 @@
       bassDiv: 2,
       bassEvery: 2,
     },
+    // beyond the cracked-open crown: sparse, low, and unresolved - clearly
+    // not the bright heaven theme, since this is somewhere new and as yet
+    // unknown even to the player who got here
+    mystery: {
+      notes: [220.0,246.9,220.0,196.0, 174.6,196.0,220.0,196.0, 220.0,261.6,220.0,196.0, 174.6,164.8,174.6,196.0],
+      noteDuration: 0.34,
+      wave: 'sine',
+      bassAccent: true,
+      bassWave: 'sine',
+      bassDiv: 2,
+      bassEvery: 4,
+    },
+    // the shooter section itself: fast and driving, brighter than the
+    // mystery pattern that plays during the gate/arrival flashes either
+    // side of it - meant to feel like an arcade shmup rather than a
+    // spooky unknown
+    shooter: {
+      notes: [659.3,784.0,987.8,784.0, 880.0,987.8,1174.7,987.8, 739.9,880.0,1108.7,880.0, 987.8,1108.7,1318.5,1108.7],
+      noteDuration: 0.145,
+      wave: 'sawtooth',
+      bassAccent: true,
+      bassWave: 'square',
+      bassDiv: 2,
+      bassEvery: 1,
+    },
+    // the primitive era: a driving, tribal-feeling loop - low percussive
+    // bass every beat plus a simple pentatonic melody, distinct from the
+    // brighter arcade-shmup shooter theme
+    primitive: {
+      notes: [220.0,261.6,293.7,261.6, 220.0,196.0,220.0,261.6, 246.9,293.7,329.6,293.7, 246.9,220.0,196.0,220.0],
+      noteDuration: 0.2,
+      wave: 'square',
+      bassAccent: true,
+      bassWave: 'square',
+      bassDiv: 2,
+      bassEvery: 1,
+    },
   };
   let currentBgmKey = null;
 
   function bgmKeyForStage(){
+    if(stage===26 && fpsActive) return 'primitive';
+    if(stage===23 && shooterActive) return 'shooter';
+    if(stage===22 || stage===23 || stage===24 || stage===25) return 'mystery';
     if(stage>=20) return 'heaven';
     if(stage===10 || stage===11 || stage===13 || stage===14) return crownCracked ? null : 'crownSparkle';
     if(stage>=8) return 'hiddenBoss';
@@ -2265,7 +2486,102 @@
   let heavenReturnGatePos = null; // {gx,gy} - the white hole that appears in the heaven stage once the god falls, leading back to the crown room
   let playerAscending = false; // true while the stage-14 "transcended" cutscene is manually puppeteering the player (wings/halo, flying off)
   const ASCEND_DURATION = 4.2;
+  const MYSTERY_GATE_FLASH_DURATION = 2.4; // stage 22: the flash carrying the player through the cracked-open crown's gate
+  const SHOOTER_CLEAR_FLASH_DURATION = 2.4; // stage 24: the flash out of the shooter once its miniboss falls
+  const SHOOTER_BOUND_X = 6.2, SHOOTER_Z_MIN = 1.8, SHOOTER_Z_MAX = 4.8;
+  const SHOOTER_SHIP_SPEED = 5.6;
+  const SHOOTER_BULLET_SPEED = 11;
+  const SHOOTER_ENEMY_SPEED = 1.7;
+  const SHOOTER_ENEMY_DESPAWN_Z = 6.5;
+  const SHOOTER_HIT_RADIUS = 0.42;
+  const SHOOTER_BULLET_HIT_RADIUS = 0.4;
+  const SHOOTER_FIRE_COOLDOWN = 0.13;
+  const WAKE_MESSAGE_DURATION = 2.6; // stage 25: holding on "なぜ仲間達がまだ暴走している！？" before the FPS part begins
+  const EARTH_BANNER_DURATION = 1.8; // stage 25: the "地球へ帰還" banner held before the wake-up message
+  const FPS_EYE_HEIGHT = 1.75, FPS_CAM_Z = 3.0;
+  const FPS_MAX_YAW = 0.68, FPS_MAX_PITCH = 0.42;
+  const FPS_AIM_SPEED = 1.7; // rad/sec at full stick deflection
+  const FPS_FIRE_COOLDOWN = 0.16;
+  const FPS_HIT_TOL_YAW = 0.1, FPS_HIT_TOL_PITCH = 0.11;
+  const FPS_ATTACK_DIST = 2.1;
+  const FPS_DINO_SPAWN_DIST = 15;
   let godTranscended = false; // true if the special ascension ending played out - swaps the win title/message
+  // Returning to the crown room after beating the god this run grants the
+  // player wings/halo on the spot and swaps the bomb button for a
+  // directional "god beam" - a reusable golden laser. Aiming it at the
+  // still-uncracked crown breaks it open into a mystery gate instead of
+  // triggering the usual ending, leading further on.
+  let godBeamMode = false; // true while the bomb button is the god beam instead of a bomb
+  let godBeamCooldown = 0; // brief re-use delay between god beam shots
+  let godBeamBeam = null; // {x,y,dx,dy,timer} - transient visual for a fired god beam, same pattern as destroyRayBeam
+  let crownGateOpen = false; // true once the god beam has cracked the crown open, revealing the mystery gate in its place
+  let crownGateEffectTimer = 0; // drives the crown-gate-opening flash/burst
+  let mysteryGatePos = null; // {gx,gy} - appears where the crown stood, once cracked open by the god beam
+
+  // ---------- The shooter section beyond the gate (stage 23) ----------
+  // A self-contained top-down space shooter, reusing the same camera/world
+  // coordinate system as the board (X = left/right, Z = depth - enemies
+  // spawn at far negative Z and drift toward the player's positive Z, same
+  // "top of screen is far away" framing a top-down camera already gives).
+  // The bomberman `player` object is repurposed as the ship: its .x/.y
+  // (pixel-space) are driven directly from shooterShip's world position
+  // every frame instead of going through the grid-movement code, so the
+  // existing mesh (wings and all), death/game-over flow, and overlay all
+  // keep working unchanged.
+  let shooterActive = false; // true while stage 23's own gameplay (not its intro/outro flashes) is live
+  let shooterPhase = 'waves'; // 'waves' -> 'miniboss' -> 'cleared'
+  let shooterShip = null; // {wx, wz} - ship position in world units
+  let shooterFireCooldown = 0;
+  let shooterBullets = []; // {wx,wz}
+  let shooterEnemies = []; // {wx,wz,hp,wobblePhase}
+  let shooterEnemyBullets = []; // {wx,wz,vx,vz}
+  let shooterSpawnQueue = []; // [{t,x}] remaining scheduled grunt spawns, t = seconds since wave start
+  let shooterWaveElapsed = 0;
+  let shooterMiniboss = null; // {wx,wz,hp,maxHp,dir,fireTimer}
+  let shooterClearTimer = 0; // brief hold after the miniboss falls, before the stage-clear flash
+  let reachedShooterCheckpoint = false; // true once the god has ever been beaten and the crown room reached this session - not reset by resetGame, so the "God restart" option (which drops the player right back there) stays available on any later game over
+
+  // ---------- the primitive-era FPS section (stage 26) ----------
+  // A first-person dinosaur shoot-out: the camera itself becomes the
+  // player's eyes (fixed position, aim-only via yaw/pitch), reusing the
+  // same "god beam" fire button. Dinosaurs are tracked purely by bearing
+  // (yaw) and distance from the fixed eye point, which keeps both the hit
+  // test and the world-position math for rendering simple.
+  let fpsActive = false;
+  let fpsYaw = 0, fpsPitch = 0;
+  let fpsDinos = []; // {yaw,dist,hp,wobble,speed}
+  let fpsSpawnQueue = []; // [{t,yaw}]
+  let fpsWaveElapsed = 0;
+  let fpsPhase = 'waves'; // 'waves' -> 'boss_intro' -> 'boss' -> 'boss_cleared' -> 'done'
+  let fpsEpoch = 0; // bumped every time the FPS section (re)starts, so setTimeout callbacks scheduled by a previous attempt (e.g. one cut short by dying and hitting "God restart") can recognize they're stale and no-op instead of mutating a later session
+  let fpsFireCooldown = 0;
+  let fpsClearTimer = 0;
+  let fpsBeamTimer = 0; // drives the fired-beam visual
+  let fpsBeamHitPoint = null; // {x,y,z} world point the last shot flew to
+  let wakeMessageShown = false; // guards the second (post-banner) message in stage 25
+  let fpsThrownBombs = []; // {kind:'bomb'|'beam',yaw,dist,startDist,fuse,maxFuse} - blockable only with the shield
+  let fpsBombTimer = 3.0; // global cooldown between the comrades' thrown-bomb attacks
+  let fpsEndlessSpawnTimer = 3.0; // during the endless boss phase, keeps a steady trickle of comrades coming
+  let fpsSurviveTimer = 0; // counts up once the true boss phase begins, until the creator god appears
+  let fpsPostBossTimer = 0; // counts up once the boss itself has actually been defeated, to time the player's own line
+  let fpsPostBossLineIndex = 0; // how many of the timed post-boss lines have shown so far
+  const FPS_POST_BOSS_LINES = [
+    { t:7, text:'ボスを倒したのに<br>止まらない…' },
+    { t:14, text:'まだどこかで<br>生きているのか…' },
+    { t:21, text:'これではキリがない…' },
+    { t:28, text:'一体どうすれば…' }
+  ];
+  let fpsCreatorGodMesh = null; // built once, reused across appearances
+  let fpsGodAppearTimer = 0; // counts up since the descent began, drives height + fade-in
+  const FPS_GOD_DESCEND_DURATION = 2.4;
+  const FPS_GOD_DIST = 5.0; // fixed distance in front of the player
+  const FPS_SURVIVE_GOAL = 45; // seconds to endure before the creator god shows up
+  let epilogueEnding = false; // true once the Rick Bomb finale plays out - swaps the win overlay's text
+  let fpsRickBombTimer = 0;
+  let primitiveGround = null;
+  let primitiveDecor = null;
+  let fpsBoss = null; // {yaw,dist,baseDist,hp,maxHp,wobble,attackPhase,attackTimer,attackClock}
+  let fpsBossProjectiles = []; // {yaw,dist,hp} - thrown rocks, shootable, lethal on arrival
   let lastTime = 0;
 
   const elapsedTimeEl = document.getElementById('elapsedTime');
@@ -2282,8 +2598,12 @@
   const HINT_BASE = 'スマホ: 左のパッドをスライドで移動 / 爆弾設置と無敵ボタン(1回だけ)。PC: 矢印キー・WASD+スペース(設置)/Z(無敵)';
   function refreshHintText(){
     let text = HINT_BASE;
+    if(fpsActive) text += ' / 左パッドで照準、爆弾ボタン(神ビーム、連打可)で発射、シールドボタン/Cキーでボム防御(押している間有効)';
+    if(shooterActive) text += ' / 爆弾ボタン(神ビーム、連打可)で自機の弾を撃つ';
+    if(godBeamMode) text += ' / 爆弾ボタン(神ビーム、連射可)';
     if(destroyRayMode) text += ' / X(破壊光線・1回のみ)';
     if(allyBombBtn.style.display !== 'none') text += ' / B(仲間爆破装置起動)';
+    if(rickBombBtn.style.display !== 'none') text += ' / R(Rickボンバー)';
     hintEl.textContent = text;
   }
   function updateHintForRayGun(){
@@ -2418,6 +2738,60 @@
     heavenReturnGatePos = null;
     playerAscending = false;
     godTranscended = false;
+    epilogueEnding = false;
+    epilogueScreen.classList.remove('show');
+    rickBombBtn.style.display = 'none';
+    fpsSurviveTimer = 0;
+    fpsEndlessSpawnTimer = 3.0;
+    fpsRickBombTimer = 0;
+    fpsPostBossTimer = 0;
+    fpsPostBossLineIndex = 0;
+    godBeamMode = false;
+    godBeamCooldown = 0;
+    godBeamBeam = null;
+    crownGateOpen = false;
+    crownGateEffectTimer = 0;
+    mysteryGatePos = null;
+    shooterActive = false;
+    shooterPhase = 'waves';
+    shooterShip = null;
+    shooterFireCooldown = 0;
+    shooterBullets = [];
+    shooterEnemies = [];
+    shooterEnemyBullets = [];
+    shooterSpawnQueue = [];
+    shooterWaveElapsed = 0;
+    shooterMiniboss = null;
+    shooterClearTimer = 0;
+    fpsActive = false;
+    fpsYaw = 0; fpsPitch = 0;
+    fpsDinos = [];
+    fpsSpawnQueue = [];
+    fpsWaveElapsed = 0;
+    fpsPhase = 'waves';
+    fpsEpoch++;
+    fpsFireCooldown = 0;
+    fpsClearTimer = 0;
+    fpsBeamTimer = 0;
+    fpsBeamHitPoint = null;
+    fpsBoss = null;
+    fpsBossProjectiles = [];
+    fpsThrownBombs = [];
+    fpsBombTimer = 3.0;
+    wakeMessageShown = false;
+    player.shielding = false;
+    shieldBtn.classList.remove('shieldActive');
+    shieldBtn.style.display = 'none';
+    shieldOverlay.classList.remove('show');
+    fpsBossBarWrap.classList.remove('show');
+    teardownPrimitiveTheme();
+    camera.fov = 35;
+    camera.updateProjectionMatrix();
+    canvas.classList.remove('warping');
+    canvas.style.filter = '';
+    canvas.style.transform = '';
+    bombBtn.classList.remove('godBeamActive');
+    bombBtn.innerHTML = '爆弾<br>設置';
     whiteFlash.style.opacity = '0';
     descentMesh = null;
     stage4FX = null;
@@ -2431,7 +2805,7 @@
     clearElapsedMs = 0;
     overlay.classList.remove('show');
     invincibleBtn.disabled = false;
-    invincibleBtn.innerHTML = '無敵<br>5秒';
+    invincibleBtn.innerHTML = DEBUG_MODE ? '無敵<br>ON' : '無敵<br>5秒';
     destroyRayBtn.disabled = false;
     destroyRayBtn.innerHTML = '破壊光線<br>1回のみ';
     destroyRayBtn.style.display = 'none';
@@ -2450,11 +2824,21 @@
 
   function updateHUD(){
     elapsedTimeEl.textContent = formatShortTime(performance.now() - gameStartTime);
-    if(stage===21 && godBoss) enemyCountEl.textContent = `HP${godBoss.hp}`;
+    if(stage===26 && fpsBoss) enemyCountEl.textContent = `HP${fpsBoss.hp}`;
+    else if(stage===26) enemyCountEl.textContent = fpsDinos.length + fpsSpawnQueue.length;
+    else if(stage===23 && shooterMiniboss) enemyCountEl.textContent = `HP${shooterMiniboss.hp}`;
+    else if(stage===23) enemyCountEl.textContent = shooterEnemies.length;
+    else if(stage===21 && godBoss) enemyCountEl.textContent = `HP${godBoss.hp}`;
     else if(stage===9 && hiddenBoss) enemyCountEl.textContent = `HP${hiddenBoss.hp}`;
     else if(stage===5 && trueBoss) enemyCountEl.textContent = `HP${trueBoss.hp}`;
     else if(stage===3 && boss) enemyCountEl.textContent = `HP${boss.hp}`;
     else enemyCountEl.textContent = enemies.filter(e=>e.alive).length;
+    if(fpsBoss){
+      fpsBossBarWrap.classList.add('show');
+      fpsBossBarFill.style.width = Math.max(0, Math.min(100, (fpsBoss.hp/fpsBoss.maxHp)*100)) + '%';
+    } else {
+      fpsBossBarWrap.classList.remove('show');
+    }
     bombCountEl.textContent = player.bombsAvailable + '/' + player.maxBombs;
     fireStatEl.textContent = player.fireRange;
     speedStatEl.textContent = player.speedLevel;
@@ -2856,15 +3240,28 @@
 
   function activateInvincibility(){
     if(gameOver || gameWin || !player.alive) return;
+    if(DEBUG_MODE){
+      // debug-only: a straight on/off toggle rather than a timed buff -
+      // each press just flips invincibility, with no expiry to wait out
+      if(player.invincibleTimer>0){
+        player.invincibleTimer = 0;
+        invincibleBtn.innerHTML = '無敵<br>ON';
+      } else {
+        player.invincibleUsed = true;
+        player.invincibleTimer = Infinity;
+        player.invinciblePulseTimer = 0;
+        invincibleBtn.innerHTML = '無敵<br>OFF';
+        sfx.invincibleActivate();
+      }
+      return;
+    }
     if(player.invincibleTimer>0) return;
-    if(!DEBUG_MODE && player.invincibleUsed) return;
+    if(player.invincibleUsed) return;
     player.invincibleUsed = true;
     player.invincibleTimer = 5.0;
     player.invinciblePulseTimer = 0;
-    if(!DEBUG_MODE){
-      invincibleBtn.disabled = true;
-      invincibleBtn.innerHTML = '使用済み';
-    }
+    invincibleBtn.disabled = true;
+    invincibleBtn.innerHTML = '使用済み';
     sfx.invincibleActivate();
   }
 
@@ -3038,8 +3435,816 @@
     return true;
   }
 
+  function setGodBeamMode(active){
+    godBeamMode = active;
+    if(active){
+      bombBtn.classList.add('godBeamActive');
+      bombBtn.innerHTML = '神ビーム';
+    } else {
+      bombBtn.classList.remove('godBeamActive');
+      bombBtn.innerHTML = '爆弾<br>設置';
+    }
+    refreshHintText();
+  }
+
+  // The transcended player's directional golden beam - reusable (unlike
+  // the one-shot destroy ray), fired in whichever direction the player is
+  // currently facing. Its only special effect is cracking the still-clean
+  // crown open into the mystery gate; otherwise it's just a dramatic show
+  // of force with no other target in the crown room.
+  function fireGodBeam(){
+    if(gameOver || gameWin || !player.alive) return;
+    if(!godBeamMode) return;
+    if(godBeamCooldown>0) return;
+    const dirMap = { up:{dx:0,dy:-1}, down:{dx:0,dy:1}, left:{dx:-1,dy:0}, right:{dx:1,dy:0} };
+    const d = dirMap[player.facing] || {dx:0,dy:1};
+    const originX = player.x+ENTITY_SIZE/2, originY = player.y+ENTITY_SIZE/2;
+    godBeamCooldown = 1.4;
+    godBeamBeam = { x:originX, y:originY, dx:d.dx, dy:d.dy, timer:0.4 };
+    triggerShake(0.3, 6);
+    sfx.godBeam();
+    if(!crownGateOpen && crownPos && !crownTaken){
+      const cx = crownPos.gx*TILE+TILE/2, cy = crownPos.gy*TILE+TILE/2;
+      let hit = false;
+      if(d.dx!==0) hit = Math.abs(cy-originY) < TILE*0.6 && (d.dx>0 ? cx>originX : cx<originX);
+      else hit = Math.abs(cx-originX) < TILE*0.6 && (d.dy>0 ? cy>originY : cy<originY);
+      if(hit) openCrownGate();
+    }
+  }
+
+  // Cracks the still-clean crown open on the spot, leaving a mysterious
+  // gate in its place instead of the usual pickup - an alternative to
+  // ever actually claiming the crown at all.
+  function openCrownGate(){
+    if(crownGateOpen || !crownPos) return;
+    crownGateOpen = true;
+    crownGateEffectTimer = 1.8;
+    timeStopTimer = 1.0;
+    mysteryGatePos = { gx: crownPos.gx, gy: crownPos.gy };
+    const cw = { x: crownPos.gx*TILE+TILE/2, y: crownPos.gy*TILE+TILE/2 };
+    spawnDeathEffect(cw.x, cw.y, '#ffe066', 2.4);
+    spawnSlowBurst(cw.x, cw.y, '#ffe066', 30, 1.8);
+    spawnSlowBurst(cw.x, cw.y, '#b57bff', 18, 1.5);
+    sfx.crownGateOpen();
+    showItemToast('ゲートが出現した。ここから地球に戻れそうだ。', 2.6);
+    updateHUD();
+  }
+
+  // ---------- the shooter section (stage 23) ----------
+  // Bridges the shooter's free-floating world-space coordinates to the
+  // same pixel-space convention the rest of the game (and its particle
+  // helpers) already use, so spawnDeathEffect/spawnSlowBurst and the
+  // player's own mesh keep working completely unchanged.
+  function worldToPixel(wx, wz){
+    return { px:(wx+COLS/2)*TILE, py:(wz+ROWS/2)*TILE };
+  }
+  function syncPlayerPixelFromShip(){
+    const p = worldToPixel(shooterShip.wx, shooterShip.wz);
+    player.x = p.px - ENTITY_SIZE/2;
+    player.y = p.py - ENTITY_SIZE/2;
+  }
+  function spawnShooterBurst(wx, wz, color, intensity){
+    const p = worldToPixel(wx, wz);
+    spawnDeathEffect(p.px, p.py, color, intensity===undefined?1.6:intensity);
+  }
+
+  // A simple hand-timed schedule of grunt spawns (seconds since the wave
+  // began, and which X lane to come down) - a gentle spread first, then a
+  // couple of wider staggered passes, then a denser flurry right before
+  // the miniboss shows up.
+  function buildShooterWaveQueue(){
+    const queue = [];
+    [-4,-2,0,2,4].forEach((x,i)=>queue.push({ t:0.6+i*0.4, x }));
+    [-5,-3,-1,1,3,5].forEach((x,i)=>queue.push({ t:5.5+i*0.35, x }));
+    [5,3,1,-1,-3,-5].forEach((x,i)=>queue.push({ t:8.8+i*0.35, x }));
+    for(let i=0;i<10;i++) queue.push({ t:12.5+i*0.28, x:(Math.random()*10-5) });
+    queue.sort((a,b)=>a.t-b.t);
+    return queue;
+  }
+
+  function spawnShooterMiniboss(){
+    shooterMiniboss = { wx:0, wz:-3.2, hp:20, maxHp:20, dir:1, fireTimer:1.4, mesh3d:null };
+    bossBanner.textContent = '';
+    bossBanner.innerHTML = '<span>⚠️ 裏ボス、再来 ⚠️</span>';
+    bossBanner.classList.add('show');
+    sfx.trueBossWarning();
+    setTimeout(()=>bossBanner.classList.remove('show'), 1800);
+  }
+
+  // Fully (re)initializes the shooter section - shared by both the normal
+  // route (through the gate) and the "God restart" checkpoint, so both
+  // land in exactly the same state.
+  function enterShooterStage(){
+    reachedShooterCheckpoint = true;
+    disposeGroup(boardGroup);
+    if(hiddenArenaDecor){ scene.remove(hiddenArenaDecor); hiddenArenaDecor = null; }
+    bombs = []; explosions = []; projectiles = []; items = [];
+    stage = 23;
+    shooterActive = true;
+    shooterPhase = 'waves';
+    shooterWaveElapsed = 0;
+    shooterFireCooldown = 0;
+    shooterBullets = [];
+    shooterEnemies = [];
+    shooterEnemyBullets = [];
+    shooterMiniboss = null;
+    shooterClearTimer = 0;
+    shooterSpawnQueue = buildShooterWaveQueue();
+    shooterShip = { wx:0, wz:4.0 };
+    player.alive = true;
+    player.invincibleTimer = 0;
+    player.invincibleUsed = false;
+    player.invinciblePulseTimer = 0;
+    player.moveDir = { dx:0, dy:0 }; player.progress = 0;
+    player.facing = 'up';
+    syncPlayerPixelFromShip();
+    attachAngelToPlayer();
+    shieldBtn.style.display = 'none';
+    player.shielding = false;
+    shieldOverlay.classList.remove('show');
+    bombBtn.classList.remove('goldenReady');
+    bombBtn.classList.add('godBeamActive');
+    bombBtn.innerHTML = '神ビーム';
+    refreshHintText();
+    bossBanner.textContent = '';
+    bossBanner.innerHTML = '<span>地球への航路</span>';
+    bossBanner.classList.add('show');
+    sfx.ufoApproach();
+    setTimeout(()=>bossBanner.classList.remove('show'), 2000);
+    currentBgmKey = null;
+    updateHUD();
+  }
+
+  function fireShooterShot(){
+    if(gameOver || gameWin || !player.alive) return;
+    if(!shooterActive) return;
+    if(shooterFireCooldown>0) return;
+    shooterFireCooldown = SHOOTER_FIRE_COOLDOWN;
+    shooterBullets.push({ wx:shooterShip.wx, wz:shooterShip.wz-0.35 });
+    sfx.shooterShot();
+  }
+
+  function killShooterPlayer(){
+    if(!player.alive) return;
+    player.alive = false;
+    spawnShooterBurst(shooterShip.wx, shooterShip.wz, '#ffd75e', 2.0);
+    triggerShake(0.3, 6);
+    sfx.playerDeath();
+  }
+
+  function updateShooter(dt){
+    if(shooterFireCooldown>0) shooterFireCooldown -= dt;
+
+    if(player.alive){
+      let sdx=0, sdz=0;
+      if(joyActive && (Math.abs(joyVec.x)>0.15 || Math.abs(joyVec.y)>0.15)){
+        sdx = joyVec.x; sdz = joyVec.y;
+      } else {
+        if(keys.left) sdx=-1; else if(keys.right) sdx=1;
+        if(keys.up) sdz=-1; else if(keys.down) sdz=1;
+      }
+      const mag = Math.hypot(sdx,sdz);
+      if(mag>0.001){
+        shooterShip.wx += (sdx/mag)*SHOOTER_SHIP_SPEED*dt;
+        shooterShip.wz += (sdz/mag)*SHOOTER_SHIP_SPEED*dt;
+        player.facing = Math.abs(sdx)>Math.abs(sdz) ? (sdx<0?'left':'right') : (sdz<0?'up':'down');
+      }
+      shooterShip.wx = Math.max(-SHOOTER_BOUND_X, Math.min(SHOOTER_BOUND_X, shooterShip.wx));
+      shooterShip.wz = Math.max(SHOOTER_Z_MIN, Math.min(SHOOTER_Z_MAX, shooterShip.wz));
+      syncPlayerPixelFromShip();
+
+      if(player.invincibleTimer>0){
+        player.invincibleTimer -= dt;
+        player.invinciblePulseTimer = (player.invinciblePulseTimer||0) - dt;
+        if(player.invinciblePulseTimer<=0){ sfx.invinciblePulse(); player.invinciblePulseTimer = 0.35; }
+        if(player.invincibleTimer<=0) player.invincibleTimer = 0;
+      }
+    }
+
+    // wave spawning
+    if(shooterPhase==='waves'){
+      shooterWaveElapsed += dt;
+      while(shooterSpawnQueue.length && shooterSpawnQueue[0].t<=shooterWaveElapsed){
+        const s = shooterSpawnQueue.shift();
+        shooterEnemies.push({ wx:s.x, wz:-6.5, hp:1, wobble:Math.random()*10 });
+      }
+      if(shooterSpawnQueue.length===0 && shooterEnemies.length===0){
+        shooterPhase = 'miniboss';
+        spawnShooterMiniboss();
+      }
+    }
+
+    // player bullets
+    for(const b of shooterBullets) b.wz -= SHOOTER_BULLET_SPEED*dt;
+    shooterBullets = shooterBullets.filter(b=>b.wz > -8 && !b._used);
+
+    // grunt enemies: drift toward the player, gentle side-to-side wobble
+    for(const en of shooterEnemies){
+      en.wz += SHOOTER_ENEMY_SPEED*dt;
+      en.wobble += dt;
+      en.wx += Math.sin(en.wobble*1.6)*0.5*dt;
+    }
+    if(player.alive && player.invincibleTimer<=0){
+      for(const en of shooterEnemies){
+        if(Math.abs(en.wz-shooterShip.wz)<SHOOTER_HIT_RADIUS && Math.abs(en.wx-shooterShip.wx)<SHOOTER_HIT_RADIUS){
+          killShooterPlayer();
+          break;
+        }
+      }
+    }
+    shooterEnemies = shooterEnemies.filter(en=>en.wz < SHOOTER_ENEMY_DESPAWN_Z);
+
+    // player bullets vs grunt enemies
+    for(const en of shooterEnemies){
+      if(en.hp<=0) continue;
+      for(const b of shooterBullets){
+        if(b._used) continue;
+        if(Math.abs(b.wz-en.wz)<SHOOTER_BULLET_HIT_RADIUS && Math.abs(b.wx-en.wx)<SHOOTER_BULLET_HIT_RADIUS){
+          en.hp -= 1;
+          b._used = true;
+          if(en.hp<=0){
+            spawnShooterBurst(en.wx, en.wz, '#ffaa4d');
+            sfx.shooterEnemyPop();
+            score += 100;
+          }
+          break;
+        }
+      }
+    }
+    shooterBullets = shooterBullets.filter(b=>!b._used);
+    shooterEnemies = shooterEnemies.filter(en=>en.hp>0);
+
+    // the miniboss
+    if(shooterMiniboss){
+      const mb = shooterMiniboss;
+      mb.wx += mb.dir*1.6*dt;
+      if(mb.wx>4.5){ mb.wx=4.5; mb.dir=-1; }
+      if(mb.wx<-4.5){ mb.wx=-4.5; mb.dir=1; }
+      mb.fireTimer -= dt;
+      if(mb.fireTimer<=0){
+        mb.fireTimer = 1.1;
+        const toX = shooterShip.wx-mb.wx, toZ = shooterShip.wz-mb.wz;
+        const toLen = Math.max(0.5, Math.hypot(toX,toZ));
+        shooterEnemyBullets.push({ wx:mb.wx, wz:mb.wz, vx:(toX/toLen)*3.6, vz:(toZ/toLen)*3.6 });
+        sfx.shooterEnemyFire();
+      }
+      for(const b of shooterBullets){
+        if(b._used) continue;
+        if(Math.abs(b.wz-mb.wz)<0.6 && Math.abs(b.wx-mb.wx)<0.75){
+          mb.hp -= 1;
+          b._used = true;
+          sfx.bossHit();
+          triggerShake(0.15, 3);
+          if(mb.hp<=0){
+            spawnShooterBurst(mb.wx, mb.wz, '#ffd75e', 2.4);
+            spawnShooterBurst(mb.wx, mb.wz, '#ff3b6b', 1.8);
+            sfx.trueBossDeath();
+            triggerShake(0.35, 7);
+            shooterMiniboss = null;
+            shooterPhase = 'cleared';
+            shooterClearTimer = 2.8;
+            score += 3000;
+            showItemToast('「何をしても、無駄だぞ…ハハハ」', 2.4);
+            setTimeout(()=>{ if(!gameOver && !gameWin) sfx.hiddenBossLaugh(); }, 500);
+          }
+          break;
+        }
+      }
+      shooterBullets = shooterBullets.filter(b=>!b._used);
+      if(shooterMiniboss && player.alive && player.invincibleTimer<=0){
+        if(Math.abs(mb.wx-shooterShip.wx)<0.75 && Math.abs(mb.wz-shooterShip.wz)<0.7) killShooterPlayer();
+      }
+    }
+
+    // enemy bullets
+    for(const eb of shooterEnemyBullets){ eb.wx += eb.vx*dt; eb.wz += eb.vz*dt; }
+    if(player.alive && player.invincibleTimer<=0){
+      for(const eb of shooterEnemyBullets){
+        if(!eb._used && Math.abs(eb.wx-shooterShip.wx)<0.32 && Math.abs(eb.wz-shooterShip.wz)<0.32){
+          eb._used = true;
+          killShooterPlayer();
+        }
+      }
+    }
+    shooterEnemyBullets = shooterEnemyBullets.filter(eb=>!eb._used && eb.wz<7 && Math.abs(eb.wx)<9);
+
+    if(shooterPhase==='cleared'){
+      shooterClearTimer -= dt;
+      if(shooterClearTimer<=0){
+        shooterActive = false;
+        stage = 24;
+        stageTimer = SHOOTER_CLEAR_FLASH_DURATION;
+        cutsceneFlashDone = false;
+        triggerShake(0.3, 6);
+        sfx.win();
+        canvas.classList.add('warping');
+        bombBtn.classList.remove('godBeamActive');
+        bombBtn.innerHTML = '爆弾<br>設置';
+        updateHUD();
+      }
+    }
+
+    if(!player.alive){
+      if(!pendingEnd) pendingEnd = { isWin:false, timer:0.9 };
+    }
+    updateHUD();
+  }
+
+  // ---------- the primitive-era FPS section ----------
+  function buildFPSWaveQueue(){
+    const queue = [];
+    // a gentle scattered opening, well within aiming range
+    [-0.4,-0.1,0.2,0.5].forEach((yaw,i)=>queue.push({ t:0.8+i*1.1, yaw }));
+    // a wider staggered pair of pushes
+    [-0.6,-0.3,0,0.3,0.6].forEach((yaw,i)=>queue.push({ t:6.5+i*0.9, yaw }));
+    [0.6,0.3,0,-0.3,-0.6].forEach((yaw,i)=>queue.push({ t:11.5+i*0.9, yaw }));
+    // a denser final flurry
+    for(let i=0;i<8;i++) queue.push({ t:16.5+i*0.7, yaw:(Math.random()*1.2-0.6) });
+    queue.sort((a,b)=>a.t-b.t);
+    return queue;
+  }
+
+  // Fully (re)initializes the FPS section - called once, right after the
+  // "waking up" message finishes holding.
+  function spawnFPSBoss(){
+    const epoch = fpsEpoch;
+    fpsBoss = { yaw:0, dist:6.5, hp:40, maxHp:40, wobble:0, mesh3d:null, attackTimer:2.4 };
+    fpsPhase = 'boss_speech';
+    fpsClearTimer = 2.8;
+    bossBanner.textContent = '';
+    bossBanner.innerHTML = '<span>⚠️ 裏ボス、降臨 ⚠️</span>';
+    bossBanner.classList.add('show');
+    sfx.hiddenBossWarning();
+    setTimeout(()=>{ if(fpsEpoch===epoch) bossBanner.classList.remove('show'); }, 1500);
+    setTimeout(()=>{
+      if(fpsEpoch===epoch && fpsBoss) showItemToast('「ワタシは不死身…」', 2.4);
+    }, 1600);
+    fpsBossBarWrap.classList.add('show');
+    updateHUD();
+  }
+
+  // After enduring the endless boss phase long enough, the creator god
+  // itself steps in - clears the battlefield, delivers its line, then
+  // reveals the Rick Bomb button once the words have had a moment to land
+  function startCreatorGodSequence(){
+    const epoch = fpsEpoch;
+    fpsPhase = 'god_appear';
+    fpsDinos = [];
+    fpsSpawnQueue = [];
+    fpsThrownBombs = [];
+    fpsBoss = null;
+    fpsBossBarWrap.classList.remove('show');
+    setShielding(false);
+    triggerShake(0.3, 6);
+    fpsGodAppearTimer = 0;
+    if(!fpsCreatorGodMesh){
+      fpsCreatorGodMesh = makeGodMesh();
+      // clone every material before use - some of makeGodMesh's parts
+      // share a material with the "real" god boss elsewhere in the game,
+      // and this appearance needs its own faint, fading-in opacity
+      fpsCreatorGodMesh.traverse(obj=>{
+        if(obj.material){
+          obj.material = obj.material.clone();
+          obj.material.transparent = true;
+        }
+      });
+      // bigger, more dramatic wings for this particular appearance - only
+      // this instance, not the shared god-boss model used elsewhere
+      for(const side of [-1,1]){
+        const wing = fpsCreatorGodMesh.userData['wing'+side];
+        if(wing) wing.scale.set(1.7, 1.7, 1.7);
+      }
+    }
+    sfx.godWarning();
+    sfx.creatorGodFanfare();
+    const t1 = FPS_GOD_DESCEND_DURATION*1000+150;
+    const t2 = t1+2800;
+    const t3 = t2+2800;
+    setTimeout(()=>{
+      if(fpsEpoch===epoch) showItemToast('「あなたは創造神である<br>私を倒した。」', 2.8);
+    }, t1);
+    setTimeout(()=>{
+      if(fpsEpoch===epoch) showItemToast('「もう破壊神そのものです。<br>使いなさい」', 2.8);
+    }, t2);
+    setTimeout(()=>{
+      if(fpsEpoch===epoch && fpsPhase==='god_appear'){
+        fpsPhase = 'rick_ready';
+        rickBombBtn.style.display = '';
+        refreshHintText();
+      }
+    }, t3);
+  }
+
+  // The finale: the player turns the god beam's power on the whole planet
+  function activateRickBomb(){
+    if(fpsPhase!=='rick_ready') return;
+    fpsPhase = 'rick_bomb';
+    fpsRickBombTimer = 2.6;
+    fpsDinos = [];
+    fpsThrownBombs = [];
+    rickBombBtn.style.display = 'none';
+    shieldBtn.style.display = 'none';
+    refreshHintText();
+    showItemToast('「さようなら地球」', 2.2);
+    sfx.trueBossWarning();
+  }
+
+  function enterFPSStage(){
+    fpsEpoch++;
+    fpsGodAppearTimer = 0;
+    stage = 26;
+    fpsActive = true;
+    fpsPhase = 'waves';
+    fpsWaveElapsed = 0;
+    fpsFireCooldown = 0;
+    fpsDinos = [];
+    fpsSpawnQueue = buildFPSWaveQueue();
+    fpsYaw = 0; fpsPitch = -0.08;
+    fpsClearTimer = 0;
+    fpsBeamTimer = 0;
+    fpsBeamHitPoint = null;
+    fpsThrownBombs = [];
+    fpsBombTimer = 3.0;
+    fpsBoss = null;
+    fpsBossProjectiles = [];
+    fpsBossBarWrap.classList.remove('show');
+    fpsSurviveTimer = 0;
+    fpsEndlessSpawnTimer = 3.0;
+    fpsRickBombTimer = 0;
+    fpsPostBossTimer = 0;
+    fpsPostBossLineIndex = 0;
+    epilogueEnding = false;
+    epilogueScreen.classList.remove('show');
+    rickBombBtn.style.display = 'none';
+    player.shielding = false;
+    shieldBtn.style.display = '';
+    shieldOverlay.classList.remove('show');
+    camera.fov = 62;
+    camera.updateProjectionMatrix();
+    bombBtn.classList.remove('goldenReady');
+    bombBtn.classList.add('godBeamActive');
+    bombBtn.innerHTML = '神ビーム';
+    refreshHintText();
+    currentBgmKey = null;
+    updateHUD();
+  }
+
+  function killFPSPlayer(){
+    if(!player.alive) return;
+    player.alive = false;
+    setShielding(false);
+    spawnShooterBurst(0, 0, '#ff6b4a', 2.0);
+    triggerShake(0.3, 6);
+    sfx.playerDeath();
+  }
+
+  function fireFPSShot(){
+    if(gameOver || gameWin || !player.alive) return;
+    if(!fpsActive) return;
+    if(player.shielding) return;
+    if(fpsPhase!=='waves' && fpsPhase!=='boss_intro' && fpsPhase!=='boss' && fpsPhase!=='rick_ready') return;
+    if(fpsFireCooldown>0) return;
+    fpsFireCooldown = FPS_FIRE_COOLDOWN;
+    fpsBeamTimer = 0.14;
+    sfx.godBeam();
+
+    const camPos = { x:0, y:FPS_EYE_HEIGHT, z:FPS_CAM_Z };
+    const dir = { x:Math.sin(fpsYaw)*Math.cos(fpsPitch), y:Math.sin(fpsPitch), z:-Math.cos(fpsYaw)*Math.cos(fpsPitch) };
+    function inCrosshair(yaw, dist, targetY){
+      const idealPitch = Math.atan2(targetY-FPS_EYE_HEIGHT, Math.max(2, dist));
+      return Math.abs(yaw-fpsYaw)<FPS_HIT_TOL_YAW && Math.abs(idealPitch-fpsPitch)<FPS_HIT_TOL_PITCH;
+    }
+
+    // priority: the boss itself first, then any regular hacked comrade
+    let bestKind=null, bestIdx=-1, bestDist=Infinity;
+    if(fpsBoss && inCrosshair(fpsBoss.yaw, fpsBoss.dist, 3.7)){
+      bestDist = fpsBoss.dist; bestIdx = 0; bestKind = 'boss';
+    }
+    if(bestKind===null){
+      for(let i=0;i<fpsDinos.length;i++){
+        const d = fpsDinos[i];
+        if(inCrosshair(d.yaw, d.dist, 1.1) && d.dist<bestDist){ bestDist=d.dist; bestIdx=i; bestKind='dino'; }
+      }
+    }
+
+    const shotRange = bestKind ? bestDist : 18;
+    fpsBeamHitPoint = { x:camPos.x+dir.x*shotRange, y:camPos.y+dir.y*shotRange, z:camPos.z+dir.z*shotRange };
+
+    if(bestKind==='boss'){
+      const b = fpsBoss;
+      b.hp -= 1;
+      sfx.bossHit();
+      triggerShake(0.12, 3);
+      if(b.hp<=0){
+        const bx = camPos.x+Math.sin(b.yaw)*b.dist, bz = camPos.z-Math.cos(b.yaw)*b.dist;
+        spawnShooterBurst(bx, bz, '#ffd75e', 2.6);
+        spawnShooterBurst(bx, bz, '#ff3b6b', 2.0);
+        sfx.trueBossDeath();
+        triggerShake(0.4, 8);
+        score += 3000;
+        fpsBoss = null;
+        fpsBossBarWrap.classList.remove('show');
+        fpsPostBossTimer = 0;
+        fpsPostBossLineIndex = 0;
+      }
+    } else if(bestKind==='dino'){
+      const d = fpsDinos[bestIdx];
+      d.hp -= 1;
+      if(d.hp<=0){
+        spawnShooterBurst(camPos.x+Math.sin(d.yaw)*d.dist, camPos.z-Math.cos(d.yaw)*d.dist, '#ffaa4d', 1.8);
+        sfx.shooterEnemyPop();
+        score += 200;
+        fpsDinos.splice(bestIdx,1);
+      } else {
+        sfx.bossHit();
+      }
+    }
+  }
+
+  function updateFPS(dt){
+    if(fpsFireCooldown>0) fpsFireCooldown -= dt;
+    if(fpsBeamTimer>0){ fpsBeamTimer -= dt; if(fpsBeamTimer<=0) fpsBeamHitPoint = null; }
+
+    if(player.alive){
+      let adx=0, ady=0;
+      if(joyActive && (Math.abs(joyVec.x)>0.1 || Math.abs(joyVec.y)>0.1)){
+        adx = joyVec.x; ady = joyVec.y;
+      } else {
+        if(keys.left) adx=-1; else if(keys.right) adx=1;
+        if(keys.up) ady=-1; else if(keys.down) ady=1;
+      }
+      fpsYaw = Math.max(-FPS_MAX_YAW, Math.min(FPS_MAX_YAW, fpsYaw + adx*FPS_AIM_SPEED*dt));
+      fpsPitch = Math.max(-FPS_MAX_PITCH, Math.min(FPS_MAX_PITCH, fpsPitch - ady*FPS_AIM_SPEED*dt));
+
+      if(player.invincibleTimer>0){
+        player.invincibleTimer -= dt;
+        player.invinciblePulseTimer = (player.invinciblePulseTimer||0) - dt;
+        if(player.invinciblePulseTimer<=0){ sfx.invinciblePulse(); player.invinciblePulseTimer = 0.35; }
+        if(player.invincibleTimer<=0) player.invincibleTimer = 0;
+      }
+    } else {
+      setShielding(false);
+    }
+
+    // wave spawning: hacked comrades
+    if(fpsPhase==='waves'){
+      fpsWaveElapsed += dt;
+      while(fpsSpawnQueue.length && fpsSpawnQueue[0].t<=fpsWaveElapsed){
+        const s = fpsSpawnQueue.shift();
+        fpsDinos.push({ yaw:s.yaw, dist:FPS_DINO_SPAWN_DIST, standDist:4.5+Math.random()*3, hp:2, wobble:Math.random()*10, speed:0.9+Math.random()*0.3, mesh3d:null });
+      }
+      if(fpsSpawnQueue.length===0 && fpsDinos.length===0){
+        fpsPhase = 'boss_intro';
+        fpsClearTimer = 1.6;
+      }
+    }
+
+    // comrades approach to a standoff distance and hold there - they no
+    // longer charge in for a melee kill, their only attack is the shared
+    // thrown-bomb pool below
+    for(const d of fpsDinos){
+      if(d.dist>d.standDist) d.dist -= d.speed*dt;
+      if(d.dist<d.standDist) d.dist = d.standDist;
+      d.wobble += dt;
+      d.yaw = Math.max(-FPS_MAX_YAW-0.15, Math.min(FPS_MAX_YAW+0.15, d.yaw + Math.sin(d.wobble*1.2)*0.1*dt));
+    }
+
+    if(fpsPhase==='boss_intro'){
+      fpsClearTimer -= dt;
+      if(fpsClearTimer<=0){
+        spawnFPSBoss();
+      }
+    }
+    if(fpsPhase==='boss_speech'){
+      fpsClearTimer -= dt;
+      if(fpsBoss){
+        fpsBoss.wobble += dt;
+        fpsBoss.yaw = Math.sin(fpsBoss.wobble*0.4)*0.4;
+      }
+      if(fpsClearTimer<=0){
+        fpsPhase = 'boss';
+        fpsSurviveTimer = 0;
+        fpsEndlessSpawnTimer = 3.0;
+        fpsPostBossTimer = 0;
+        fpsPostBossLineIndex = 0;
+      }
+    }
+    // the creator god's own descent - visible only while it's actually
+    // delivering its lines; once it hands over the Rick Bomb it vanishes
+    if(fpsCreatorGodMesh && fpsPhase==='god_appear'){
+      fpsGodAppearTimer += dt;
+    }
+    if(fpsPhase==='boss' && fpsBoss){
+      const b = fpsBoss;
+      b.wobble += dt;
+      b.yaw = Math.max(-FPS_MAX_YAW, Math.min(FPS_MAX_YAW, Math.sin(b.wobble*0.4)*0.4));
+      // the boss's own attack: dual hand-cannon beams, not the bomb pool
+      b.attackTimer -= dt;
+      if(b.attackTimer<=0){
+        b.attackTimer = 2.0+Math.random()*1.2;
+        fpsThrownBombs.push({ kind:'beam', yaw:b.yaw, dist:b.dist, startDist:b.dist, fuse:1.1, maxFuse:1.1 });
+        sfx.shooterEnemyFire();
+      }
+    }
+    // once the boss itself has actually fallen, hacked comrades keep
+    // trickling in on their own until enough time has passed for the
+    // creator god to finally intervene (and again, later, once the
+    // creator god has come and gone) - and partway through the first
+    // stretch, the player voices the obvious frustration, one line at a
+    // time
+    if((fpsPhase==='boss' && !fpsBoss) || fpsPhase==='rick_ready'){
+      fpsEndlessSpawnTimer -= dt;
+      if(fpsEndlessSpawnTimer<=0){
+        fpsEndlessSpawnTimer = 1.3+Math.random()*1.2;
+        const spawnCount = 1+Math.floor(Math.random()*2);
+        for(let i=0;i<spawnCount;i++){
+          fpsDinos.push({ yaw:(Math.random()*1.2-0.6), dist:FPS_DINO_SPAWN_DIST, standDist:4.5+Math.random()*3, hp:2, wobble:Math.random()*10, speed:0.9+Math.random()*0.3, mesh3d:null });
+        }
+      }
+    }
+    if(fpsPhase==='boss'){
+      if(!fpsBoss){
+        fpsPostBossTimer += dt;
+        while(fpsPostBossLineIndex<FPS_POST_BOSS_LINES.length && fpsPostBossTimer>=FPS_POST_BOSS_LINES[fpsPostBossLineIndex].t){
+          showItemToast(FPS_POST_BOSS_LINES[fpsPostBossLineIndex].text, 2.6);
+          fpsPostBossLineIndex++;
+        }
+      }
+      fpsSurviveTimer += dt;
+      if(fpsSurviveTimer>=FPS_SURVIVE_GOAL){
+        startCreatorGodSequence();
+      }
+    }
+
+    // the shared thrown-bomb attack: a random living comrade lobs a bomb
+    // at the player (the boss uses its own beam attack instead) - either
+    // is only survived by holding the shield the instant it lands
+    if(fpsBombTimer>0) fpsBombTimer -= dt;
+    if(fpsBombTimer<=0 && fpsDinos.length>0 && player.alive){
+      fpsBombTimer = 2.6 + Math.random()*1.6;
+      const thrower = fpsDinos[Math.floor(Math.random()*fpsDinos.length)];
+      fpsThrownBombs.push({ kind:'bomb', yaw:thrower.yaw, dist:thrower.dist, startDist:thrower.dist, fuse:1.5, maxFuse:1.5 });
+      sfx.dangerousBombPlace();
+    }
+    for(const b of fpsThrownBombs) b.fuse -= dt;
+    for(const b of fpsThrownBombs){
+      if(!b._resolved && b.fuse<=0){
+        b._resolved = true;
+        if(player.shielding || player.invincibleTimer>0 || fpsPhase==='rick_bomb' || fpsPhase==='rick_boom'){
+          sfx.shieldBlock();
+          triggerShake(0.15, 4);
+        } else if(player.alive){
+          killFPSPlayer();
+        }
+      }
+    }
+    fpsThrownBombs = fpsThrownBombs.filter(b=>!b._resolved);
+
+    if(fpsPhase==='rick_bomb'){
+      fpsRickBombTimer -= dt;
+      if(fpsRickBombTimer<=0){
+        fpsPhase = 'rick_boom';
+        fpsRickBombTimer = 1.5;
+        triggerShake(0.6, 14);
+        sfx.grandWin();
+      }
+    } else if(fpsPhase==='rick_boom'){
+      fpsRickBombTimer -= dt;
+      whiteFlash.style.opacity = String(Math.min(1, (1.5-fpsRickBombTimer)/0.7));
+      if(fpsRickBombTimer<=0){
+        fpsActive = false;
+        epilogueEnding = true;
+        endingMessage = '地球が、消えていく…';
+        whiteFlash.style.opacity = '0';
+        epilogueScreen.classList.add('show');
+      }
+    }
+
+    if(!player.alive){
+      if(!pendingEnd) pendingEnd = { isWin:false, timer:0.9 };
+    }
+    updateHUD();
+  }
+
+  // Skips the entire bomberman campaign and drops the player straight
+  // back into a freshly-reset shooter section - available on the game
+  // over screen once the shooter has ever been reached this session.
+  // Drops the player back at the moment right after beating the god this
+  // run: back in the crown room, wings and halo on, god beam in hand, the
+  // crown itself clean and untouched - available on the game over screen
+  // once the god has ever been beaten this session. Skips the entire
+  // shooter/FPS chain rather than replaying it.
+  function restartFromGodCheckpoint(){
+    overlay.classList.remove('show');
+    gameOver = false; gameWin = false;
+    pendingEnd = null;
+    pendingHeavenRespawn = null;
+    trueEnding = false;
+    epilogueEnding = false;
+    epilogueScreen.classList.remove('show');
+    endingMessage = null;
+    score = 0;
+    gameStartTime = performance.now();
+    clearElapsedMs = 0;
+
+    // tear down whichever downstream section might have been active -
+    // forcibly, since we can't be sure which one it was
+    teardownHeavenTheme();
+    teardownPrimitiveTheme();
+    if(hiddenArenaDecor){ scene.remove(hiddenArenaDecor); hiddenArenaDecor = null; }
+    if(starField){ scene.remove(starField); starField = null; }
+    spaceMode = false;
+    heavenMode = false;
+    camera.fov = 35;
+    camera.updateProjectionMatrix();
+    canvas.classList.remove('warping');
+    canvas.style.filter = '';
+    canvas.style.transform = '';
+    whiteFlash.style.opacity = '0';
+    bossBanner.classList.remove('show');
+    fpsEpoch++;
+    fpsActive = false;
+    fpsPhase = 'waves';
+    fpsYaw = 0; fpsPitch = 0;
+    fpsDinos = [];
+    fpsSpawnQueue = [];
+    fpsWaveElapsed = 0;
+    fpsFireCooldown = 0;
+    fpsClearTimer = 0;
+    fpsBeamTimer = 0;
+    fpsBeamHitPoint = null;
+    fpsBombTimer = 3.0;
+    fpsSurviveTimer = 0;
+    fpsEndlessSpawnTimer = 3.0;
+    fpsRickBombTimer = 0;
+    fpsPostBossTimer = 0;
+    fpsPostBossLineIndex = 0;
+    wakeMessageShown = false;
+    fpsBoss = null;
+    fpsBossProjectiles = [];
+    fpsThrownBombs = [];
+    player.shielding = false;
+    shieldBtn.classList.remove('shieldActive');
+    shieldBtn.style.display = 'none';
+    shieldOverlay.classList.remove('show');
+    fpsBossBarWrap.classList.remove('show');
+    rickBombBtn.style.display = 'none';
+    shooterActive = false;
+    shooterPhase = 'waves';
+    shooterShip = null;
+    shooterBullets = []; shooterEnemies = []; shooterEnemyBullets = [];
+    shooterMiniboss = null;
+    shooterSpawnQueue = [];
+
+    // back to the clean crown room, exactly as it is the instant the god
+    // falls - the crown untaken and uncracked, the gate not yet opened
+    if(!spaceMode) setupSpaceTheme();
+    scene.background = new THREE.Color(0x12050f);
+    scene.fog.color = new THREE.Color(0x2a0a1c);
+    crownGateOpen = false;
+    crownGateEffectTimer = 0;
+    mysteryGatePos = null;
+    crownTaken = false;
+    crownCracked = false;
+    godDefeated = true;
+    altarsReplaced = true;
+    bombs = []; explosions = []; projectiles = []; items = [];
+    // a debug skip button may have jumped straight past the normal setup
+    // and left this null - the checkpoint always needs a real crown here
+    if(!crownPos) crownPos = { gx: Math.floor(COLS/2), gy: 1 };
+    items.push({ gx:altarPositions[0].gx, gy:altarPositions[0].gy, type:'ring' });
+    items.push({ gx:altarPositions[1].gx, gy:altarPositions[1].gy, type:'earring' });
+    items.push({ gx:altarPositions[2].gx, gy:altarPositions[2].gy, type:'necklace' });
+    items.push({ gx:altarPositions[3].gx, gy:altarPositions[3].gy, type:'goldbar' });
+    clearAllSoftBlocks();
+    buildBoardMeshes();
+    stage = 11;
+    cutsceneFlashDone = false;
+    player.alive = true;
+    player.invincibleTimer = 0;
+    player.invincibleUsed = false;
+    player.invinciblePulseTimer = 0;
+    player.gx = Math.floor(COLS/2); player.gy = ROWS-3;
+    player.moveDir = { dx:0, dy:0 }; player.progress = 0;
+    player.x = player.gx*TILE + (TILE-ENTITY_SIZE)/2;
+    player.y = player.gy*TILE + (TILE-ENTITY_SIZE)/2;
+    player.facing = 'up';
+    attachAngelToPlayer();
+    godBeamCooldown = 0;
+    godBeamBeam = null;
+    setGodBeamMode(true);
+    destroyRayBtn.style.display = 'none';
+    allyBombBtn.style.display = stage1ClearCount>=3 ? '' : 'none';
+    updateHUD();
+    currentBgmKey = null;
+    if(audioCtx) bgmPlaying = true;
+  }
+
   function placeBomb(){
     if(gameOver || gameWin || !player.alive) return;
+    if(fpsActive){ fireFPSShot(); return; }
+    if(shooterActive){ fireShooterShot(); return; }
+    if(godBeamMode){ fireGodBeam(); return; }
     const isGolden = goldenBombCharged;
     if(placeBombFor(player, false, isGolden)){
       updateHUD();
@@ -3066,7 +4271,7 @@
       case 'ArrowRight': case 'd': case 'D': keys.right=true; break;
       case ' ':
         if(!e.repeat){
-          if(gameOver || gameWin) resetGame();
+          if(gameOver || gameWin){ try { resetGame(); } catch(err){ console.error('Restart failed, reloading:', err); location.reload(); } }
           else placeBomb();
         }
         e.preventDefault();
@@ -3074,6 +4279,8 @@
       case 'z': case 'Z': if(!e.repeat) activateInvincibility(); e.preventDefault(); break;
       case 'x': case 'X': if(!e.repeat && destroyRayMode) activateDestroyRay(); e.preventDefault(); break;
       case 'b': case 'B': if(!e.repeat && allyBombBtn.style.display!=='none') useAllyBomb(); e.preventDefault(); break;
+      case 'c': case 'C': if(!e.repeat) setShielding(true); e.preventDefault(); break;
+      case 'r': case 'R': if(!e.repeat && rickBombBtn.style.display!=='none') activateRickBomb(); e.preventDefault(); break;
     }
   });
   window.addEventListener('keyup', e=>{
@@ -3082,6 +4289,7 @@
       case 'ArrowDown': case 's': case 'S': keys.down=false; break;
       case 'ArrowLeft': case 'a': case 'A': keys.left=false; break;
       case 'ArrowRight': case 'd': case 'D': keys.right=false; break;
+      case 'c': case 'C': setShielding(false); break;
     }
   });
 
@@ -3097,7 +4305,42 @@
   const allyBombBtn = document.getElementById('allyBombBtn');
   allyBombBtn.addEventListener('pointerdown', e=>{ e.preventDefault(); useAllyBomb(); });
 
-  document.getElementById('restartBtn').addEventListener('click', resetGame);
+  const shieldBtn = document.getElementById('shieldBtn');
+  const shieldOverlay = document.getElementById('shieldOverlay');
+  function setShielding(active){
+    if(!fpsActive || gameOver || gameWin || !player.alive){
+      player.shielding = false;
+      shieldBtn.classList.remove('shieldActive');
+      shieldOverlay.classList.remove('show');
+      return;
+    }
+    player.shielding = active;
+    shieldBtn.classList.toggle('shieldActive', active);
+    shieldOverlay.classList.toggle('show', active);
+    if(active) sfx.invinciblePulse();
+  }
+  shieldBtn.addEventListener('pointerdown', e=>{ e.preventDefault(); setShielding(true); });
+  shieldBtn.addEventListener('pointerup', e=>{ e.preventDefault(); setShielding(false); });
+  shieldBtn.addEventListener('pointerleave', ()=>setShielding(false));
+  shieldBtn.addEventListener('pointercancel', ()=>setShielding(false));
+  const fpsBossBarWrap = document.getElementById('fpsBossBarWrap');
+  const fpsBossBarFill = document.getElementById('fpsBossBarFill');
+  const rickBombBtn = document.getElementById('rickBombBtn');
+  rickBombBtn.addEventListener('pointerdown', e=>{ e.preventDefault(); activateRickBomb(); });
+  const epilogueScreen = document.getElementById('epilogueScreen');
+  document.getElementById('epilogueContinueBtn').addEventListener('click', ()=>{
+    epilogueScreen.classList.remove('show');
+    gameWin = true;
+    showOverlay(true);
+  });
+
+  document.getElementById('restartBtn').addEventListener('click', ()=>{
+    try { resetGame(); } catch(err){ console.error('Restart failed, reloading:', err); location.reload(); }
+  });
+  const godRestartBtn = document.getElementById('godRestartBtn');
+  godRestartBtn.addEventListener('click', ()=>{
+    try { restartFromGodCheckpoint(); } catch(err){ console.error('God restart failed, reloading:', err); location.reload(); }
+  });
 
   const titleScreen = document.getElementById('titleScreen');
   const titlePanel = document.getElementById('titlePanel');
@@ -3188,7 +4431,7 @@
     destroyRayBtn.style.display = 'none';
     crownCracked = false;
     treasuresEverCollected = new Set(['ring','earring','necklace','goldbar']);
-    crownPos = { gx: Math.floor(COLS/2), gy: Math.max(1, Math.floor(ROWS/2)-2) };
+    crownPos = { gx: Math.floor(COLS/2), gy: 1 };
     crownTaken = false;
     heavenGateActive = true;
     heavenGatePos = { gx: Math.floor(COLS/2), gy: ROWS-2 };
@@ -3257,6 +4500,41 @@
   }
   // debug skip-to-portal-zone removed (kept the function, dropped the click binding; the 🤖 icon itself is now hidden via CSS)
   // debug skip-to-heaven-gate removed (kept the function, dropped the click binding; the 👼 icon itself is hidden via CSS)
+
+  // debug-only: jumps straight into the shooter section, skipping the
+  // entire crown-room/god/gate chain leading up to it
+  function skipToShooter(){
+    if(gameOver || gameWin) return;
+    enemies.forEach(en=>en.alive=false);
+    boss = null; trueBoss = null; hiddenBoss = null; godBoss = null;
+    godDefeated = true;
+    reachedShooterCheckpoint = true;
+    setupSpaceTheme();
+    bossBanner.classList.remove('show');
+    whiteFlash.style.opacity = '0';
+    cutsceneFlashDone = false;
+    crownGateOpen = false;
+    mysteryGatePos = null;
+    crownPos = null;
+    enterShooterStage();
+  }
+  // debug skip-to-shooter removed (kept the function, dropped the click binding; the 🚀 icon itself is hidden via CSS)
+
+  // debug-only: jumps straight into the primitive-era FPS section
+  function skipToDinos(){
+    if(gameOver || gameWin) return;
+    enemies.forEach(en=>en.alive=false);
+    boss = null; trueBoss = null; hiddenBoss = null; godBoss = null;
+    godDefeated = true;
+    reachedShooterCheckpoint = true;
+    disposeGroup(boardGroup);
+    setupPrimitiveTheme();
+    bossBanner.classList.remove('show');
+    whiteFlash.style.opacity = '0';
+    player.alive = true;
+    enterFPSStage();
+  }
+  // debug skip-to-dinos removed (kept the function, dropped the click binding; the 🦕 icon itself is hidden via CSS)
 
   const muteBtn = document.getElementById('muteBtn');
   muteBtn.addEventListener('click', ()=>{
@@ -3478,7 +4756,12 @@
       destroyRayBeam.timer -= dt;
       if(destroyRayBeam.timer<=0) destroyRayBeam = null;
     }
+    if(godBeamBeam){
+      godBeamBeam.timer -= dt;
+      if(godBeamBeam.timer<=0) godBeamBeam = null;
+    }
     if(crownCrackEffectTimer>0) crownCrackEffectTimer -= dt;
+    if(crownGateEffectTimer>0) crownGateEffectTimer -= dt;
     if(shieldBreakEffectTimer>0) shieldBreakEffectTimer -= dt;
     if(playerDizzyTimer>0) playerDizzyTimer -= dt;
     if(itemToastTimer>0){
@@ -3835,6 +5118,106 @@
       return;
     }
 
+    // stage 22: the flash carrying the player through the mystery gate -
+    // same shape as the stage 20 heaven flash. Lands in a placeholder
+    // holding area for now; what's actually beyond the gate is designed
+    // in a later pass.
+    if(stage===22){
+      stageTimer -= dt;
+      const elG = MYSTERY_GATE_FLASH_DURATION - stageTimer;
+      const FLASH_PEAK_G = MYSTERY_GATE_FLASH_DURATION*0.4;
+      let flashOpacityG = 0;
+      if(elG < FLASH_PEAK_G) flashOpacityG = Math.min(1, elG/FLASH_PEAK_G);
+      else flashOpacityG = Math.max(0, 1-((elG-FLASH_PEAK_G)/(MYSTERY_GATE_FLASH_DURATION-FLASH_PEAK_G)));
+      whiteFlash.style.opacity = String(flashOpacityG);
+      if(!cutsceneFlashDone && elG>=FLASH_PEAK_G){
+        cutsceneFlashDone = true;
+        // no board to rebuild here - the gate opens onto open space, not
+        // another bomberman arena, so the room is simply cleared away
+        disposeGroup(boardGroup);
+        bombs = []; explosions = []; projectiles = []; items = [];
+        shooterShip = { wx:0, wz:4.0 };
+        syncPlayerPixelFromShip();
+        player.facing = 'up';
+        triggerShake(0.3, 6);
+      }
+      if(stageTimer<=0){
+        enterShooterStage();
+      }
+      return;
+    }
+
+    if(stage===23){
+      updateShooter(dt);
+      return;
+    }
+
+    // stage 24: the flash out of the shooter once its miniboss falls -
+    // same shape as the other transition flashes. Lands in a placeholder
+    // holding area for now; the primitive era beyond it (dinosaurs and
+    // all) is designed in a later pass.
+    if(stage===24){
+      stageTimer -= dt;
+      const elS = SHOOTER_CLEAR_FLASH_DURATION - stageTimer;
+      const FLASH_PEAK_S = SHOOTER_CLEAR_FLASH_DURATION*0.4;
+      let flashOpacityS = 0;
+      if(elS < FLASH_PEAK_S) flashOpacityS = Math.min(1, elS/FLASH_PEAK_S);
+      else flashOpacityS = Math.max(0, 1-((elS-FLASH_PEAK_S)/(SHOOTER_CLEAR_FLASH_DURATION-FLASH_PEAK_S)));
+      whiteFlash.style.opacity = String(flashOpacityS);
+      if(!cutsceneFlashDone && elS>=FLASH_PEAK_S){
+        cutsceneFlashDone = true;
+        // the mysterious glowing thing's death throes warp space itself -
+        // swallowed by the light, the crown room gives way to somewhere
+        // else entirely
+        shooterBullets = []; shooterEnemies = []; shooterEnemyBullets = [];
+        disposeGroup(boardGroup);
+        setupPrimitiveTheme();
+        fpsYaw = 0; fpsPitch = -0.08;
+        triggerShake(0.35, 7);
+        canvas.classList.remove('warping');
+        canvas.style.filter = '';
+        canvas.style.transform = '';
+      }
+      if(stageTimer<=0){
+        stage = 25;
+        stageTimer = EARTH_BANNER_DURATION + WAKE_MESSAGE_DURATION;
+        cutsceneFlashDone = false;
+        wakeMessageShown = false;
+        updateHUD();
+      }
+      return;
+    }
+
+    // stage 25: arriving back on Earth - a banner announcing the return,
+    // then (once that's had a moment to land) the unsettling realization
+    // that the comrades are still here and still rampaging, before the
+    // FPS section actually begins
+    if(stage===25){
+      stageTimer -= dt;
+      const elapsed25 = (EARTH_BANNER_DURATION+WAKE_MESSAGE_DURATION) - stageTimer;
+      if(!cutsceneFlashDone){
+        cutsceneFlashDone = true;
+        bossBanner.textContent = '';
+        bossBanner.innerHTML = '<span>🌍 地球へ帰還 🌍</span>';
+        bossBanner.classList.add('show');
+        sfx.whiteHoleEnter();
+        setTimeout(()=>bossBanner.classList.remove('show'), EARTH_BANNER_DURATION*1000-100);
+      }
+      if(!wakeMessageShown && elapsed25>=EARTH_BANNER_DURATION){
+        wakeMessageShown = true;
+        showItemToast('なぜ仲間達がまだ暴走している！？', WAKE_MESSAGE_DURATION);
+      }
+      if(stageTimer<=0){
+        enterFPSStage();
+      }
+      return;
+    }
+
+    if(stage===26){
+      updateFPS(dt);
+      return;
+    }
+
     let rawDx=0, rawDy=0;
     if(joyActive && (Math.abs(joyVec.x)>0.15 || Math.abs(joyVec.y)>0.15)){
       rawDx = joyVec.x; rawDy = joyVec.y;
@@ -3877,6 +5260,11 @@
           destroyRayBtn.innerHTML = '使用済み';
         }
       }
+    }
+
+    if(godBeamCooldown>0){
+      godBeamCooldown -= dt;
+      if(godBeamCooldown<0) godBeamCooldown = 0;
     }
 
     updateGridMovement(player, dt, rawDx, rawDy);
@@ -4638,14 +6026,17 @@
 
     // the crown, left behind after the hidden final boss falls - touching
     // it is the true, complete ending (or something even greater, if the
-    // god has already fallen this run)
-    if(player.alive && stage===11 && crownPos && !crownTaken){
+    // god has already fallen this run). Once the god beam has cracked it
+    // open into the mystery gate instead, it can no longer be taken this
+    // way at all.
+    if(player.alive && stage===11 && crownPos && !crownTaken && !crownGateOpen){
       const pc = occupiedCell(player);
       if(pc.gx===crownPos.gx && pc.gy===crownPos.gy){
         crownTaken = true;
         trueEnding = true;
         posePlayerStart = { x: player.x, y: player.y };
         player.moveDir = { dx:0, dy:0 }; player.progress = 0;
+        if(godBeamMode) setGodBeamMode(false);
         if(godDefeated && !crownCracked){
           stage = 14;
           stageTimer = ASCEND_DURATION;
@@ -4654,6 +6045,24 @@
           stage = 13;
           stageTimer = CROWN_POSE_DURATION;
         }
+        updateHUD();
+        return;
+      }
+    }
+    // the mystery gate, left behind once the god beam cracks the crown
+    // open - walking into it pushes on into whatever lies beyond, instead
+    // of ever claiming the crown at all
+    if(player.alive && stage===11 && crownGateOpen && mysteryGatePos){
+      const pg = occupiedCell(player);
+      if(pg.gx===mysteryGatePos.gx && pg.gy===mysteryGatePos.gy){
+        mysteryGatePos = null;
+        if(godBeamMode) setGodBeamMode(false);
+        if(hiddenArenaDecor){ scene.remove(hiddenArenaDecor); hiddenArenaDecor = null; }
+        stage = 22;
+        stageTimer = MYSTERY_GATE_FLASH_DURATION;
+        cutsceneFlashDone = false;
+        triggerShake(0.3, 5);
+        sfx.crownGateOpen();
         updateHUD();
         return;
       }
@@ -4700,6 +6109,12 @@
         items.push({ gx:altarPositions[1].gx, gy:altarPositions[1].gy, type:'earring' });
         items.push({ gx:altarPositions[2].gx, gy:altarPositions[2].gy, type:'necklace' });
         items.push({ gx:altarPositions[3].gx, gy:altarPositions[3].gy, type:'goldbar' });
+        // having beaten the god itself, the player carries that back with
+        // them - wings and a halo on the spot, and a god beam in place of
+        // their bomb, for as long as they linger in the crown room
+        attachAngelToPlayer();
+        setGodBeamMode(true);
+        reachedShooterCheckpoint = true;
         updateHUD();
         return;
       }
@@ -5034,6 +6449,242 @@
     if(hiddenArenaDecor){ scene.remove(hiddenArenaDecor); hiddenArenaDecor = null; }
   }
 
+  // A richer open-air backdrop for the primitive-era FPS section: varied
+  // ground, a low hazy sun, distant mountain silhouettes, and scattered
+  // trees/rocks - all built once into a persistent decor group rather
+  // than being rebuilt every frame.
+  let primitiveSky = null;
+
+  // A procedurally-generated cracked-asphalt/rubble texture, so the ground
+  // reads as a real battered surface instead of a flat color.
+  function makeGroundTexture(){
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 512;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#33323a';
+    ctx.fillRect(0,0,512,512);
+    for(let i=0;i<260;i++){
+      const x=Math.random()*512, y=Math.random()*512, r=6+Math.random()*30;
+      const shade = 25+Math.random()*35;
+      ctx.fillStyle = `rgba(${shade+14},${shade+12},${shade+16},${0.18+Math.random()*0.28})`;
+      ctx.beginPath();
+      ctx.ellipse(x,y,r,r*(0.5+Math.random()*0.4),Math.random()*Math.PI,0,Math.PI*2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = 'rgba(8,8,10,0.55)';
+    for(let i=0;i<55;i++){
+      ctx.lineWidth = 1+Math.random()*2;
+      ctx.beginPath();
+      let x=Math.random()*512, y=Math.random()*512;
+      ctx.moveTo(x,y);
+      for(let j=0;j<5;j++){ x += (Math.random()*2-1)*44; y += (Math.random()*2-1)*44; ctx.lineTo(x,y); }
+      ctx.stroke();
+    }
+    // faded lane-marking scraps, to sell "this used to be a road"
+    ctx.fillStyle = 'rgba(200,190,150,0.12)';
+    for(let i=0;i<10;i++){
+      ctx.fillRect(Math.random()*512, Math.random()*512, 3+Math.random()*30, 3);
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(16,16);
+    return tex;
+  }
+
+  // A dusk-toned gradient sky dome (dark violet overhead, fading to a
+  // hazy burnt-orange horizon) instead of a single flat background color.
+  function makeSkyDome(){
+    const skyGeo = new THREE.SphereGeometry(160, 24, 16);
+    const pos = skyGeo.attributes.position;
+    const topColor = new THREE.Color(0x1a1230);
+    const bottomColor = new THREE.Color(0xd9622f);
+    const colors = [];
+    for(let i=0;i<pos.count;i++){
+      const y = pos.getY(i);
+      const t = Math.max(0, Math.min(1, (y+18)/150));
+      const c = bottomColor.clone().lerp(topColor, t);
+      colors.push(c.r, c.g, c.b);
+    }
+    skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    const skyMat = new THREE.MeshBasicMaterial({ vertexColors:true, side:THREE.BackSide, fog:false, depthWrite:false });
+    return new THREE.Mesh(skyGeo, skyMat);
+  }
+
+  function setupPrimitiveTheme(){
+    teardownSpaceTheme();
+    teardownHeavenTheme();
+    scene.background = new THREE.Color(0x3a2038);
+    scene.fog.color = new THREE.Color(0x8a4a3a);
+    if(!primitiveSky){
+      primitiveSky = makeSkyDome();
+      scene.add(primitiveSky);
+    }
+    if(!primitiveGround){
+      const groundGeo = new THREE.PlaneGeometry(260, 260);
+      const groundMat = new THREE.MeshLambertMaterial({ map: makeGroundTexture() });
+      primitiveGround = new THREE.Mesh(groundGeo, groundMat);
+      primitiveGround.rotation.x = -Math.PI/2;
+      primitiveGround.position.set(0, 0, -20);
+      scene.add(primitiveGround);
+    }
+    if(!primitiveDecor){
+      primitiveDecor = new THREE.Group();
+
+      // a low, hazy, dying sun behind the haze of smoke
+      const sunGlow = makeGlowSprite(0xff8a4a, 8);
+      sunGlow.position.set(-6, 6, -60);
+      primitiveDecor.add(sunGlow);
+      const sunCore = new THREE.Mesh(geo.sphere, basicMat(0xffcf9a));
+      sunCore.scale.set(1.5,1.5,1.5);
+      sunCore.position.copy(sunGlow.position);
+      primitiveDecor.add(sunCore);
+
+      // a ruined city skyline ringing the horizon, silhouetted dark
+      // against the dusk sky, with scattered lit windows still burning
+      for(let i=0;i<16;i++){
+        const ang = (i/16)*Math.PI*2 + Math.random()*0.15;
+        const r = 30+Math.random()*26;
+        const bx = Math.sin(ang)*r, bz = FPS_CAM_Z - Math.cos(ang)*r - 8;
+        const bw = 2.6+Math.random()*3.4, bh = 5+Math.random()*20, bd = 2.6+Math.random()*3.4;
+        const tilt = (Math.random()-0.5)*0.06; // a few lean, half-collapsed
+        const building = new THREE.Mesh(geo.box, basicMat(0x110d16));
+        building.scale.set(bw, bh, bd);
+        building.position.set(bx, bh/2, bz);
+        building.rotation.z = tilt;
+        primitiveDecor.add(building);
+        const winCount = 2+Math.floor(Math.random()*5);
+        for(let w=0;w<winCount;w++){
+          const win = new THREE.Mesh(geo.box, basicMat(Math.random()<0.7?0xffb35a:0x7ac8ff));
+          win.scale.set(0.28,0.32,0.04);
+          win.position.set(bx+(Math.random()*bw-bw/2)*0.75, Math.random()*bh*0.85+0.8, bz+bd/2+0.02);
+          primitiveDecor.add(win);
+        }
+      }
+
+      // smoke columns and glowing embers rising off the wreckage
+      for(let i=0;i<7;i++){
+        const sx = (Math.random()*2-1)*32, sz = FPS_CAM_Z-28-Math.random()*22;
+        for(let j=0;j<4;j++){
+          const smoke = makeGlowSprite(0x4a4650, 2.6+j*1.3);
+          smoke.position.set(sx+(Math.random()-0.5)*2.2, 3+j*3.2, sz);
+          primitiveDecor.add(smoke);
+        }
+        const fireGlow = makeGlowSprite(0xff6a2a, 2.2);
+        fireGlow.position.set(sx, 0.4, sz);
+        primitiveDecor.add(fireGlow);
+        const fireLight = new THREE.PointLight(0xff6a2a, 0.6, 10);
+        fireLight.position.set(sx, 0.6, sz);
+        primitiveDecor.add(fireLight);
+      }
+
+      // rubble and shattered debris scattered around for ground-level
+      // texture, kept clear of the lane straight ahead of the fixed eye
+      // point so it never blocks the view of approaching comrades
+      for(let i=0;i<16;i++){
+        const ang = Math.random()*Math.PI*2;
+        const r = 3+Math.random()*18;
+        const rx = Math.sin(ang)*r, rz = FPS_CAM_Z - Math.cos(ang)*r - 4;
+        if(Math.abs(rx)<1.5 && rz<FPS_CAM_Z) continue;
+        const rock = new THREE.Mesh(geo.icosa, basicMat(0x3a3a40));
+        const rs = 0.16+Math.random()*0.3;
+        rock.scale.set(rs, rs*0.65, rs);
+        rock.position.set(rx, rs*0.4, rz);
+        rock.rotation.set(Math.random(), Math.random(), Math.random());
+        primitiveDecor.add(rock);
+      }
+
+      scene.add(primitiveDecor);
+    }
+  }
+  function teardownPrimitiveTheme(){
+    if(primitiveGround){ scene.remove(primitiveGround); primitiveGround = null; }
+    if(primitiveDecor){ scene.remove(primitiveDecor); primitiveDecor = null; }
+    if(primitiveSky){ scene.remove(primitiveSky); primitiveSky = null; }
+  }
+
+  // A single dinosaur, built from simple tapered segments (tail, torso,
+  // neck, head with jaw/teeth/eyes, legs, small arms) rather than a bare
+  // box - `t` drives a gentle walking bob.
+  function makeDinoMesh(t){
+    const g = new THREE.Group();
+    const skinMat = basicMat(0x4a6b3a);
+    const bellyMat = basicMat(0x9fc07a);
+    const darkMat = basicMat(0x2e4322);
+    const bob = Math.sin(t*6)*0.03;
+
+    const torso = new THREE.Mesh(geo.box, skinMat);
+    torso.scale.set(0.7,0.75,1.4);
+    torso.position.set(0,0.82+bob,0.15);
+    addGlowEdges(torso,0,0.4);
+    g.add(torso);
+
+    const belly = new THREE.Mesh(geo.box, bellyMat);
+    belly.scale.set(0.5,0.32,1.2);
+    belly.position.set(0,0.58+bob,0.15);
+    g.add(belly);
+
+    // tail: three tapering segments trailing toward +Z
+    for(let i=0;i<3;i++){
+      const s = 0.36*(1-i*0.24);
+      const seg = new THREE.Mesh(geo.box, i%2===0?skinMat:darkMat);
+      seg.scale.set(s, s*0.85, 0.5);
+      seg.position.set(0, 0.72+bob-i*0.07, 1.13+i*0.36);
+      seg.rotation.x = -0.18-i*0.08+Math.sin(t*4+i)*0.05;
+      g.add(seg);
+    }
+
+    // neck + head toward -Z
+    const neck = new THREE.Mesh(geo.box, skinMat);
+    neck.scale.set(0.36,0.36,0.46);
+    neck.position.set(0,1.08+bob,-0.68);
+    neck.rotation.x = 0.35;
+    g.add(neck);
+
+    const head = new THREE.Mesh(geo.box, skinMat);
+    head.scale.set(0.4,0.36,0.58);
+    head.position.set(0,1.3+bob,-0.98);
+    addGlowEdges(head,0,0.4);
+    g.add(head);
+
+    const jaw = new THREE.Mesh(geo.box, darkMat);
+    jaw.scale.set(0.3,0.1,0.46);
+    jaw.position.set(0,1.13+bob,-1.02);
+    g.add(jaw);
+
+    for(const side of [-1,1]){
+      const tooth = new THREE.Mesh(geo.box, basicMat(0xf5f0e0));
+      tooth.scale.set(0.03,0.05,0.03);
+      tooth.position.set(side*0.1,1.18+bob,-1.22);
+      g.add(tooth);
+
+      const eye = new THREE.Mesh(geo.sphere, basicMat(0xff3b3b));
+      eye.scale.set(0.06,0.06,0.06);
+      eye.position.set(side*0.15,1.38+bob,-1.08);
+      g.add(eye);
+
+      const thigh = new THREE.Mesh(geo.box, darkMat);
+      thigh.scale.set(0.22,0.5,0.28);
+      thigh.position.set(side*0.26,0.42+bob*0.4,0.2);
+      thigh.rotation.x = 0.15;
+      g.add(thigh);
+
+      const shin = new THREE.Mesh(geo.box, skinMat);
+      shin.scale.set(0.16,0.36,0.18);
+      shin.position.set(side*0.26,0.12,0.34);
+      shin.rotation.x = -0.2;
+      g.add(shin);
+
+      const arm = new THREE.Mesh(geo.box, skinMat);
+      arm.scale.set(0.09,0.2,0.09);
+      arm.position.set(side*0.3,0.9+bob,-0.5);
+      arm.rotation.x = 0.4;
+      g.add(arm);
+    }
+
+    return g;
+  }
+
   let heavenDecor = null; // persistent decorative backdrop (rays of light + halo) for the secret heaven stage
   function setupHeavenTheme(){
     heavenMode = true;
@@ -5101,16 +6752,17 @@
   }
 
   function showOverlay(win){
-    overlayTitle.textContent = win ? (godTranscended ? '神クリア！ 😇' : (trueEnding ? '完全クリア！ 👑' : 'YOU WIN! 🎉')) : 'GAME OVER 💥';
+    overlayTitle.textContent = win ? (epilogueEnding ? '地球、消滅… 🌍💥' : (godTranscended ? '神クリア！ 😇' : (trueEnding ? '完全クリア！ 👑' : 'YOU WIN! 🎉'))) : 'GAME OVER 💥';
     bgmPlaying = false;
     if(win){
       clearElapsedMs = performance.now() - gameStartTime;
-      overlayText.textContent = `${endingMessage || '真のボスを倒した！'} クリアタイム: ${formatClearTime(clearElapsedMs)}`;
+      overlayText.innerHTML = epilogueEnding ? `${endingMessage || ''} クリアタイム: ${formatClearTime(clearElapsedMs)}` : `${endingMessage || '真のボスを倒した！'} クリアタイム: ${formatClearTime(clearElapsedMs)}`;
       if(godTranscended || (trueEnding && !crownCracked)) sfx.grandWin(); else sfx.win();
     } else {
-      overlayText.textContent = endingMessage || 'もう一度挑戦しよう！';
+      overlayText.innerHTML = endingMessage || 'もう一度挑戦しよう！';
       sfx.gameOver();
     }
+    godRestartBtn.style.display = reachedShooterCheckpoint ? '' : 'none';
     overlay.classList.add('show');
   }
 
@@ -5255,10 +6907,10 @@
   // Renders one warp-zone portal: a bright swirling white hole, or a dark
   // event-horizon black hole, with orbiting particles spiraling into the
   // core and a couple of rotating accretion rings.
-  function renderPortalHole(gx, gy, isWhite){
+  function renderPortalHole(gx, gy, isWhite, tintColor){
     const w = cellCenterToWorld(gx, gy);
     const t = performance.now()/1000;
-    const ringColor = isWhite ? 0xbfe8ff : 0x8a3ad0;
+    const ringColor = tintColor!==undefined ? tintColor : (isWhite ? 0xbfe8ff : 0x8a3ad0);
     const coreMat = isWhite ? basicMat(0xffffff) : basicMat(0x0a0612, {transparent:true, opacity:0.94});
     const core = new THREE.Mesh(geo.sphere, coreMat);
     core.scale.set(0.55,0.55,0.55);
@@ -5287,10 +6939,11 @@
       dynamicGroup.add(particle);
     }
 
-    const glow = makeGlowSprite(isWhite?0xffffff:0x8a3ad0, isWhite?2.6:2.0);
+    const glowColor = tintColor!==undefined ? tintColor : (isWhite?0xffffff:0x8a3ad0);
+    const glow = makeGlowSprite(glowColor, isWhite?2.6:2.0);
     glow.position.set(w.x, 0.6, w.z);
     dynamicGroup.add(glow);
-    const light = new THREE.PointLight(isWhite?0xffffff:0x8a3ad0, isWhite?1.4:0.8, 4);
+    const light = new THREE.PointLight(glowColor, isWhite?1.4:0.8, 4);
     light.position.set(w.x, 0.6, w.z);
     dynamicGroup.add(light);
 
@@ -6056,6 +7709,23 @@
       dynamicGroup.add(muzzleLight);
     }
 
+    // the transcended player's god beam - thicker and brighter gold than
+    // the destroy ray, with a bigger muzzle flare to sell the extra
+    // spectacle
+    if(godBeamBeam){
+      const alphaG = Math.max(0, godBeamBeam.timer/0.4);
+      const endPxG = godBeamBeam.x + godBeamBeam.dx*700;
+      const endPyG = godBeamBeam.y + godBeamBeam.dy*700;
+      renderBeamSegment(godBeamBeam.x, godBeamBeam.y, endPxG, endPyG, 0xffd75e, 0.28, alphaG, 1.1);
+      const muzzleGlowG = makeGlowSprite(0xfff2c0, 2.6*alphaG+0.4);
+      const mwG = pixelToWorld(godBeamBeam.x, godBeamBeam.y);
+      muzzleGlowG.position.set(mwG.x, 1.1, mwG.z);
+      dynamicGroup.add(muzzleGlowG);
+      const muzzleLightG = new THREE.PointLight(0xffd75e, 1.6*alphaG, 4.5);
+      muzzleLightG.position.set(mwG.x, 1.1, mwG.z);
+      dynamicGroup.add(muzzleLightG);
+    }
+
     // the crown-crack hit-flash: a big, unmistakable burst right at the
     // hidden boss's (or its crown's) position the instant the destroy ray
     // connects, with the crown's shards visibly flying off
@@ -6216,7 +7886,7 @@
     // slowly twirling back down to land - a big, unmissable beat since
     // there's no white flash covering it this time. Stage 11 then keeps
     // it gently bobbing at rest until it's picked up.
-    if((stage===10 || stage===11) && crownPos && !crownTaken){
+    if((stage===10 || stage===11) && crownPos && !crownTaken && !crownGateOpen){
       const w = cellCenterToWorld(crownPos.gx, crownPos.gy);
       const t = performance.now()/1000;
       let extraY = 0, spinBoost = 1;
@@ -6317,6 +7987,233 @@
     // back to the crown room
     if(stage===21 && godDefeated && heavenReturnGatePos){
       renderPortalHole(heavenReturnGatePos.gx, heavenReturnGatePos.gy, true);
+    }
+
+    // the shooter section (stage 23): bullets, grunt enemies, enemy fire,
+    // and the miniboss - all in raw world coordinates directly, since
+    // there's no grid here to convert through
+    if(stage===23){
+      for(const b of shooterBullets){
+        const bolt = new THREE.Mesh(geo.sphere, basicMat(0xfff2c0));
+        bolt.scale.set(0.1,0.1,0.26);
+        bolt.position.set(b.wx, 0.65, b.wz);
+        dynamicGroup.add(bolt);
+        const bglow = makeGlowSprite(0xffd75e, 0.65);
+        bglow.position.set(b.wx, 0.65, b.wz);
+        dynamicGroup.add(bglow);
+      }
+      for(const en of shooterEnemies){
+        const rock = new THREE.Mesh(geo.icosa, basicMat(0x8a6a4a));
+        rock.scale.set(0.34,0.3,0.34);
+        rock.position.set(en.wx, 0.65, en.wz);
+        rock.rotation.set(en.wobble, en.wobble*0.7, en.wobble*0.4);
+        dynamicGroup.add(rock);
+      }
+      for(const eb of shooterEnemyBullets){
+        const ebm = new THREE.Mesh(geo.sphere, basicMat(0xff3b6b));
+        ebm.scale.set(0.11,0.11,0.11);
+        ebm.position.set(eb.wx, 0.65, eb.wz);
+        dynamicGroup.add(ebm);
+        const ebglow = makeGlowSprite(0xff3b6b, 0.5);
+        ebglow.position.set(eb.wx, 0.65, eb.wz);
+        dynamicGroup.add(ebglow);
+      }
+      if(shooterMiniboss){
+        const mb = shooterMiniboss;
+        if(!mb.mesh3d){
+          mb.mesh3d = makeAlienBossMesh(false, 'dual');
+          mb.mesh3d.scale.set(1.3,1.3,1.3);
+        }
+        const pMb = worldToPixel(mb.wx, mb.wz);
+        const facingAngle = Math.atan2(shooterShip.wx-mb.wx, shooterShip.wz-mb.wz);
+        renderCharacter3D({ x:pMb.px-ENTITY_SIZE/2, y:pMb.py-ENTITY_SIZE/2 }, mb.mesh3d, false, facingAngle);
+        const barMaxW = 1.6;
+        const barW = barMaxW*Math.max(0, mb.hp/mb.maxHp);
+        if(barW>0.001){
+          const bar = new THREE.Mesh(geo.box, basicMat(0xff5555));
+          bar.scale.set(barW, 0.08, 0.08);
+          bar.position.set(mb.wx-(barMaxW-barW)/2, 2.3, mb.wz);
+          dynamicGroup.add(bar);
+        }
+      }
+    }
+
+    // the primitive-era FPS section: dinosaurs (tracked by bearing/
+    // distance from the fixed eye point) and the god beam's own visual
+    if(stage===26){
+      const fpCamPos = { x:0, y:FPS_EYE_HEIGHT, z:FPS_CAM_Z };
+      const tFps = performance.now()/1000;
+      for(const d of fpsDinos){
+        const dx = fpCamPos.x + Math.sin(d.yaw)*d.dist;
+        const dz = fpCamPos.z - Math.cos(d.yaw)*d.dist;
+        if(!d.mesh3d){
+          d.mesh3d = makeCharacterMesh(mat.enemyBody, mat.enemyVisor, 0xffb3b3, true);
+          d.mesh3d.scale.set(1.8,1.8,1.8);
+        }
+        const pD = worldToPixel(dx, dz);
+        const facingAngleD = Math.atan2(fpCamPos.x-dx, fpCamPos.z-dz);
+        renderCharacter3D({ x:pD.px-ENTITY_SIZE/2, y:pD.py-ENTITY_SIZE/2 }, d.mesh3d, false, facingAngleD);
+        // a flickering red malfunction aura - these are hijacked, not
+        // simply hostile, and it should read that way at a glance
+        const glitch = 0.55+0.45*Math.sin(tFps*9+d.wobble*4);
+        const auraGlow = makeGlowSprite(0xff2020, 0.55*glitch+0.3);
+        auraGlow.position.set(dx, 1.35, dz);
+        dynamicGroup.add(auraGlow);
+        if(Math.sin(tFps*14+d.wobble*7)>0.85){
+          const spark = new THREE.Mesh(geo.sphere, basicMat(0x7ef2ff));
+          spark.scale.set(0.05,0.05,0.05);
+          spark.position.set(dx+(Math.random()-0.5)*0.4, 1.5+Math.random()*0.3, dz+(Math.random()-0.5)*0.4);
+          dynamicGroup.add(spark);
+        }
+      }
+      if(fpsBoss){
+        const b = fpsBoss;
+        const bx = fpCamPos.x + Math.sin(b.yaw)*b.dist;
+        const bz = fpCamPos.z - Math.cos(b.yaw)*b.dist;
+        if(!b.mesh3d){
+          b.mesh3d = makeAlienBossMesh(false, 'dual');
+          b.mesh3d.scale.set(1.9,1.9,1.9);
+        }
+        const pB = worldToPixel(bx, bz);
+        const facingAngleB = Math.atan2(fpCamPos.x-bx, fpCamPos.z-bz);
+        renderCharacter3D({ x:pB.px-ENTITY_SIZE/2, y:pB.py-ENTITY_SIZE/2 }, b.mesh3d, false, facingAngleB);
+        // glowing hand-cannon accents either side, brightening just before
+        // it fires so the beam attack reads as coming from its hands
+        const chargeUp = fpsPhase==='boss' ? Math.max(0, 1-b.attackTimer/0.5) : 0;
+        for(const side of [-1,1]){
+          const hx = bx + Math.cos(b.yaw)*side*0.55;
+          const hz = bz + Math.sin(b.yaw)*side*0.55;
+          const cannonGlow = makeGlowSprite(0xff3b3b, 0.5+0.8*chargeUp);
+          cannonGlow.position.set(hx, 1.1, hz);
+          dynamicGroup.add(cannonGlow);
+        }
+        const auraLight = new THREE.PointLight(0xff3b3b, 0.7+0.6*chargeUp, 5);
+        auraLight.position.set(bx, 1.3, bz);
+        dynamicGroup.add(auraLight);
+      }
+      // the creator god itself, descending faintly from above, facing
+      // straight back at the player - visible only while it's actually
+      // here delivering its lines, gone again once the Rick Bomb is
+      // handed over
+      if(fpsCreatorGodMesh && fpsPhase==='god_appear'){
+        const gx = fpCamPos.x, gz = fpCamPos.z - FPS_GOD_DIST;
+        const travel = Math.max(0, Math.min(1, fpsGodAppearTimer/FPS_GOD_DESCEND_DURATION));
+        const eased = 1 - Math.pow(1-travel, 3);
+        const gy = 7.5 + (0-7.5)*eased;
+        const alpha = 0.5*eased;
+        fpsCreatorGodMesh.position.set(gx, gy, gz);
+        fpsCreatorGodMesh.rotation.y = Math.atan2(fpCamPos.x-gx, fpCamPos.z-gz);
+        const scaleF = 1.7;
+        fpsCreatorGodMesh.scale.set(scaleF, scaleF, scaleF);
+        fpsCreatorGodMesh.traverse(obj=>{ if(obj.material) obj.material.opacity = alpha; });
+        const godGlow = makeGlowSprite(0xfff2c0, 2.2*eased);
+        godGlow.position.set(gx, gy+1.1, gz);
+        dynamicGroup.add(godGlow);
+        dynamicGroup.add(fpsCreatorGodMesh);
+      }
+      // thrown bombs - travel in from the thrower's distance, arcing up
+      // and down, with a warning glow that grows as the fuse runs out
+      for(const bm of fpsThrownBombs){
+        const travel = Math.max(0, Math.min(1, 1-bm.fuse/bm.maxFuse));
+        const curDist = bm.startDist - (bm.startDist-1.2)*travel;
+        const bx = fpCamPos.x + Math.sin(bm.yaw)*curDist;
+        const bz = fpCamPos.z - Math.cos(bm.yaw)*curDist;
+        const urgency = Math.max(0, 1-bm.fuse/0.6);
+        if(bm.kind==='beam'){
+          // a searing red bolt fired straight from the boss's hand cannons
+          const by = 1.35;
+          const bg = new THREE.Mesh(geo.sphere, basicMat(0xff3b3b));
+          bg.scale.set(0.14,0.14,0.14);
+          bg.position.set(bx, by, bz);
+          dynamicGroup.add(bg);
+          const bglow = makeGlowSprite(0xff5a3b, 1.1+0.6*urgency);
+          bglow.position.set(bx, by, bz);
+          dynamicGroup.add(bglow);
+        } else {
+          const arcH = Math.sin(travel*Math.PI)*1.1;
+          const bomb = new THREE.Mesh(geo.sphere, basicMat(0x1a1a1a));
+          bomb.scale.set(0.18,0.18,0.18);
+          bomb.position.set(bx, 1.0+arcH, bz);
+          dynamicGroup.add(bomb);
+          if(urgency>0){
+            const warnGlow = makeGlowSprite(0xff2020, 1.3*urgency);
+            warnGlow.position.set(bx, 1.0+arcH, bz);
+            dynamicGroup.add(warnGlow);
+          }
+        }
+      }
+      // the Rick Bomb finale: a huge bomb swells in front of the player,
+      // then a screen-filling detonation
+      if(fpsPhase==='rick_bomb'){
+        const travelR = Math.max(0, Math.min(1, 1-fpsRickBombTimer/2.6));
+        const rbScale = 0.3+travelR*1.6;
+        const rb = new THREE.Mesh(geo.sphere, basicMat(0x0a0a0a));
+        rb.scale.set(rbScale, rbScale, rbScale);
+        rb.position.set(fpCamPos.x, FPS_EYE_HEIGHT, fpCamPos.z-5.5);
+        dynamicGroup.add(rb);
+        const rbGlow = makeGlowSprite(0xffb347, 1.5+travelR*3);
+        rbGlow.position.copy(rb.position);
+        dynamicGroup.add(rbGlow);
+        const rbFuseLight = new THREE.PointLight(0xffb347, 1.2+travelR*2, 8);
+        rbFuseLight.position.copy(rb.position);
+        dynamicGroup.add(rbFuseLight);
+      } else if(fpsPhase==='rick_boom'){
+        const boomTravel = Math.max(0, Math.min(1, 1-fpsRickBombTimer/1.5));
+        const boomScale = 2+boomTravel*40;
+        const boom = makeGlowSprite(0xfff2c0, boomScale);
+        boom.position.set(fpCamPos.x, FPS_EYE_HEIGHT, fpCamPos.z-4);
+        dynamicGroup.add(boom);
+        const boomLight = new THREE.PointLight(0xffe066, 2.2, 20);
+        boomLight.position.copy(boom.position);
+        dynamicGroup.add(boomLight);
+      }
+      if(fpsBeamHitPoint && fpsBeamTimer>0){
+        const alphaF = Math.max(0, fpsBeamTimer/0.14);
+        const w1 = { x:fpCamPos.x, y:1.55, z:fpCamPos.z };
+        const w2 = fpsBeamHitPoint;
+        const ddx = w2.x-w1.x, ddy=w2.y-w1.y, ddz = w2.z-w1.z;
+        const dist = Math.max(0.01, Math.sqrt(ddx*ddx+ddy*ddy+ddz*ddz));
+        const dirVec = new THREE.Vector3(ddx,ddy,ddz).normalize();
+        const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), dirVec);
+        const midx=(w1.x+w2.x)/2, midy=(w1.y+w2.y)/2, midz=(w1.z+w2.z)/2;
+        const beamCore = new THREE.Mesh(geo.cylinder, basicMat(0xfff2c0, {transparent:true, opacity:0.85*alphaF}));
+        beamCore.scale.set(0.05, dist, 0.05);
+        beamCore.position.set(midx, midy, midz);
+        beamCore.quaternion.copy(quat);
+        dynamicGroup.add(beamCore);
+        const beamOuter = new THREE.Mesh(geo.cylinder, basicMat(0xffd75e, {transparent:true, opacity:0.35*alphaF}));
+        beamOuter.scale.set(0.13, dist, 0.13);
+        beamOuter.position.set(midx, midy, midz);
+        beamOuter.quaternion.copy(quat);
+        dynamicGroup.add(beamOuter);
+        const muzzleGlowF = makeGlowSprite(0xffd75e, 1.4*alphaF+0.2);
+        muzzleGlowF.position.set(w1.x, w1.y, w1.z);
+        dynamicGroup.add(muzzleGlowF);
+      }
+    }
+
+    // the mystery gate - what's left where the crown stood once the god
+    // beam cracks it open. Gold-tinted rather than the usual white/purple,
+    // to read as something born from the crown rather than a plain portal
+    if(stage===11 && crownGateOpen && mysteryGatePos){
+      renderPortalHole(mysteryGatePos.gx, mysteryGatePos.gy, true, 0xffd75e);
+    }
+
+    // the crown-gate-opening burst - a brief, showy flash of gold and
+    // purple light right where the crown just broke apart
+    if(crownGateEffectTimer>0 && crownPos){
+      const flashAlphaG = Math.max(0, Math.min(1, crownGateEffectTimer/0.8));
+      const overallAlphaG = Math.max(0, Math.min(1, crownGateEffectTimer/1.8));
+      const fwG = cellCenterToWorld(crownPos.gx, crownPos.gy);
+      const crackFlashG = makeGlowSprite(0xfff2c0, 3.6*flashAlphaG+0.4);
+      crackFlashG.position.set(fwG.x, 0.7, fwG.z);
+      dynamicGroup.add(crackFlashG);
+      const ringG = new THREE.Mesh(geo.ring, basicMat(0xb57bff, {transparent:true, opacity:0.6*overallAlphaG, side:THREE.DoubleSide}));
+      ringG.rotation.x = -Math.PI/2;
+      const ringScaleG = 0.4 + (1-overallAlphaG)*1.6;
+      ringG.scale.set(ringScaleG, ringScaleG, 1);
+      ringG.position.set(fwG.x, 0.05, fwG.z);
+      dynamicGroup.add(ringG);
     }
 
     // last-stand desperation attack telegraph, expressed as the whole scene
@@ -6448,7 +8345,7 @@
         heavenDecor.children[1].rotation.z = -decorTH*0.08;
       }
     } else if(spaceMode){
-      if(stage>=8){
+      if(stage>=8 && stage<=14){
         // the hidden final boss's own arena: a starker crimson/violet
         // "final showdown" palette, clearly different from the true
         // boss's cooler blue-black space, while still unmistakably space
@@ -6996,7 +8893,7 @@
     // player
     if(player.alive){
       if(!player.mesh3d) player.mesh3d = makeCharacterMesh(mat.playerBody, mat.playerVisor, 0xaee0ff);
-      if(!playerSuckedInVisual && !playerAscending){
+      if(!playerSuckedInVisual && !playerAscending && !fpsActive){
       renderCharacter3D(player, player.mesh3d, player.invincibleTimer>0, facingStringToAngle(player.facing));
       if(playerDizzyTimer>0){
         // a little "seeing stars" effect circling overhead, right after
@@ -7070,26 +8967,48 @@
     syncBlockDebris3D();
     syncDeathEffects3D();
 
-    // camera shake
-    if(shakeTimer>0){
+    // camera: the primitive-era section (and the flash/wake beat leading
+    // into it) switches to a fixed first-person eye position that just
+    // rotates to follow the current aim, instead of the usual top-down
+    // board camera
+    if(stage>=24 && stage<=26){
+      const fpx = 0, fpy = FPS_EYE_HEIGHT, fpz = FPS_CAM_Z;
+      let sx=0, sy=0;
+      if(shakeTimer>0){
+        sx = (Math.random()*2-1)*shakeMagnitude*shakeTimer*0.03;
+        sy = (Math.random()*2-1)*shakeMagnitude*shakeTimer*0.03;
+      }
+      camera.position.set(fpx+sx, fpy+sy, fpz);
+      const dir = { x:Math.sin(fpsYaw)*Math.cos(fpsPitch), y:Math.sin(fpsPitch), z:-Math.cos(fpsYaw)*Math.cos(fpsPitch) };
+      camera.lookAt(fpx+dir.x*10, fpy+dir.y*10, fpz+dir.z*10);
+    } else if(shakeTimer>0){
       const sx = (Math.random()*2-1)*shakeMagnitude*shakeTimer*0.05;
       const sy = (Math.random()*2-1)*shakeMagnitude*shakeTimer*0.05;
       camera.position.set(cameraBase.x+sx, cameraBase.y+sy, cameraBase.z);
+      camera.lookAt(0, 0, 0);
     } else {
       camera.position.copy(cameraBase);
+      camera.lookAt(0, 0, 0);
     }
 
     renderer.render(scene, camera);
   }
 
   function loop(now){
-    const dt = Math.min((now-lastTime)/1000, 0.05);
-    lastTime = now;
-    update(dt);
-    updateDeathEffects(dt);
-    updateBlockDebris(dt);
-    updateBGM();
-    draw();
+    try {
+      const dt = Math.min((now-lastTime)/1000, 0.05);
+      lastTime = now;
+      update(dt);
+      updateDeathEffects(dt);
+      updateBlockDebris(dt);
+      updateBGM();
+      draw();
+    } catch(err){
+      // a single bad frame should never permanently freeze the game - log
+      // it and keep the loop alive so the next frame (e.g. after the
+      // player hits restart) gets a chance to recover
+      console.error('Frame error (recovered):', err);
+    }
     requestAnimationFrame(loop);
   }
 

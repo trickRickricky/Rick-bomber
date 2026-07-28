@@ -3486,7 +3486,7 @@
     spawnSlowBurst(cw.x, cw.y, '#ffe066', 30, 1.8);
     spawnSlowBurst(cw.x, cw.y, '#b57bff', 18, 1.5);
     sfx.crownGateOpen();
-    showItemToast('ゲートが出現した。ここから地球に戻れそうだ。', 2.6);
+    showItemToast('ゲートが出現した。<br>ここから地球に<br>戻れそうだ。', 2.6);
     updateHUD();
   }
 
@@ -4140,6 +4140,9 @@
     pendingEnd = null;
     pendingHeavenRespawn = null;
     trueEnding = false;
+    godTranscended = false;
+    playerAscending = false;
+    playerSuckedInVisual = false;
     epilogueEnding = false;
     epilogueScreen.classList.remove('show');
     endingMessage = null;

@@ -4118,7 +4118,7 @@
       if(fpsRickBombTimer<=0){
         fpsActive = false;
         epilogueEnding = true;
-        endingMessage = '地球が、消えていく…';
+        endingMessage = '地球が、消えていく…真・完全クリア！';
         whiteFlash.style.opacity = '0';
         epilogueScreen.classList.add('show');
       }
@@ -6760,7 +6760,7 @@
   }
 
   function showOverlay(win){
-    overlayTitle.textContent = win ? (epilogueEnding ? '地球、消滅… 🌍💥' : (godTranscended ? '神クリア！ 😇' : (trueEnding ? '完全クリア！ 👑' : 'YOU WIN! 🎉'))) : 'GAME OVER 💥';
+    overlayTitle.textContent = win ? (epilogueEnding ? '真・完全クリア！ 🌍💥' : (godTranscended ? '神クリア！ 😇' : (trueEnding ? '完全クリア！ 👑' : 'YOU WIN! 🎉'))) : 'GAME OVER 💥';
     bgmPlaying = false;
     if(win){
       clearElapsedMs = performance.now() - gameStartTime;

@@ -338,6 +338,22 @@
     touch-action: none;
     animation: godBeamPulse 0.9s ease-in-out infinite alternate;
   }
+  #shooterBoostBtn {
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    border: none;
+    background: radial-gradient(circle at 35% 30%, #bfe8ff, #1a6fc0 75%);
+    color: #052a4a;
+    font-size: 11px;
+    font-weight: bold;
+    box-shadow: 0 4px 10px rgba(0,0,0,.5), inset 0 0 0 3px #0a3a66;
+    touch-action: none;
+  }
+  #shooterBoostBtn:disabled {
+    background: radial-gradient(circle at 35% 30%, #777, #444 75%);
+    color: #aaa;
+    box-shadow: 0 4px 10px rgba(0,0,0,.5), inset 0 0 0 3px #333;
+  }
   #shieldOverlay {
     position: absolute;
     inset: 0;
@@ -369,7 +385,82 @@
     background: linear-gradient(90deg,#ff5555,#ff2020);
     transition: width 0.15s ease;
   }
+  #godBeamGaugeWrap {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 34%;
+    border-radius: 0;
+    background: rgba(10,8,4,0.7);
+    border: 2px solid #d8b060;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.6), inset 0 0 4px rgba(0,0,0,0.7);
+    z-index: 31;
+    display: none;
+    overflow: hidden;
+  }
+  #godBeamGaugeWrap.show { display: block; }
+  #godBeamGaugeFill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+    background: linear-gradient(0deg,#ffcc33,#fff2b0);
+    transition: height 0.12s ease, background 0.2s ease;
+  }
+  #godBeamGaugeWrap.locked {
+    border-color: #a04a4a;
+  }
+  #godBeamGaugeWrap.locked #godBeamGaugeFill {
+    background: linear-gradient(0deg,#552222,#883333);
+    animation: godGaugePulse 0.6s ease-in-out infinite;
+  }
+  @keyframes godGaugePulse { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
+  #fpsCrosshair {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%,-50%);
+    width: 26px;
+    height: 26px;
+    z-index: 31;
+    display: none;
+    pointer-events: none;
+  }
+  #fpsCrosshair.show { display: block; }
+  #fpsCrosshair::before, #fpsCrosshair::after {
+    content: '';
+    position: absolute;
+    background: rgba(255,255,255,0.85);
+    box-shadow: 0 0 2px rgba(0,0,0,0.8);
+  }
+  #fpsCrosshair::before { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
+  #fpsCrosshair::after { top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%); }
+  #fpsCrosshairGap {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 7px; height: 7px;
+    transform: translate(-50%,-50%);
+    border-radius: 50%;
+    background: rgba(0,0,0,0.55);
+  }
   #hint { font-size: 10.5px; opacity: .6; margin-top: 4px; text-align:center; }
+  #treasureIcons { display:inline-block; margin-left:4px; vertical-align:middle; }
+  .treasureIcon {
+    display:inline-block;
+    font-size:15px;
+    opacity:0.15;
+    filter:grayscale(1);
+    margin-left:1px;
+    transition: opacity 0.3s ease, filter 0.3s ease;
+  }
+  .treasureIcon.collected {
+    opacity:1;
+    filter:none;
+  }
   #titleScreen {
     position: fixed;
     inset: 0;
@@ -461,7 +552,8 @@
   </div>
 </div>
 <div id="app">
-  <h1><span id="skipToFirstBossBtn" title="最初のボスへスキップ">💣</span> Rickボンバー <span id="skipToBossBtn" title="真のラスボスへスキップ">💣</span></h1>
+  <h1><span id="skipToFirstBossBtn" title="最初のボスへスキップ">💣</span> Rickボンバー <span id="skipToBossBtn" title="真のラスボスへスキップ">💣</span><span id="treasureIcons">
+    <span class="treasureIcon" id="treasureIcon-ring" title="指輪">💍</span><span class="treasureIcon" id="treasureIcon-earring" title="ピアス">💎</span><span class="treasureIcon" id="treasureIcon-necklace" title="ネックレス">📿</span><span class="treasureIcon" id="treasureIcon-goldbar" title="金の延べ棒">🪙</span></span></h1>
   <button id="muteBtn" title="サウンドON/OFF">🔊</button>
   <button id="skipToPortalBtn" title="ワープゾーンへスキップ">🤖</button>
   <button id="skipToHeavenBtn" title="神ステージ前のホワイトホールへスキップ">👼</button>
@@ -484,6 +576,12 @@
     <div id="fpsBossBarWrap">
       <div id="fpsBossBarFill"></div>
     </div>
+    <div id="godBeamGaugeWrap">
+      <div id="godBeamGaugeFill"></div>
+    </div>
+    <div id="fpsCrosshair">
+      <div id="fpsCrosshairGap"></div>
+    </div>
     <div id="overlay">
       <h2 id="overlayTitle">GAME OVER</h2>
       <p id="overlayText">もう一度挑戦しよう！</p>
@@ -504,6 +602,7 @@
         <button id="destroyRayBtn" style="display:none;">破壊光線<br>1回のみ</button>
         <button id="shieldBtn" style="display:none;">シールド</button>
         <button id="rickBombBtn" style="display:none;">Rick<br>ボンバー</button>
+        <button id="shooterBoostBtn" style="display:none;">ブースト</button>
         <button id="invincibleBtn">無敵<br>5秒</button>
       </div>
     </div>
@@ -542,9 +641,11 @@
     return 0; // 'down' (the default)
   }
 
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, preserveDrawingBuffer:true });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias:false, preserveDrawingBuffer:false });
   renderer.setSize(canvas.width, canvas.height, false);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x8fd0ea, 0.018);
@@ -557,11 +658,32 @@
   scene.add(new THREE.HemisphereLight(0xbfe3ff, 0x3d6b41, 1.05));
   const keyLight = new THREE.DirectionalLight(0xfff4d6, 0.85);
   keyLight.position.set(5, 12, 6);
+  keyLight.castShadow = true;
+  keyLight.shadow.mapSize.set(1024, 1024);
+  keyLight.shadow.camera.left = -22;
+  keyLight.shadow.camera.right = 22;
+  keyLight.shadow.camera.top = 22;
+  keyLight.shadow.camera.bottom = -22;
+  keyLight.shadow.camera.near = 1;
+  keyLight.shadow.camera.far = 60;
+  keyLight.shadow.bias = -0.0015;
   scene.add(keyLight);
   const fillLight = new THREE.DirectionalLight(0xcfe8ff, 0.35);
   fillLight.position.set(-6, 6, -4);
   scene.add(fillLight);
   scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+
+  // Marks every Mesh in a group (recursively) as a shadow caster/receiver.
+  // Skips transparent materials (glow sprites, particle FX) since those
+  // shouldn't throw hard shadows.
+  function enableShadowsOn(obj, cast, receive){
+    obj.traverse(child=>{
+      if(child.isMesh && !(child.material && child.material.transparent)){
+        if(cast) child.castShadow = true;
+        if(receive) child.receiveShadow = true;
+      }
+    });
+  }
 
   // reusable geometries/materials (shared across many mesh instances so we
   // aren't allocating new GPU buffers every frame)
@@ -575,6 +697,7 @@
     ring: new THREE.RingGeometry(0.5, 0.62, 24),
     hexPrism: new THREE.CylinderGeometry(0.5, 0.5, 1, 6),
     hexPoint: new THREE.CylinderGeometry(0, 0.5, 1, 6),
+    cone: new THREE.CylinderGeometry(0, 0.5, 1, 10),
   };
   const boxEdges = new THREE.EdgesGeometry(geo.box);
   function addGlowEdges(mesh, colorHex, opacity){
@@ -714,6 +837,108 @@
       shine.scale.set(0.5,0.28,0.06);
       shine.position.set(0, 0.005, 0.1);
       g.add(shine);
+    }
+    return g;
+  }
+
+  function makeRelicMesh(type){
+    const g = new THREE.Group();
+    const goldMat = basicMat(0xffd75e);
+    const darkGoldMat = basicMat(0xa87a1a);
+    if(type==='relicShield'){
+      const face = new THREE.Mesh(geo.cylinder, goldMat);
+      face.scale.set(0.32, 0.05, 0.32);
+      g.add(face);
+      const rim = new THREE.Mesh(geo.torus, darkGoldMat);
+      rim.scale.set(0.34, 0.34, 0.14);
+      g.add(rim);
+      const boss = new THREE.Mesh(geo.sphere, basicMat(0xff3b6b));
+      boss.scale.set(0.09, 0.06, 0.09);
+      boss.position.y = 0.03;
+      g.add(boss);
+      g.rotation.x = Math.PI/2.3;
+    } else if(type==='relicBow'){
+      const arcGeo = new THREE.TorusGeometry(0.32, 0.028, 8, 16, Math.PI*1.15);
+      const arc = new THREE.Mesh(arcGeo, goldMat);
+      arc.userData.ownGeometry = true;
+      arc.rotation.z = Math.PI*0.075;
+      g.add(arc);
+      const stringMat = basicMat(0xfff6d8, {transparent:true, opacity:0.7});
+      const string = new THREE.Mesh(geo.cylinder, stringMat);
+      string.scale.set(0.012, 0.62, 0.012);
+      string.rotation.z = Math.PI/2;
+      g.add(string);
+      const shaft = new THREE.Mesh(geo.cylinder, goldMat);
+      shaft.scale.set(0.025, 0.5, 0.025);
+      shaft.position.set(0, 0, 0.02);
+      g.add(shaft);
+      const tip = new THREE.Mesh(geo.hexPoint, goldMat);
+      tip.scale.set(0.05, 0.12, 0.05);
+      tip.position.set(0, 0.24, 0.02);
+      g.add(tip);
+      g.rotation.x = Math.PI/2.3;
+    } else if(type==='relicWings'){
+      for(const side of [-1,1]){
+        for(let i=0;i<4;i++){
+          const t = i/3;
+          const feather = new THREE.Mesh(geo.icosa, goldMat);
+          feather.scale.set((0.16-t*0.04), 0.04, (0.34-t*0.16));
+          feather.position.set(side*(0.06+t*0.32), 0, -t*0.1);
+          feather.rotation.y = side*(0.2+t*0.2);
+          g.add(feather);
+        }
+      }
+      g.rotation.x = Math.PI/2.3;
+    } else if(type==='relicSword'){
+      const blade = new THREE.Mesh(geo.box, goldMat);
+      blade.scale.set(0.08, 0.62, 0.02);
+      blade.position.y = 0.28;
+      addGlowEdges(blade, 0x7a5a10, 0.7);
+      g.add(blade);
+      const guard = new THREE.Mesh(geo.box, darkGoldMat);
+      guard.scale.set(0.26, 0.05, 0.06);
+      g.add(guard);
+      const hilt = new THREE.Mesh(geo.cylinder, darkGoldMat);
+      hilt.scale.set(0.04, 0.18, 0.04);
+      hilt.position.y = -0.11;
+      g.add(hilt);
+      const pommel = new THREE.Mesh(geo.sphere, goldMat);
+      pommel.scale.set(0.06, 0.06, 0.06);
+      pommel.position.y = -0.21;
+      g.add(pommel);
+    } else if(type==='relicStaff'){
+      const shaft = new THREE.Mesh(geo.cylinder, goldMat);
+      shaft.scale.set(0.035, 0.66, 0.035);
+      g.add(shaft);
+      const orb = new THREE.Mesh(geo.sphere, basicMat(0xfff6d8, {transparent:true, opacity:0.75}));
+      orb.scale.set(0.13, 0.13, 0.13);
+      orb.position.y = 0.4;
+      g.add(orb);
+      const orbGlow = makeGlowSprite(0xffe066, 0.7);
+      orbGlow.position.y = 0.4;
+      g.add(orbGlow);
+      const collar = new THREE.Mesh(geo.torus, darkGoldMat);
+      collar.scale.set(0.12, 0.12, 0.06);
+      collar.rotation.x = Math.PI/2;
+      collar.position.y = 0.26;
+      g.add(collar);
+    } else if(type==='relicHammer'){
+      const handle = new THREE.Mesh(geo.cylinder, darkGoldMat);
+      handle.scale.set(0.04, 0.5, 0.04);
+      g.add(handle);
+      const head = new THREE.Mesh(geo.box, goldMat);
+      head.scale.set(0.42, 0.16, 0.16);
+      head.position.y = 0.3;
+      addGlowEdges(head, 0x7a5a10, 0.7);
+      g.add(head);
+    } else if(type==='relicHalo'){
+      const haloMat = basicMat(0xfff6d8, {transparent:true, opacity:0.95});
+      const halo = new THREE.Mesh(geo.ring, haloMat);
+      halo.scale.set(0.34, 0.34, 1);
+      g.add(halo);
+      const haloGlow = makeGlowSprite(0xfff6d8, 0.55);
+      g.add(haloGlow);
+      g.rotation.x = Math.PI/2.3;
     }
     return g;
   }
@@ -1216,6 +1441,7 @@
     const floorMesh = new THREE.Mesh(floorGeo, heavenMode ? heavenFloorMat : (spaceMode ? (stage>=8 ? hiddenFloorMat : spaceFloorMat) : floorMat));
     floorMesh.rotation.x = -Math.PI/2;
     floorMesh.position.set(0,0,0);
+    floorMesh.receiveShadow = true;
     boardGroup.add(floorMesh);
     for(let y=0;y<ROWS;y++){
       tileMeshes.push(new Array(COLS).fill(null));
@@ -1223,6 +1449,7 @@
         addTileMesh(x,y);
       }
     }
+    enableShadowsOn(boardGroup, true, false);
   }
 
   function addTileMesh(gx,gy){
@@ -1737,15 +1964,18 @@
     haloLight.position.y = 2.0;
     player.mesh3d.add(haloLight);
     // large layered-feather wings, sized to match the god's own wingspan
-    // rather than a small decorative pair
-    const wingMat = basicMat(0xffffff, {transparent:true, opacity:0.94});
+    // rather than a small decorative pair - normally solid; only the
+    // shooter section (where they have no hitbox and would otherwise read
+    // as a hazard) fades them down, via setWingOpacity()
+    const wingMat = basicMat(0xffffff, {transparent:true, opacity:0.5});
+    player.mesh3d.userData.wingMat = wingMat;
     for(const side of [-1,1]){
       const wing = new THREE.Group();
       for(let i=0;i<6;i++){
         const t = i/5;
         const feather = new THREE.Mesh(geo.icosa, wingMat);
-        feather.scale.set(0.24-t*0.05, 0.1, 0.6-t*0.32);
-        feather.position.set(side*(0.32+t*1.0), 0.16-t*0.28, -0.1-t*0.58);
+        feather.scale.set((0.24-t*0.05)*0.95, 0.07, (0.6-t*0.32)*0.95);
+        feather.position.set(side*(0.28+t*0.82), 0.16-t*0.28, -0.1-t*0.58);
         feather.rotation.y = side*(0.3+t*0.15);
         feather.rotation.z = side*0.1;
         wing.add(feather);
@@ -1754,6 +1984,9 @@
       wing.rotation.z = side*0.2;
       player.mesh3d.add(wing);
     }
+  }
+  function setWingOpacity(o){
+    if(player.mesh3d && player.mesh3d.userData.wingMat) player.mesh3d.userData.wingMat.opacity = o;
   }
 
   // ---------- iOS Safari zoom prevention ----------
@@ -1999,10 +2232,19 @@
       playTone(987.8, 0.7, 'sine', 0.09, 0.5);
     },
     shooterShot(){
-      // a light, quick golden "pew" - meant to be mashed rapidly without
-      // getting fatiguing or muddying into a wall of noise
-      playSlide(1400, 900, 0.08, 'sine', 0.11, 0);
-      playTone(1800, 0.05, 'square', 0.05, 0.01);
+      // the exact same sound as the god beam used in the crown room and
+      // FPS mode - kept fully identical, as requested
+      this.godBeam();
+    },
+    shooterBoost(){
+      // a longer, punchier boost: a deep thump for weight, a rising
+      // sawtooth whoosh that takes its time, a bright metallic zing
+      // trailing behind it, and a rushing-air noise bed underneath
+      playTone(50, 0.32, 'square', 0.24, 0);
+      playSlide(220, 2000, 0.34, 'sawtooth', 0.2, 0.01);
+      playSlide(1100, 2800, 0.24, 'sine', 0.14, 0.08);
+      playSlide(2400, 3400, 0.16, 'sine', 0.1, 0.22);
+      playNoise(0.4, 0.2, 0);
     },
     shooterEnemyPop(){
       playTone(500, 0.08, 'triangle', 0.13);
@@ -2012,13 +2254,24 @@
     shooterEnemyFire(){
       playSlide(300, 120, 0.14, 'sawtooth', 0.08);
     },
+    enemyRush(){
+      // a sharp rising "here it comes!" cue the instant a comrade breaks
+      // off its standoff distance to charge the player - a heads-up since
+      // the shield can't stop this one, only shooting it down can
+      playSlide(200, 700, 0.22, 'sawtooth', 0.16, 0);
+      playNoise(0.08, 0.1, 0);
+    },
     shieldBlock(){
-      // a solid metallic "clang" plus a bright shimmer - reads as a clean,
-      // successful block rather than a hit taken
-      playTone(180, 0.1, 'square', 0.2);
-      playTone(90, 0.14, 'square', 0.16, 0.02);
-      playSlide(1200, 1800, 0.18, 'sine', 0.14, 0.03);
-      playNoise(0.06, 0.1, 0);
+      // a hard metallic "ガシャン!" clang - a bomb slamming into the raised
+      // shield and clattering off it, not a soft chime: a sharp noise
+      // transient for the impact, a couple of ringing metallic slides for
+      // the plate resonating, a low thud for weight, and a short clatter tail
+      playNoise(0.12, 0.34, 0);
+      playTone(1500, 0.045, 'square', 0.24, 0);
+      playSlide(2200, 400, 0.2, 'square', 0.2, 0.015);
+      playSlide(3200, 900, 0.14, 'triangle', 0.15, 0.02);
+      playTone(150, 0.16, 'square', 0.18, 0.03);
+      playNoise(0.1, 0.14, 0.06);
     },
     grandWin(){
       // a fuller, more triumphant fanfare for the true, clean-crown ending -
@@ -2363,6 +2616,19 @@
     goldbar: { name:'金の延べ棒' },
   };
 
+  // the seven relics scattered around the creator god's own arena - each
+  // one individually modeled (see makeRelicMesh), all gold
+  const RELIC_INFO = {
+    relicShield: { name:'盾' },
+    relicBow: { name:'弓矢' },
+    relicWings: { name:'翼' },
+    relicSword: { name:'剣' },
+    relicStaff: { name:'杖' },
+    relicHammer: { name:'槌' },
+    relicHalo: { name:'光輪' },
+  };
+  const RELIC_TYPES = Object.keys(RELIC_INFO);
+
   let grid, bombs, explosions, enemies, player, items, safeCells, projectiles;
   let rainBombs = []; // visual-only "primed" bombs for the true boss's carpet-bomb finisher (not real collidable bombs)
   let deathEffects = [];
@@ -2396,6 +2662,7 @@
   let destroyRayBeam = null; // {x,y,dx,dy,timer} - transient visual for the fired beam
   let treasureBlocks = null; // { tl,tr,bl,br } - the warp-zone's four corner blocks, each breakable only by the destroy ray and hiding one item
   let collectedTreasures = []; // ordered list of item names actually collected this run
+  let collectedTreasureTypesThisRun = new Set(); // type keys collected this run - only merged into the permanent record on a clean White Hole finish, never on a Black Hole run
   let timeStopTimer = 0; // brief hitstop freeze when the destroy ray connects with the hidden boss
   let crownCrackEffectTimer = 0; // drives the crown-cracking flash/particle burst
   let shieldBreakEffectTimer = 0; // a smaller purple burst for a shield-only hit (no crown crack)
@@ -2488,14 +2755,17 @@
   const ASCEND_DURATION = 4.2;
   const MYSTERY_GATE_FLASH_DURATION = 2.4; // stage 22: the flash carrying the player through the cracked-open crown's gate
   const SHOOTER_CLEAR_FLASH_DURATION = 2.4; // stage 24: the flash out of the shooter once its miniboss falls
-  const SHOOTER_BOUND_X = 6.2, SHOOTER_Z_MIN = 1.8, SHOOTER_Z_MAX = 4.8;
+  const SHOOTER_BOUND_X = 6.2, SHOOTER_Z_MIN = -1.2, SHOOTER_Z_MAX = 4.8;
   const SHOOTER_SHIP_SPEED = 5.6;
   const SHOOTER_BULLET_SPEED = 11;
   const SHOOTER_ENEMY_SPEED = 1.7;
   const SHOOTER_ENEMY_DESPAWN_Z = 6.5;
-  const SHOOTER_HIT_RADIUS = 0.42;
-  const SHOOTER_BULLET_HIT_RADIUS = 0.4;
+  const SHOOTER_HIT_RADIUS = 0.58;
+  const SHOOTER_BULLET_HIT_RADIUS = 0.55;
   const SHOOTER_FIRE_COOLDOWN = 0.13;
+  const SHOOTER_BOOST_DURATION = 0.3;
+  const SHOOTER_BOOST_COOLDOWN = 3.6;
+  const SHOOTER_BOOST_SPEED = 24;
   const WAKE_MESSAGE_DURATION = 2.6; // stage 25: holding on "なぜ仲間達がまだ暴走している！？" before the FPS part begins
   const EARTH_BANNER_DURATION = 1.8; // stage 25: the "地球へ帰還" banner held before the wake-up message
   const FPS_EYE_HEIGHT = 1.75, FPS_CAM_Z = 3.0;
@@ -2505,6 +2775,7 @@
   const FPS_HIT_TOL_YAW = 0.1, FPS_HIT_TOL_PITCH = 0.11;
   const FPS_ATTACK_DIST = 2.1;
   const FPS_DINO_SPAWN_DIST = 15;
+  const FPS_PROXIMITY_KILL_DIST = 1.3; // a charging comrade that closes to this distance is an instant kill - the shield cannot stop it, only shooting the comrade down first can
   let godTranscended = false; // true if the special ascension ending played out - swaps the win title/message
   // Returning to the crown room after beating the god this run grants the
   // player wings/halo on the spot and swaps the bomb button for a
@@ -2513,6 +2784,17 @@
   // triggering the usual ending, leading further on.
   let godBeamMode = false; // true while the bomb button is the god beam instead of a bomb
   let godBeamCooldown = 0; // brief re-use delay between god beam shots
+  // a shield-shaped gauge on the left of the screen: firing drains it,
+  // it slowly refills while not firing, and hitting 0 locks the beam out
+  // until it refills all the way back to full - forces pacing the shots
+  // rather than machine-gunning it nonstop
+  let godBeamGauge = 100;
+  let godBeamLockedOut = false;
+  let godBeamGaugeActive = false; // the gauge/lockout only applies during the FPS stage - the earlier crown-room god beam stays unlimited, as before
+  const GOD_BEAM_GAUGE_MAX = 100;
+  const FPS_GOD_BEAM_GAUGE_COST = 8; // per shot - drains noticeably faster during sustained full-auto fire
+  const GOD_BEAM_GAUGE_REGEN = 10; // per second, normal regen while not locked out
+  const GOD_BEAM_GAUGE_RECHARGE_REGEN = 20; // per second, only while locked out and recharging from empty back to full
   let godBeamBeam = null; // {x,y,dx,dy,timer} - transient visual for a fired god beam, same pattern as destroyRayBeam
   let crownGateOpen = false; // true once the god beam has cracked the crown open, revealing the mystery gate in its place
   let crownGateEffectTimer = 0; // drives the crown-gate-opening flash/burst
@@ -2539,6 +2821,12 @@
   let shooterWaveElapsed = 0;
   let shooterMiniboss = null; // {wx,wz,hp,maxHp,dir,fireTimer}
   let shooterClearTimer = 0; // brief hold after the miniboss falls, before the stage-clear flash
+  let shooterBoostCooldown = 0;
+  let shooterBoostTimer = 0; // >0 while a boost dash is actively overriding normal movement
+  let shooterBoostDir = { x:0, z:0 };
+  let shooterAfterimages = []; // {mesh,life,maxLife} - fading ghost copies of the ship left behind during a boost dash
+  let shooterAfterimageTimer = 0;
+  let shooterAsteroids = []; // {wx,wz} - indestructible hazard rocks, dodge only
   let reachedShooterCheckpoint = false; // true once the god has ever been beaten and the crown room reached this session - not reset by resetGame, so the "God restart" option (which drops the player right back there) stays available on any later game over
 
   // ---------- the primitive-era FPS section (stage 26) ----------
@@ -2565,6 +2853,17 @@
   let fpsSurviveTimer = 0; // counts up once the true boss phase begins, until the creator god appears
   let fpsPostBossTimer = 0; // counts up once the boss itself has actually been defeated, to time the player's own line
   let fpsPostBossLineIndex = 0; // how many of the timed post-boss lines have shown so far
+  let fpsRickReadyMessageTimer = 0; // >0 only while the "Rickボンバーが使えるようになった" toast is showing - comrades hold their attacks during this brief window only
+  // the boss's guaranteed anti-shield flash attack: fires once, every
+  // time the player's god beam gauge runs dry against the boss - a
+  // charging light from its head that breaks an active shield outright
+  // (rather than being blocked by it) and locks the shield out until the
+  // gauge fully recharges, specifically punishing turtling behind the
+  // shield instead of actually managing the gauge
+  let fpsPrevGodBeamLockedOut = false;
+  let fpsBossFlashTimer = 0; // >0 while charging up
+  let fpsBossFlashPending = false; // true from the moment it's queued until it actually fires, so it can't be queued twice in a row
+  let shieldBroken = false; // true once the flash has broken an active shield - blocks re-deploying the shield until the gauge is back to full
   const FPS_POST_BOSS_LINES = [
     { t:7, text:'ボスを倒したのに<br>止まらない…' },
     { t:14, text:'まだどこかで<br>生きているのか…' },
@@ -2572,10 +2871,11 @@
     { t:28, text:'一体どうすれば…' }
   ];
   let fpsCreatorGodMesh = null; // built once, reused across appearances
+  let fpsGodVisionStars = null; // temporary starfield shown only while the creator god is present
   let fpsGodAppearTimer = 0; // counts up since the descent began, drives height + fade-in
   const FPS_GOD_DESCEND_DURATION = 2.4;
   const FPS_GOD_DIST = 5.0; // fixed distance in front of the player
-  const FPS_SURVIVE_GOAL = 45; // seconds to endure before the creator god shows up
+  const FPS_SURVIVE_GOAL = 33; // seconds to endure after the boss falls - lands ~3s after the last post-boss line ("一体どうすれば…" at t=28)
   let epilogueEnding = false; // true once the Rick Bomb finale plays out - swaps the win overlay's text
   let fpsRickBombTimer = 0;
   let primitiveGround = null;
@@ -2599,8 +2899,8 @@
   function refreshHintText(){
     let text = HINT_BASE;
     if(fpsActive) text += ' / 左パッドで照準、爆弾ボタン(神ビーム、連打可)で発射、シールドボタン/Cキーでボム防御(押している間有効)';
-    if(shooterActive) text += ' / 爆弾ボタン(神ビーム、連打可)で自機の弾を撃つ';
-    if(godBeamMode) text += ' / 爆弾ボタン(神ビーム、連射可)';
+    if(shooterActive) text += ' / 爆弾ボタン(神ビーム、連打可)で自機の弾を撃つ、ブーストボタン/Vキーで進行方向に急加速(要リチャージ)';
+    if(godBeamMode) text += ' / 爆弾ボタン(神ビーム、ゲージ切れに注意)';
     if(destroyRayMode) text += ' / X(破壊光線・1回のみ)';
     if(allyBombBtn.style.display !== 'none') text += ' / B(仲間爆破装置起動)';
     if(rickBombBtn.style.display !== 'none') text += ' / R(Rickボンバー)';
@@ -2662,6 +2962,13 @@
 
   function resetGame(){
     teardownSpaceTheme();
+    renderer.shadowMap.enabled = true;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+    godBeamGaugeActive = false;
+    godBeamGauge = GOD_BEAM_GAUGE_MAX;
+    godBeamLockedOut = false;
+    godBeamGaugeWrap.classList.remove('show');
+    fpsCrosshair.classList.remove('show');
     buildGrid();
     buildBoardMeshes();
     player = makeGridEntity(1,1,BASE_SPEED);
@@ -2714,6 +3021,7 @@
     destroyRayBeam = null;
     treasureBlocks = null;
     collectedTreasures = [];
+    collectedTreasureTypesThisRun = new Set();
     timeStopTimer = 0;
     crownCrackEffectTimer = 0;
     shieldBreakEffectTimer = 0;
@@ -2785,6 +3093,9 @@
     shieldOverlay.classList.remove('show');
     fpsBossBarWrap.classList.remove('show');
     teardownPrimitiveTheme();
+    if(fpsGodVisionStars){ scene.remove(fpsGodVisionStars); }
+    teardownShooterDecor();
+    shooterBoostBtn.style.display = 'none';
     camera.fov = 35;
     camera.updateProjectionMatrix();
     canvas.classList.remove('warping');
@@ -3443,6 +3754,7 @@
     } else {
       bombBtn.classList.remove('godBeamActive');
       bombBtn.innerHTML = '爆弾<br>設置';
+      godBeamGaugeWrap.classList.remove('show');
     }
     refreshHintText();
   }
@@ -3460,7 +3772,7 @@
     const d = dirMap[player.facing] || {dx:0,dy:1};
     const originX = player.x+ENTITY_SIZE/2, originY = player.y+ENTITY_SIZE/2;
     godBeamCooldown = 1.4;
-    godBeamBeam = { x:originX, y:originY, dx:d.dx, dy:d.dy, timer:0.4 };
+    godBeamBeam = { x:originX, y:originY, dx:d.dx, dy:d.dy, timer:0.55 };
     triggerShake(0.3, 6);
     sfx.godBeam();
     if(!crownGateOpen && crownPos && !crownTaken){
@@ -3512,23 +3824,962 @@
   // began, and which X lane to come down) - a gentle spread first, then a
   // couple of wider staggered passes, then a denser flurry right before
   // the miniboss shows up.
+  // A small, purpose-built enemy fighter craft - hull, cockpit, angled
+  // wings with accent tips, and an engine glow - instead of a bare rock.
+  // An irregular asteroid: a core lump plus several smaller bumps and
+  // crater accents stuck to it, so it reads as a real chunk of rock
+  // instead of a single bare icosahedron.
+  // The hacked comrade, redesigned as a precision-engineered unit (v2,
+  // approved design): every joint is a visible ball-joint or ring rather
+  // than a hidden hinge, the chest carries a hexagonal power-core window,
+  // and the whole palette is unified around red/dark-red/black so nothing
+  // reads as an out-of-place cool accent color. No corrosion or damage
+  // detailing anywhere - the only "something is wrong" tells are the
+  // glowing red scan-line visor, the red-tinted core window, and the
+  // blinking red status lights (all handled below and animated per-frame
+  // in the stage-26 render loop via g.userData.visorGlow/statusLight/
+  // coreGlow/dishLight).
+  let comradeVisorTexture = null;
+  function makeComradeVisorTexture(){
+    if(comradeVisorTexture) return comradeVisorTexture;
+    const c = document.createElement('canvas'); c.width=128; c.height=32;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#ff2020'; ctx.fillRect(0,0,128,32);
+    ctx.strokeStyle = 'rgba(255,160,160,0.55)';
+    ctx.lineWidth = 1;
+    for(let y=2;y<32;y+=4){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(128,y); ctx.stroke(); }
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillRect(0,0,128,4);
+    comradeVisorTexture = new THREE.CanvasTexture(c);
+    return comradeVisorTexture;
+  }
+
+  function makeFPSComradeMesh(){
+    const g = new THREE.Group();
+    const hullMat   = stdMat(0xc42a2a, 0x230404, {metalness:0.68, roughness:0.26});
+    const hullDkMat = stdMat(0x8a1c1c, 0x1a0303, {metalness:0.7, roughness:0.24});
+    const trimMat   = basicMat(0xff6a3c);
+    const trimDkMat = basicMat(0x7a1f1f);
+    const darkMat   = stdMat(0x15141a, 0x020203, {metalness:0.75, roughness:0.22});
+    const jointMat  = stdMat(0x0d0d10, 0, {metalness:0.85, roughness:0.2});
+    const hazardMat = basicMat(0xffcf3a);
+    const LEG_H = 0.52;
+
+    // legs: toe/heel split feet, ankle ring, shin plate + rear hydraulic
+    // piston, ball-joint knee, thigh with a hip-socket ring - each leg is
+    // built as its own group pivoted at the hip so the whole leg can be
+    // rotated for a walk-cycle animation (see g.userData.leftLeg/rightLeg,
+    // driven per-frame in the stage-26 render loop)
+    for(const side of [-1,1]){
+      const leg = new THREE.Group();
+      const pivotX = side*0.15, pivotY = LEG_H, pivotZ = 0;
+
+      const hipRing = new THREE.Mesh(geo.torus, trimDkMat);
+      hipRing.scale.set(0.16,0.16,0.5);
+      hipRing.position.set(side*0.15-pivotX, LEG_H*0.98-pivotY, 0-pivotZ);
+      leg.add(hipRing);
+
+      const thigh = new THREE.Mesh(geo.cylinder, hullMat);
+      thigh.scale.set(0.11, LEG_H*0.5, 0.11);
+      thigh.position.set(side*0.15-pivotX, LEG_H*0.75-pivotY, 0-pivotZ);
+      leg.add(thigh);
+      const thighBand = new THREE.Mesh(geo.torus, trimMat);
+      thighBand.scale.set(0.115,0.115,0.4);
+      thighBand.rotation.x = Math.PI/2;
+      thighBand.position.set(side*0.15-pivotX, LEG_H*0.62-pivotY, 0-pivotZ);
+      leg.add(thighBand);
+
+      const knee = new THREE.Mesh(geo.sphere, jointMat);
+      knee.scale.set(0.105,0.105,0.105);
+      knee.position.set(side*0.15-pivotX, LEG_H*0.48-pivotY, 0-pivotZ);
+      leg.add(knee);
+      const kneeCap = new THREE.Mesh(geo.box, hullDkMat);
+      kneeCap.scale.set(0.1, 0.09, 0.06);
+      kneeCap.position.set(side*0.15-pivotX, LEG_H*0.48-pivotY, 0.08-pivotZ);
+      leg.add(kneeCap);
+
+      const shin = new THREE.Mesh(geo.cylinder, hullMat);
+      shin.scale.set(0.095, LEG_H*0.44, 0.095);
+      shin.position.set(side*0.15-pivotX, LEG_H*0.23-pivotY, 0-pivotZ);
+      leg.add(shin);
+      const shinPlate = new THREE.Mesh(geo.box, trimMat);
+      shinPlate.scale.set(0.1, LEG_H*0.32, 0.04);
+      shinPlate.position.set(side*0.15-pivotX, LEG_H*0.23-pivotY, 0.075-pivotZ);
+      addGlowEdges(shinPlate, 0, 0.35);
+      leg.add(shinPlate);
+      const piston = new THREE.Mesh(geo.cylinder, jointMat);
+      piston.scale.set(0.028, LEG_H*0.38, 0.028);
+      piston.position.set(side*0.15-pivotX, LEG_H*0.24-pivotY, -0.09-pivotZ);
+      piston.rotation.x = 0.12;
+      leg.add(piston);
+
+      const ankleRing = new THREE.Mesh(geo.torus, trimMat);
+      ankleRing.scale.set(0.09, 0.09, 0.32);
+      ankleRing.rotation.x = Math.PI/2;
+      ankleRing.position.set(side*0.15-pivotX, LEG_H*0.05-pivotY, 0-pivotZ);
+      leg.add(ankleRing);
+
+      const heel = new THREE.Mesh(geo.box, darkMat);
+      heel.scale.set(0.12, 0.06, 0.1);
+      heel.position.set(side*0.15-pivotX, 0.03-pivotY, -0.06-pivotZ);
+      leg.add(heel);
+      const foot = new THREE.Mesh(geo.box, darkMat);
+      foot.scale.set(0.13, 0.055, 0.2);
+      foot.position.set(side*0.15-pivotX, 0.028-pivotY, 0.06-pivotZ);
+      leg.add(foot);
+      const toeCap = new THREE.Mesh(geo.box, trimMat);
+      toeCap.scale.set(0.12, 0.05, 0.05);
+      toeCap.position.set(side*0.15-pivotX, 0.03-pivotY, 0.15-pivotZ);
+      leg.add(toeCap);
+
+      leg.position.set(pivotX, pivotY, pivotZ);
+      g.add(leg);
+      if(side===-1) g.userData.leftLeg = leg; else g.userData.rightLeg = leg;
+    }
+
+    // pelvis / waist with a visible spine-coupler joint
+    const hips = new THREE.Mesh(geo.box, hullMat);
+    hips.scale.set(0.4, 0.16, 0.32);
+    hips.position.y = LEG_H+0.08;
+    addGlowEdges(hips, 0, 0.4);
+    g.add(hips);
+    const beltTrim = new THREE.Mesh(geo.box, trimDkMat);
+    beltTrim.scale.set(0.42, 0.04, 0.34);
+    beltTrim.position.y = LEG_H+0.17;
+    g.add(beltTrim);
+    const buckle = new THREE.Mesh(geo.hexPrism, hazardMat);
+    buckle.scale.set(0.07, 0.02, 0.07);
+    buckle.rotation.x = Math.PI/2;
+    buckle.position.set(0, LEG_H+0.18, 0.17);
+    g.add(buckle);
+    for(const side of [-1,1]){
+      const skirt = new THREE.Mesh(geo.box, hullDkMat);
+      skirt.scale.set(0.1, 0.17, 0.045);
+      skirt.position.set(side*0.23, LEG_H-0.02, 0.13);
+      skirt.rotation.x = 0.15;
+      g.add(skirt);
+      const skirtTrim = new THREE.Mesh(geo.box, trimMat);
+      skirtTrim.scale.set(0.11, 0.03, 0.05);
+      skirtTrim.position.set(side*0.23, LEG_H+0.06, 0.14);
+      skirtTrim.rotation.x = 0.15;
+      g.add(skirtTrim);
+    }
+    const spineCoupler = new THREE.Mesh(geo.cylinder, jointMat);
+    spineCoupler.scale.set(0.1, 0.07, 0.1);
+    spineCoupler.position.y = LEG_H+0.24;
+    g.add(spineCoupler);
+    const spineRing = new THREE.Mesh(geo.torus, trimMat);
+    spineRing.scale.set(0.11,0.11,0.5);
+    spineRing.rotation.x = Math.PI/2;
+    spineRing.position.y = LEG_H+0.24;
+    g.add(spineRing);
+
+    // torso: ab plate + chest plate + hexagonal core window
+    const abPlate = new THREE.Mesh(geo.box, hullMat);
+    abPlate.scale.set(0.42, 0.15, 0.33);
+    abPlate.position.y = LEG_H+0.34;
+    addGlowEdges(abPlate, 0, 0.35);
+    g.add(abPlate);
+    const seam = new THREE.Mesh(geo.box, darkMat);
+    seam.scale.set(0.45, 0.025, 0.35);
+    seam.position.y = LEG_H+0.42;
+    g.add(seam);
+    const chest = new THREE.Mesh(geo.box, hullMat);
+    chest.scale.set(0.48, 0.26, 0.36);
+    chest.position.y = LEG_H+0.56;
+    addGlowEdges(chest, 0, 0.5);
+    g.add(chest);
+    const chestSideTrim1 = new THREE.Mesh(geo.box, trimDkMat);
+    chestSideTrim1.scale.set(0.03, 0.24, 0.37);
+    chestSideTrim1.position.set(-0.245, LEG_H+0.56, 0);
+    g.add(chestSideTrim1);
+    const chestSideTrim2 = chestSideTrim1.clone();
+    chestSideTrim2.material = trimDkMat;
+    chestSideTrim2.position.x = 0.245;
+    g.add(chestSideTrim2);
+
+    const coreFrame = new THREE.Mesh(geo.hexPrism, darkMat);
+    coreFrame.scale.set(0.15, 0.05, 0.15);
+    coreFrame.rotation.x = Math.PI/2;
+    coreFrame.position.set(0, LEG_H+0.58, 0.185);
+    g.add(coreFrame);
+    const coreGlow = makeGlowSprite(0xff2020, 0.34);
+    coreGlow.position.set(0, LEG_H+0.58, 0.2);
+    g.add(coreGlow);
+    g.userData.coreGlow = coreGlow;
+    const coreCore = new THREE.Mesh(geo.hexPrism, basicMat(0xff6a4a));
+    coreCore.scale.set(0.09,0.03,0.09);
+    coreCore.rotation.x = Math.PI/2;
+    coreCore.position.set(0, LEG_H+0.58, 0.205);
+    g.add(coreCore);
+
+    const collar = new THREE.Mesh(geo.box, trimMat);
+    collar.scale.set(0.5, 0.05, 0.38);
+    collar.position.y = LEG_H+0.7;
+    g.add(collar);
+    const statusLight = new THREE.Mesh(geo.sphere, basicMat(0xff2020));
+    statusLight.scale.set(0.026,0.026,0.026);
+    statusLight.position.set(0.2, LEG_H+0.71, 0.17);
+    g.add(statusLight);
+    g.userData.statusLight = statusLight;
+
+    // backpack: power unit, twin thruster pods, sensor dish
+    const pack = new THREE.Mesh(geo.box, darkMat);
+    pack.scale.set(0.3, 0.34, 0.15);
+    pack.position.set(0, LEG_H+0.52, -0.27);
+    addGlowEdges(pack, 0, 0.4);
+    g.add(pack);
+    for(const side of [-1,1]){
+      const pod = new THREE.Mesh(geo.cylinder, hullDkMat);
+      pod.scale.set(0.065, 0.2, 0.065);
+      pod.rotation.x = Math.PI/2;
+      pod.position.set(side*0.11, LEG_H+0.52, -0.36);
+      g.add(pod);
+      const podRing = new THREE.Mesh(geo.torus, trimMat);
+      podRing.scale.set(0.068,0.068,0.4);
+      podRing.position.set(side*0.11, LEG_H+0.52, -0.36);
+      g.add(podRing);
+      const thrusterGlow = makeGlowSprite(0xff5a3c, 0.16);
+      thrusterGlow.position.set(side*0.11, LEG_H+0.52, -0.42);
+      g.add(thrusterGlow);
+    }
+    const dishArm = new THREE.Mesh(geo.cylinder, jointMat);
+    dishArm.scale.set(0.02, 0.16, 0.02);
+    dishArm.position.set(0, LEG_H+0.78, -0.24);
+    g.add(dishArm);
+    const dish = new THREE.Mesh(geo.sphere, hullDkMat);
+    dish.scale.set(0.05,0.05,0.05);
+    dish.position.set(0, LEG_H+0.87, -0.24);
+    g.add(dish);
+    const dishLight = new THREE.Mesh(geo.sphere, basicMat(0xff2020));
+    dishLight.scale.set(0.018,0.018,0.018);
+    dishLight.position.set(0, LEG_H+0.9, -0.22);
+    g.add(dishLight);
+    g.userData.dishLight = dishLight;
+
+    // shoulders: two-layer pauldron + spike + visible ball joint
+    for(const side of [-1,1]){
+      const shoulderJoint = new THREE.Mesh(geo.sphere, jointMat);
+      shoulderJoint.scale.set(0.09,0.09,0.09);
+      shoulderJoint.position.set(side*0.31, LEG_H+0.65, 0);
+      g.add(shoulderJoint);
+
+      const pad = new THREE.Mesh(geo.box, hullMat);
+      pad.scale.set(0.18, 0.2, 0.31);
+      pad.position.set(side*0.37, LEG_H+0.67, 0);
+      pad.rotation.z = side*0.2;
+      addGlowEdges(pad, 0, 0.4);
+      g.add(pad);
+      const padUnder = new THREE.Mesh(geo.box, hullDkMat);
+      padUnder.scale.set(0.16, 0.1, 0.29);
+      padUnder.position.set(side*0.37, LEG_H+0.56, 0);
+      padUnder.rotation.z = side*0.2;
+      g.add(padUnder);
+      const padTrim = new THREE.Mesh(geo.box, trimMat);
+      padTrim.scale.set(0.2, 0.045, 0.33);
+      padTrim.position.set(side*0.37, LEG_H+0.75, 0);
+      padTrim.rotation.z = side*0.2;
+      g.add(padTrim);
+      const padSpike = new THREE.Mesh(geo.hexPoint, hullDkMat);
+      padSpike.scale.set(0.055, 0.22, 0.055);
+      padSpike.position.set(side*0.42, LEG_H+0.88, -0.02);
+      padSpike.rotation.z = side*0.35;
+      g.add(padSpike);
+    }
+    for(const side of [-1,1]){
+      const vane = new THREE.Mesh(geo.box, darkMat);
+      vane.scale.set(0.12, 0.4, 0.02);
+      vane.position.set(side*0.08, LEG_H+0.44, -0.32);
+      vane.rotation.x = 0.16;
+      vane.rotation.z = side*0.06;
+      g.add(vane);
+      const vaneTrim = new THREE.Mesh(geo.box, trimMat);
+      vaneTrim.scale.set(0.13, 0.03, 0.025);
+      vaneTrim.position.set(side*0.08, LEG_H+0.25, -0.34);
+      vaneTrim.rotation.x = 0.16;
+      g.add(vaneTrim);
+    }
+
+    // arms: upper/elbow(with bolt ring)/forearm plate/wrist ring/hand -
+    // each arm is its own group pivoted at the shoulder joint so the
+    // whole arm (right arm includes its launcher) can swing forward for
+    // a throwing-motion animation (see g.userData.leftArm/rightArm,
+    // driven per-frame by the fpsDinos' throwAnim timer)
+    for(const side of [-1,1]){
+      const arm = new THREE.Group();
+      const pivotX = side*0.31, pivotY = LEG_H+0.65, pivotZ = 0;
+
+      const upperArm = new THREE.Mesh(geo.cylinder, hullMat);
+      upperArm.scale.set(0.082, 0.24, 0.082);
+      upperArm.position.set(side*0.47-pivotX, LEG_H+0.53-pivotY, 0-pivotZ);
+      upperArm.rotation.z = side*0.13;
+      arm.add(upperArm);
+      const armBand = new THREE.Mesh(geo.torus, trimMat);
+      armBand.scale.set(0.086,0.086,0.4);
+      armBand.rotation.x = Math.PI/2;
+      armBand.position.set(side*0.47+side*0.01-pivotX, LEG_H+0.47-pivotY, 0.01-pivotZ);
+      arm.add(armBand);
+
+      const elbow = new THREE.Mesh(geo.sphere, jointMat);
+      elbow.scale.set(0.08,0.08,0.08);
+      elbow.position.set(side*0.51-pivotX, LEG_H+0.38-pivotY, 0-pivotZ);
+      arm.add(elbow);
+
+      const forearm = new THREE.Mesh(geo.cylinder, hullMat);
+      forearm.scale.set(0.07, 0.22, 0.07);
+      forearm.position.set(side*0.53-pivotX, LEG_H+0.24-pivotY, 0.03-pivotZ);
+      forearm.rotation.x = 0.14;
+      arm.add(forearm);
+      const forearmPlate = new THREE.Mesh(geo.box, trimMat);
+      forearmPlate.scale.set(0.05, 0.16, 0.02);
+      forearmPlate.position.set(side*0.53-pivotX, LEG_H+0.25-pivotY, 0.09-pivotZ);
+      forearmPlate.rotation.x = 0.14;
+      arm.add(forearmPlate);
+      const wristRing = new THREE.Mesh(geo.torus, trimDkMat);
+      wristRing.scale.set(0.075,0.075,0.34);
+      wristRing.rotation.x = Math.PI/2;
+      wristRing.position.set(side*0.535-pivotX, LEG_H+0.12-pivotY, 0.075-pivotZ);
+      arm.add(wristRing);
+
+      if(side===-1){
+        const palm = new THREE.Mesh(geo.box, darkMat);
+        palm.scale.set(0.085, 0.09, 0.06);
+        palm.position.set(side*0.54-pivotX, LEG_H+0.07-pivotY, 0.09-pivotZ);
+        arm.add(palm);
+        for(let i=0;i<3;i++){
+          const finger = new THREE.Mesh(geo.box, darkMat);
+          finger.scale.set(0.018, 0.075, 0.02);
+          finger.position.set(side*0.54 - 0.02 + i*0.02-pivotX, LEG_H+0.005-pivotY, 0.11-pivotZ);
+          finger.rotation.x = -0.2;
+          arm.add(finger);
+        }
+        const thumb = new THREE.Mesh(geo.box, darkMat);
+        thumb.scale.set(0.02, 0.06, 0.02);
+        thumb.position.set(side*0.585-pivotX, LEG_H+0.05-pivotY, 0.08-pivotZ);
+        thumb.rotation.z = side*0.5;
+        arm.add(thumb);
+      } else {
+        // right-arm wrist launcher: sleek twin-band double cylinder,
+        // folded into the same pivoted group so it swings with the arm
+        const launcherBase = new THREE.Mesh(geo.cylinder, darkMat);
+        launcherBase.scale.set(0.065, 0.24, 0.065);
+        launcherBase.position.set(0.54-pivotX, LEG_H+0.14-pivotY, 0.17-pivotZ);
+        launcherBase.rotation.x = Math.PI/2-0.2;
+        arm.add(launcherBase);
+        for(const t of [-0.08, 0.06]){
+          const band = new THREE.Mesh(geo.torus, trimMat);
+          band.scale.set(0.07,0.07,0.4);
+          band.position.set(0.54-pivotX, LEG_H+0.14+t*0.9-pivotY, 0.17+t*0.55-pivotZ);
+          band.rotation.x = Math.PI/2-0.2;
+          arm.add(band);
+        }
+        const muzzleRing = new THREE.Mesh(geo.ring, basicMat(0xff3b3b));
+        muzzleRing.scale.set(0.066, 0.066, 1);
+        muzzleRing.position.set(0.54-pivotX, LEG_H+0.14-pivotY, 0.29-pivotZ);
+        muzzleRing.rotation.x = Math.PI/2-0.2;
+        arm.add(muzzleRing);
+        const muzzleGlowFixed = makeGlowSprite(0xff3b3b, 0.32);
+        muzzleGlowFixed.position.copy(muzzleRing.position);
+        arm.add(muzzleGlowFixed);
+      }
+
+      arm.position.set(pivotX, pivotY, pivotZ);
+      g.add(arm);
+      if(side===-1) g.userData.leftArm = arm; else g.userData.rightArm = arm;
+    }
+
+    // head: angular helmet, side sensors, back crest, HUD visor
+    const head = new THREE.Mesh(geo.box, hullMat);
+    head.scale.set(0.58, 0.5, 0.56);
+    head.position.y = LEG_H+1.02;
+    addGlowEdges(head, 0, 0.6);
+    g.add(head);
+    const foreheadVent = new THREE.Mesh(geo.box, trimDkMat);
+    foreheadVent.scale.set(0.4, 0.04, 0.06);
+    foreheadVent.position.set(0, LEG_H+1.24, 0.24);
+    g.add(foreheadVent);
+    for(const side of [-1,1]){
+      const sidePod = new THREE.Mesh(geo.sphere, hullDkMat);
+      sidePod.scale.set(0.06,0.06,0.06);
+      sidePod.position.set(side*0.3, LEG_H+1.05, 0.05);
+      g.add(sidePod);
+      const sensorGlow = makeGlowSprite(side<0?0xff2020:0xff8a5a, 0.12);
+      sensorGlow.position.set(side*0.3, LEG_H+1.05, 0.11);
+      g.add(sensorGlow);
+    }
+    const crest = new THREE.Mesh(geo.hexPoint, hullDkMat);
+    crest.scale.set(0.05, 0.32, 0.22);
+    crest.position.set(0, LEG_H+1.4, -0.08);
+    crest.rotation.x = -0.15;
+    g.add(crest);
+    const crestTrim = new THREE.Mesh(geo.box, trimMat);
+    crestTrim.scale.set(0.06, 0.03, 0.24);
+    crestTrim.position.set(0, LEG_H+1.5, -0.08);
+    g.add(crestTrim);
+    const jawGuard = new THREE.Mesh(geo.box, darkMat);
+    jawGuard.scale.set(0.4, 0.09, 0.13);
+    jawGuard.position.set(0, LEG_H+0.78, 0.2);
+    jawGuard.rotation.x = 0.2;
+    g.add(jawGuard);
+
+    const visorTex = makeComradeVisorTexture();
+    const visorFrame = new THREE.Mesh(geo.box, basicMat(0x0d0d0f));
+    visorFrame.scale.set(0.48, 0.19, 0.05);
+    visorFrame.position.set(0, LEG_H+1.03, 0.28);
+    visorFrame.rotation.x = -0.38;
+    g.add(visorFrame);
+    const visorGlow = makeGlowSprite(0xff2020, 0.46);
+    visorGlow.position.set(0, LEG_H+1.03, 0.29);
+    g.add(visorGlow);
+    g.userData.visorGlow = visorGlow;
+    const visorCore = new THREE.Mesh(geo.plane, new THREE.MeshBasicMaterial({ map:visorTex }));
+    visorCore.scale.set(0.4, 0.1, 1);
+    visorCore.position.set(0, LEG_H+1.03, 0.305);
+    visorCore.rotation.x = -0.38;
+    g.add(visorCore);
+
+    return g;
+  }
+
+
+  // The FPS finale boss's model (approved design): built from scratch in
+  // the same lineage as the game's hidden-boss alien creature (translucent
+  // membrane over a faceted core, trailing tentacles, clustered eyes) but
+  // with no crown, a richer double-membrane torso with visible glowing
+  // "organs" inside, swaying membrane frills on the head instead of a
+  // crown, and two properly-modeled ray guns actually gripped by
+  // three-clawed tentacle-arms (grip, ribbed energy-coil barrel, side
+  // energy cell, glowing emitter crystal) rather than floating boxes.
+  function makeFPSBossMesh(){
+    const g = new THREE.Group();
+    const coreMat      = stdMat(0x3a0a55, 0x24004a, {roughness:0.3, metalness:0.15});
+    const membraneCol  = 0x9a4de8;
+    const membraneColB = 0x6a2ab0;
+    const tentacleMat  = stdMat(0x4a1568, 0x150022, {roughness:0.5, metalness:0.1});
+    const tipGlowColor = 0x39ffb0;
+    const eyeColor     = 0xff3b3b;
+    const armMat       = stdMat(0x3a1058, 0x120018, {roughness:0.5, metalness:0.15});
+    const gunMat       = stdMat(0x4a4a58, 0x0a0a12, {roughness:0.3, metalness:0.7});
+    const gunDkMat     = stdMat(0x2a2a34, 0x050508, {roughness:0.35, metalness:0.65});
+    const gunGlowColor = 0xff3b3b;
+
+    // torso: faceted core + one translucent membrane + visible inner organs
+    const torso = new THREE.Mesh(geo.icosa, coreMat);
+    torso.scale.set(0.5,0.54,0.5);
+    torso.position.y = 1.1;
+    torso.rotation.y = 0.4;
+    g.add(torso);
+    const torsoMembrane = new THREE.Mesh(geo.sphere, basicMat(membraneCol, {transparent:true, opacity:0.22}));
+    torsoMembrane.scale.set(0.72,0.76,0.72);
+    torsoMembrane.position.y = 1.12;
+    g.add(torsoMembrane);
+    const organs = new THREE.Group();
+    for(let i=0;i<4;i++){
+      const a = (i/4)*Math.PI*2+0.5;
+      const organ = new THREE.Mesh(geo.sphere, basicMat(i%2===0?0xaa4dff:0x39ffb0, {transparent:true, opacity:0.85}));
+      organ.scale.set(0.07,0.09,0.07);
+      organ.position.set(Math.cos(a)*0.28, 1.05+Math.sin(a*1.6)*0.16, Math.sin(a)*0.28);
+      organs.add(organ);
+    }
+    g.add(organs);
+    g.userData.organs = organs;
+    const coreGlow = new THREE.PointLight(0xaa4dff, 1.0, 3.4);
+    coreGlow.position.y = 1.1;
+    g.add(coreGlow);
+    g.userData.coreGlow = coreGlow;
+    const coreGlowSprite = makeGlowSprite(0xaa4dff, 1.7);
+    coreGlowSprite.position.y = 1.12;
+    g.add(coreGlowSprite);
+    g.userData.coreGlowSprite = coreGlowSprite;
+
+    // long translucent neck
+    const neck = new THREE.Mesh(geo.cylinder, basicMat(membraneColB, {transparent:true, opacity:0.36}));
+    neck.scale.set(0.19,0.95,0.19);
+    neck.position.y = 2.0;
+    g.add(neck);
+
+    // head: faceted core + membrane + swaying frill fins (no crown) + eyes
+    const head = new THREE.Mesh(geo.icosa, coreMat);
+    head.scale.set(0.4,0.42,0.4);
+    head.position.y = 2.62;
+    head.rotation.y = -0.3;
+    g.add(head);
+    g.userData.headPoint = head;
+    const headMembrane = new THREE.Mesh(geo.sphere, basicMat(membraneCol, {transparent:true, opacity:0.26}));
+    headMembrane.scale.set(0.54,0.56,0.54);
+    headMembrane.position.y = 2.63;
+    g.add(headMembrane);
+    const frills = new THREE.Group();
+    for(const side of [-1,1]){
+      for(let i=0;i<3;i++){
+        const frill = new THREE.Mesh(geo.cone, basicMat(membraneCol, {transparent:true, opacity:0.5, side:THREE.DoubleSide}));
+        frill.scale.set(0.02, 0.34+i*0.05, 0.16-i*0.03);
+        frill.position.set(side*(0.18+i*0.04), 2.85+i*0.06, -0.1-i*0.05);
+        frill.rotation.x = -0.5-i*0.12;
+        frill.rotation.z = side*(0.3+i*0.15);
+        frills.add(frill);
+      }
+    }
+    g.add(frills);
+    g.userData.frills = frills;
+    const eyeSpots = [
+      [0, 2.66, 0.24, 0.065],
+      [-0.15, 2.61, 0.2, 0.05],
+      [0.15, 2.61, 0.2, 0.05],
+      [-0.08, 2.74, 0.16, 0.038],
+      [0.08, 2.74, 0.16, 0.038],
+      [0, 2.5, 0.18, 0.03],
+    ];
+    for(const [ex,ey,ez,es] of eyeSpots){
+      const eye = new THREE.Mesh(geo.sphere, basicMat(eyeColor));
+      eye.scale.set(es,es,es);
+      eye.position.set(ex,ey,ez);
+      g.add(eye);
+    }
+    const mainEyeGlow = makeGlowSprite(eyeColor, 0.22);
+    mainEyeGlow.position.set(0, 2.66, 0.26);
+    g.add(mainEyeGlow);
+    const bodyEyeCount = 5;
+    for(let i=0;i<bodyEyeCount;i++){
+      const a1 = (i/bodyEyeCount)*Math.PI*2 + 0.6;
+      const eye = new THREE.Mesh(geo.sphere, basicMat(eyeColor));
+      eye.scale.set(0.038,0.038,0.038);
+      eye.position.set(Math.cos(a1)*0.4, 1.1+Math.sin(a1*1.7)*0.2, Math.sin(a1)*0.4);
+      g.add(eye);
+    }
+
+    // tentacles: two-segment, gently curved, glowing tips, swaying
+    const tentacleCount = 6;
+    const tentacles = new THREE.Group();
+    for(let i=0;i<tentacleCount;i++){
+      const angle = (i/tentacleCount)*Math.PI*2;
+      const outX = Math.cos(angle), outZ = Math.sin(angle);
+      const tGroup = new THREE.Group();
+      const len1 = 0.34+Math.sin(i*2.1)*0.05;
+      const seg1 = new THREE.Mesh(geo.cylinder, tentacleMat);
+      seg1.scale.set(0.05, len1, 0.05);
+      seg1.position.set(outX*0.22, 0.62-len1/2, outZ*0.22);
+      seg1.rotation.x = outZ*0.55;
+      seg1.rotation.z = -outX*0.55;
+      tGroup.add(seg1);
+      const len2 = 0.3+Math.cos(i*1.7)*0.05;
+      const seg2 = new THREE.Mesh(geo.cylinder, tentacleMat);
+      seg2.scale.set(0.038, len2, 0.038);
+      seg2.position.set(outX*0.4, 0.62-len1-len2/2+0.05, outZ*0.4);
+      seg2.rotation.x = outZ*0.85;
+      seg2.rotation.z = -outX*0.85;
+      tGroup.add(seg2);
+      const tip = new THREE.Mesh(geo.sphere, basicMat(tipGlowColor));
+      tip.scale.set(0.05,0.05,0.05);
+      tip.position.set(outX*0.52, 0.62-len1-len2+0.05, outZ*0.52);
+      tGroup.add(tip);
+      tGroup.userData.swayPhase = i*0.7;
+      tentacles.add(tGroup);
+    }
+    g.add(tentacles);
+    g.userData.tentacles = tentacles;
+
+    // ray-gun-holding arms: tentacle-arm + 3-claw grip + a properly
+    // detailed ray gun, actually gripped rather than floating beside it
+    function addGunArm(side){
+      const armGroup = new THREE.Group();
+      const shoulderStub = new THREE.Mesh(geo.sphere, armMat);
+      shoulderStub.scale.set(0.13,0.13,0.13);
+      shoulderStub.position.set(side*0.42, 1.2, 0.06);
+      armGroup.add(shoulderStub);
+      const upperArm = new THREE.Mesh(geo.cylinder, armMat);
+      upperArm.scale.set(0.095, 0.32, 0.095);
+      upperArm.position.set(side*0.58, 1.05, 0.14);
+      upperArm.rotation.z = side*0.7;
+      upperArm.rotation.x = 0.25;
+      armGroup.add(upperArm);
+      const elbow = new THREE.Mesh(geo.sphere, armMat);
+      elbow.scale.set(0.085,0.085,0.085);
+      elbow.position.set(side*0.78, 0.86, 0.26);
+      armGroup.add(elbow);
+      const forearm = new THREE.Mesh(geo.cylinder, armMat);
+      forearm.scale.set(0.075, 0.3, 0.075);
+      forearm.position.set(side*0.86, 0.78, 0.44);
+      forearm.rotation.x = Math.PI/2-0.15;
+      forearm.rotation.z = side*0.1;
+      armGroup.add(forearm);
+      for(let i=0;i<3;i++){
+        const fa = (i/3)*Math.PI*2;
+        const claw = new THREE.Mesh(geo.cone, armMat);
+        claw.scale.set(0.028, 0.14, 0.028);
+        claw.position.set(side*0.9+Math.cos(fa)*0.05, 0.62+Math.sin(fa)*0.05, 0.56);
+        claw.rotation.x = Math.PI/2-0.3;
+        claw.rotation.z = fa;
+        armGroup.add(claw);
+      }
+
+      const gunGroup = new THREE.Group();
+      const grip = new THREE.Mesh(geo.box, gunDkMat);
+      grip.scale.set(0.09, 0.2, 0.08);
+      grip.position.set(0, -0.1, 0);
+      grip.rotation.x = 0.3;
+      gunGroup.add(grip);
+      const body = new THREE.Mesh(geo.box, gunMat);
+      body.scale.set(0.12, 0.11, 0.34);
+      body.position.set(0, 0, 0.16);
+      gunGroup.add(body);
+      const sight = new THREE.Mesh(geo.box, gunDkMat);
+      sight.scale.set(0.03, 0.05, 0.14);
+      sight.position.set(0, 0.08, 0.1);
+      gunGroup.add(sight);
+      const barrel = new THREE.Mesh(geo.cylinder, gunDkMat);
+      barrel.scale.set(0.045, 0.3, 0.045);
+      barrel.rotation.x = Math.PI/2;
+      barrel.position.set(0, 0, 0.5);
+      gunGroup.add(barrel);
+      for(const t of [-0.06, 0.1]){
+        const coil = new THREE.Mesh(geo.torus, basicMat(gunGlowColor, {transparent:true, opacity:0.85}));
+        coil.scale.set(0.05,0.05,0.4);
+        coil.rotation.x = Math.PI/2;
+        coil.position.set(0, 0, 0.5+t);
+        gunGroup.add(coil);
+      }
+      const cell = new THREE.Mesh(geo.cylinder, basicMat(0x2a2a34));
+      cell.scale.set(0.04, 0.16, 0.04);
+      cell.rotation.z = Math.PI/2;
+      cell.position.set(0, -0.02, 0.1);
+      gunGroup.add(cell);
+      const cellGlow = makeGlowSprite(gunGlowColor, 0.14);
+      cellGlow.position.set(0.06, -0.02, 0.1);
+      gunGroup.add(cellGlow);
+      const emitter = new THREE.Mesh(geo.icosa, basicMat(gunGlowColor, {transparent:true, opacity:0.95}));
+      emitter.scale.set(0.055,0.055,0.08);
+      emitter.position.set(0, 0, 0.68);
+      gunGroup.add(emitter);
+      const muzzleGlow = makeGlowSprite(gunGlowColor, 0.3);
+      muzzleGlow.position.set(0, 0, 0.72);
+      gunGroup.add(muzzleGlow);
+      const muzzleLight = new THREE.PointLight(gunGlowColor, 0.7, 2.2);
+      muzzleLight.position.set(0, 0, 0.72);
+      gunGroup.add(muzzleLight);
+
+      gunGroup.position.set(side*0.9, 0.6, 0.62);
+      gunGroup.rotation.y = side*-0.05;
+      armGroup.add(gunGroup);
+      g.userData['gunMuzzle'+side] = muzzleGlow;
+
+      g.add(armGroup);
+    }
+    addGunArm(1);
+    addGunArm(-1);
+
+    const shadow = new THREE.Mesh(geo.ring, basicMat(0x000000, {transparent:true, opacity:0.3, side:THREE.DoubleSide}));
+    shadow.rotation.x = -Math.PI/2;
+    shadow.scale.set(0.85,0.85,1);
+    shadow.position.y = 0.015;
+    g.add(shadow);
+
+    return g;
+  }
+
+  // Extra otherworldly detailing added only to the FPS finale boss - a
+  // slow ring of orbiting eye-motes and a crackling energy band around
+  // its torso - layered onto the same jellyfish-alien base model used for
+  // the true/hidden bosses elsewhere, so it's unmistakably the same being.
+  function detailFPSBoss(mesh){
+    const motes = new THREE.Group();
+    for(let i=0;i<5;i++){
+      const mote = new THREE.Mesh(geo.sphere, basicMat(0xff3b3b));
+      mote.scale.set(0.045,0.045,0.045);
+      mote.userData.orbitAngle = (i/5)*Math.PI*2;
+      mote.userData.orbitR = 0.62+Math.random()*0.15;
+      mote.userData.orbitY = 1.1+Math.random()*1.2;
+      mote.userData.orbitSpeed = 0.6+Math.random()*0.4;
+      motes.add(mote);
+    }
+    mesh.add(motes);
+    mesh.userData.orbitMotes = motes;
+    const energyRing = new THREE.Mesh(geo.torus, basicMat(0xaa4dff, {transparent:true, opacity:0.5}));
+    energyRing.scale.set(0.62,0.62,0.62);
+    energyRing.position.y = 0.62;
+    mesh.add(energyRing);
+    mesh.userData.energyRing = energyRing;
+    // a pulsing core crystal embedded in its chest - the source of its
+    // power, and a clear visual "this thing is not a normal enemy" tell
+    const coreCrystal = new THREE.Mesh(geo.icosa, basicMat(0xff3b3b, {transparent:true, opacity:0.85}));
+    coreCrystal.scale.set(0.16, 0.22, 0.13);
+    coreCrystal.position.set(0, 0.95, 0.28);
+    mesh.add(coreCrystal);
+    mesh.userData.coreCrystal = coreCrystal;
+    const coreLight = new THREE.PointLight(0xff3b3b, 0.9, 2.4);
+    coreLight.position.copy(coreCrystal.position);
+    mesh.add(coreLight);
+    // a jagged, corrupted crown of dark spikes ringing the head - a
+    // shattered echo of the true crown, still clinging to its own claim
+    const spikeMat = basicMat(0x2a0a1a);
+    for(let i=0;i<7;i++){
+      const spike = new THREE.Mesh(geo.hexPoint, spikeMat);
+      const ang = (i/7)*Math.PI*2;
+      const spikeH = 0.16+Math.random()*0.14;
+      spike.scale.set(0.045, spikeH, 0.045);
+      spike.position.set(Math.cos(ang)*0.3, 1.75+spikeH*0.4, Math.sin(ang)*0.3);
+      spike.rotation.x = Math.cos(ang)*0.4;
+      spike.rotation.z = -Math.sin(ang)*0.4;
+      mesh.add(spike);
+    }
+    // trailing energy tendrils drifting off both arms
+    const tendrilTrio = new THREE.Group();
+    for(const side of [-1,1]){
+      for(let i=0;i<3;i++){
+        const seg = new THREE.Mesh(geo.cylinder, basicMat(0xaa4dff, {transparent:true, opacity:0.55-i*0.12}));
+        const segS = 0.028-i*0.006;
+        seg.scale.set(segS, 0.18, segS);
+        seg.position.set(side*(0.68+i*0.06), 0.9-i*0.22, -0.1-i*0.08);
+        seg.rotation.z = side*(0.5+i*0.15);
+        tendrilTrio.add(seg);
+      }
+    }
+    mesh.add(tendrilTrio);
+    // a cracked outer exoskeleton shell wrapping the torso - a second,
+    // larger, jagged membrane layer with visible fracture lines, so this
+    // specific variant reads as a distinctly hardened, built-up form
+    const shellMat = basicMat(0x2a0a3a, {transparent:true, opacity:0.4});
+    const shell = new THREE.Mesh(geo.icosa, shellMat);
+    shell.scale.set(0.62, 0.66, 0.62);
+    shell.position.y = 0.62;
+    mesh.add(shell);
+    const fractureMat = basicMat(0xff3b3b, {transparent:true, opacity:0.7});
+    for(let i=0;i<5;i++){
+      const ang = (i/5)*Math.PI*2 + 0.4;
+      const fracture = new THREE.Mesh(geo.box, fractureMat);
+      fracture.scale.set(0.02, 0.3+Math.random()*0.15, 0.015);
+      fracture.position.set(Math.cos(ang)*0.5, 0.45+Math.random()*0.3, Math.sin(ang)*0.5);
+      fracture.rotation.y = -ang;
+      fracture.rotation.z = (Math.random()-0.5)*0.6;
+      mesh.add(fracture);
+    }
+    // two extra-long primary tentacles reaching further down than the
+    // rest, thicker at the base, marking this as the same species but a
+    // heavier, more dangerous specimen
+    const primaryTentacleMat = basicMat(0x3a1050);
+    for(const side of [-1,1]){
+      const primary = new THREE.Mesh(geo.cylinder, primaryTentacleMat);
+      primary.scale.set(0.07, 0.72, 0.07);
+      primary.position.set(side*0.22, -0.02, 0.12);
+      primary.rotation.x = 0.18;
+      primary.rotation.z = side*0.22;
+      mesh.add(primary);
+      const primaryTip = new THREE.Mesh(geo.sphere, basicMat(0x39ffb0));
+      primaryTip.scale.set(0.075,0.075,0.075);
+      primaryTip.position.set(side*0.34, -0.36, 0.22);
+      mesh.add(primaryTip);
+    }
+  }
+
+  // A proper grenade-style bomb for the hacked comrades to throw - a dark
+  // riveted shell, metal collar, and a curved sparking fuse - instead of
+  // a bare sphere.
+  function makeThrownBombMesh(){
+    const g = new THREE.Group();
+    const shellMat = stdMat(0x14141a, 0x030304, {metalness:0.55, roughness:0.4});
+    const shell = new THREE.Mesh(geo.sphere, shellMat);
+    shell.scale.set(0.19,0.19,0.19);
+    g.add(shell);
+    const collarMat = basicMat(0x3a3a42);
+    const collar = new THREE.Mesh(geo.torus, collarMat);
+    collar.scale.set(0.17,0.17,0.09);
+    collar.rotation.x = Math.PI/2;
+    collar.position.y = 0.03;
+    g.add(collar);
+    for(let i=0;i<4;i++){
+      const rivet = new THREE.Mesh(geo.sphere, basicMat(0x555560));
+      rivet.scale.set(0.025,0.025,0.025);
+      const ang = (i/4)*Math.PI*2;
+      rivet.position.set(Math.cos(ang)*0.17, 0.03+Math.sin(ang)*0.02, Math.sin(ang)*0.17);
+      g.add(rivet);
+    }
+    // a small ring of red warning LEDs around the shell's equator - a
+    // classic "this is about to go off" tell
+    for(let i=0;i<3;i++){
+      const led = new THREE.Mesh(geo.sphere, basicMat(0xff2020));
+      led.scale.set(0.018,0.018,0.018);
+      const ang = (i/3)*Math.PI*2 + 0.6;
+      led.position.set(Math.cos(ang)*0.185, -0.03, Math.sin(ang)*0.185);
+      g.add(led);
+    }
+    // a scuffed, dented patch on one side, so it reads as a used field
+    // munition rather than a clean prop
+    const scuffMat = basicMat(0x2a2a30, {transparent:true, opacity:0.6});
+    const scuff = new THREE.Mesh(geo.icosa, scuffMat);
+    scuff.scale.set(0.08, 0.05, 0.06);
+    scuff.position.set(-0.12, 0.02, 0.1);
+    g.add(scuff);
+    const fuseMat = basicMat(0x8a6a3a);
+    const fuse = new THREE.Mesh(geo.cylinder, fuseMat);
+    fuse.scale.set(0.02, 0.12, 0.02);
+    fuse.position.set(0, 0.2, 0);
+    fuse.rotation.z = 0.3;
+    g.add(fuse);
+    const sparkGlow = makeGlowSprite(0xffb347, 0.35);
+    sparkGlow.position.set(0.04, 0.26, 0);
+    g.add(sparkGlow);
+    const spark = new THREE.Mesh(geo.sphere, basicMat(0xfff2c0));
+    spark.scale.set(0.025,0.025,0.025);
+    spark.position.set(0.04, 0.26, 0);
+    g.add(spark);
+    return g;
+  }
+
+  function makeAsteroidMesh(){
+    const g = new THREE.Group();
+    const baseMat = basicMat(0x4a453f);
+    const darkMat = basicMat(0x2e2a26);
+    const mainR = 0.55+Math.random()*0.15;
+    const core = new THREE.Mesh(geo.icosa, baseMat);
+    core.scale.set(mainR, mainR*0.85, mainR*0.9);
+    g.add(core);
+    const bumpCount = 3+Math.floor(Math.random()*3);
+    for(let i=0;i<bumpCount;i++){
+      const bump = new THREE.Mesh(geo.icosa, Math.random()<0.5?baseMat:darkMat);
+      const br = mainR*(0.35+Math.random()*0.3);
+      bump.scale.set(br, br*0.8, br);
+      const ang = Math.random()*Math.PI*2, elev = (Math.random()-0.5)*Math.PI*0.6;
+      bump.position.set(Math.cos(ang)*Math.cos(elev)*mainR*0.7, Math.sin(elev)*mainR*0.7, Math.sin(ang)*Math.cos(elev)*mainR*0.7);
+      g.add(bump);
+    }
+    for(let i=0;i<2;i++){
+      const crater = new THREE.Mesh(geo.sphere, darkMat);
+      const cr = mainR*0.16;
+      crater.scale.set(cr, cr*0.4, cr);
+      const ang = Math.random()*Math.PI*2;
+      crater.position.set(Math.cos(ang)*mainR*0.85, (Math.random()-0.5)*mainR*0.4, Math.sin(ang)*mainR*0.85);
+      g.add(crater);
+    }
+    return g;
+  }
+
+  function makeShooterEnemyMesh(variant){
+    const g = new THREE.Group();
+    const isTank = variant==='tank';
+    const isHomer = variant==='homer';
+    const hullMat = basicMat(isTank ? 0x8a3a4a : (isHomer ? 0x5a3a8a : 0x6a6a8a));
+    const accentMat = basicMat(isTank ? 0xff3b5a : (isHomer ? 0xd83bff : 0xffaa3b));
+    const domeMat = basicMat(isHomer ? 0xe0a0ff : 0x9be8ff, { transparent:true, opacity:0.38 });
+    const s = isTank ? 0.85 : 0.62;
+    // main saucer disc, same shape language as the game's boss UFOs
+    const saucer = new THREE.Mesh(geo.sphere, hullMat);
+    saucer.scale.set(s, s*0.32, s);
+    g.add(saucer);
+    const belly = new THREE.Mesh(geo.sphere, hullMat);
+    belly.scale.set(s*0.5, s*0.26, s*0.5);
+    belly.position.y = -s*0.16;
+    g.add(belly);
+    const dome = new THREE.Mesh(geo.sphere, domeMat);
+    dome.scale.set(s*0.55, s*0.5, s*0.55);
+    dome.position.y = s*0.26;
+    g.add(dome);
+    const rim = new THREE.Mesh(geo.ring, accentMat);
+    rim.rotation.x = -Math.PI/2;
+    rim.scale.set(s*0.8, s*0.8, 1);
+    g.add(rim);
+    const underGlow = makeGlowSprite(isTank ? 0xff3b5a : (isHomer ? 0xd83bff : 0xffaa3b), s*1.1);
+    underGlow.position.y = -s*0.32;
+    g.add(underGlow);
+    if(isTank){
+      const armorRing = new THREE.Mesh(geo.ring, hullMat);
+      armorRing.rotation.x = -Math.PI/2;
+      armorRing.scale.set(s*0.95, s*0.95, 1);
+      armorRing.position.y = -s*0.05;
+      g.add(armorRing);
+    }
+    return g;
+  }
+
+  let shooterDecor = null;
+  // A once-built backdrop of distant asteroid clusters and nebula glows,
+  // so the shooter's space doesn't read as an empty black box.
+  function setupShooterDecor(){
+    if(shooterDecor) return;
+    shooterDecor = new THREE.Group();
+    for(let i=0;i<5;i++){
+      const nebula = makeGlowSprite([0x6a3ad0,0x3a7ad0,0xd03a7a][i%3], 6+Math.random()*4);
+      nebula.position.set((Math.random()*2-1)*20, 6+Math.random()*8, -18-Math.random()*14);
+      shooterDecor.add(nebula);
+    }
+    for(let i=0;i<22;i++){
+      const ang = Math.random()*Math.PI*2, r = 9+Math.random()*14;
+      const rock = new THREE.Mesh(geo.icosa, basicMat(0x4a4550));
+      const rs = 0.3+Math.random()*0.9;
+      rock.scale.set(rs, rs*0.8, rs);
+      rock.position.set(Math.sin(ang)*r, (Math.random()*2-1)*6, -8-Math.random()*18);
+      rock.rotation.set(Math.random()*6, Math.random()*6, Math.random()*6);
+      shooterDecor.add(rock);
+    }
+    scene.add(shooterDecor);
+  }
+  function teardownShooterDecor(){
+    if(shooterDecor){ scene.remove(shooterDecor); shooterDecor = null; }
+  }
+
   function buildShooterWaveQueue(){
     const queue = [];
-    [-4,-2,0,2,4].forEach((x,i)=>queue.push({ t:0.6+i*0.4, x }));
-    [-5,-3,-1,1,3,5].forEach((x,i)=>queue.push({ t:5.5+i*0.35, x }));
-    [5,3,1,-1,-3,-5].forEach((x,i)=>queue.push({ t:8.8+i*0.35, x }));
-    for(let i=0;i<10;i++) queue.push({ t:12.5+i*0.28, x:(Math.random()*10-5) });
+    // wave 1: a gentle introductory line
+    [-4,-2,0,2,4].forEach((x,i)=>queue.push({ t:0.6+i*0.35, x, type:'drifter' }));
+    // wave 2: a wider staggered pass, weavers mixed in
+    [-5,-3,-1,1,3,5].forEach((x,i)=>queue.push({ t:4.6+i*0.3, x, type:i%2===0?'weaver':'drifter' }));
+    // wave 3: the same pass coming back the other way
+    [5,3,1,-1,-3,-5].forEach((x,i)=>queue.push({ t:7.6+i*0.3, x, type:i%2===0?'drifter':'weaver' }));
+    // wave 4: a pair of tougher tanks flanked by drifters
+    [-4.5,-1.5,1.5,4.5].forEach((x,i)=>queue.push({ t:10.8+i*0.4, x, type:(i===1||i===2)?'tank':'drifter' }));
+    // wave 5: a dense V-formation converging on center
+    for(let i=0;i<7;i++){
+      const x = (i-3)*1.5;
+      queue.push({ t:14.2+Math.abs(i-3)*0.22, x, type:'weaver' });
+    }
+    // wave 6: a new threat - slow-tracking homers that steer toward
+    // wherever the player actually is, rewarding proactive shooting
+    // instead of pure dodging
+    [-5,-2.5,0,2.5,5].forEach((x,i)=>queue.push({ t:18.5+i*0.5, x, type:'homer' }));
+    // wave 7: a final chaotic flurry, denser and faster than before
+    for(let i=0;i<18;i++){
+      queue.push({ t:23.5+i*0.24, x:(Math.random()*11-5.5), type:Math.random()<0.2?'tank':(Math.random()<0.25?'homer':(Math.random()<0.5?'weaver':'drifter')) });
+    }
+    // four indestructible asteroid walls, each with a single narrow gap
+    // forced to the far side from the ship - a genuine full-lane sprint,
+    // boost required, spread across the whole run
+    queue.push({ t:3.4, wall:true });
+    queue.push({ t:9.0, wall:true });
+    queue.push({ t:16.5, wall:true });
+    queue.push({ t:26.5, wall:true });
     queue.sort((a,b)=>a.t-b.t);
     return queue;
   }
 
+  // An indestructible wall spanning most of the lane, with a single gap -
+  // too narrow and too far a reach for normal thrust to make in time, the
+  // whole point being to force a boost toward whichever side has the gap.
+  function spawnAsteroidWall(originWz, kind){
+    const slots = [-6.3,-4.9,-3.5,-2.1,-0.7,0.7,2.1,3.5,4.9,6.3];
+    const shipX = shooterShip ? shooterShip.wx : 0;
+    // force the gap to the far side from wherever the ship currently is,
+    // so dodging it always takes a genuine full-lane sprint - no more
+    // getting lucky just because you happened to already be near a gap
+    const gapIndex = shipX>=0 ? 0 : slots.length-1;
+    const holdTime = kind==='laser' ? 1.1 : 0;
+    for(let i=0;i<slots.length;i++){
+      if(i===gapIndex) continue;
+      shooterAsteroids.push({ wx:slots[i], wz:originWz!==undefined?originWz:-7.5, mesh3d:null, spin:Math.random()*10, kind:kind||'rock', holdTime });
+    }
+    sfx.dangerousBombPlace();
+  }
+
+  // The miniboss's own boost-mandatory attack: the same forced-gap wall,
+  // but fired from right in front of it as a fast sweeping laser barrage
+  // instead of a drifting asteroid field.
+  function spawnMinibossLaserWave(){
+    if(!shooterMiniboss) return;
+    spawnAsteroidWall(shooterMiniboss.wz+0.7, 'laser');
+    sfx.shooterEnemyFire();
+  }
+
   function spawnShooterMiniboss(){
-    shooterMiniboss = { wx:0, wz:-3.2, hp:20, maxHp:20, dir:1, fireTimer:1.4, mesh3d:null };
-    bossBanner.textContent = '';
-    bossBanner.innerHTML = '<span>⚠️ 裏ボス、再来 ⚠️</span>';
-    bossBanner.classList.add('show');
+    shooterMiniboss = { wx:0, wz:-3.2, hp:48, maxHp:48, dir:1, fireTimer:1.4, mesh3d:null, phase:1, dashTimer:6.5, dashing:false, dashClock:0, laserTimer:5.5, laserCharging:false, laserChargeClock:0 };
     sfx.trueBossWarning();
-    setTimeout(()=>bossBanner.classList.remove('show'), 1800);
   }
 
   // Fully (re)initializes the shooter section - shared by both the normal
@@ -3538,6 +4789,7 @@
     reachedShooterCheckpoint = true;
     disposeGroup(boardGroup);
     if(hiddenArenaDecor){ scene.remove(hiddenArenaDecor); hiddenArenaDecor = null; }
+    setupShooterDecor();
     bombs = []; explosions = []; projectiles = []; items = [];
     stage = 23;
     shooterActive = true;
@@ -3549,6 +4801,12 @@
     shooterEnemyBullets = [];
     shooterMiniboss = null;
     shooterClearTimer = 0;
+    shooterAsteroids = [];
+    shooterBoostCooldown = 0;
+    shooterBoostTimer = 0;
+    shooterBoostDir = { x:0, z:0 };
+    shooterAfterimages = [];
+    shooterAfterimageTimer = 0;
     shooterSpawnQueue = buildShooterWaveQueue();
     shooterShip = { wx:0, wz:4.0 };
     player.alive = true;
@@ -3559,9 +4817,13 @@
     player.facing = 'up';
     syncPlayerPixelFromShip();
     attachAngelToPlayer();
+    setWingOpacity(0.22);
     shieldBtn.style.display = 'none';
     player.shielding = false;
     shieldOverlay.classList.remove('show');
+    shooterBoostBtn.style.display = '';
+    shooterBoostBtn.disabled = false;
+    shooterBoostBtn.textContent = 'ブースト';
     bombBtn.classList.remove('goldenReady');
     bombBtn.classList.add('godBeamActive');
     bombBtn.innerHTML = '神ビーム';
@@ -3584,6 +4846,32 @@
     sfx.shooterShot();
   }
 
+  function activateShooterBoost(){
+    if(gameOver || gameWin || !player.alive) return;
+    if(!shooterActive) return;
+    if(shooterBoostCooldown>0 || shooterBoostTimer>0) return;
+    let dx=0, dz=0;
+    if(joyActive && (Math.abs(joyVec.x)>0.15 || Math.abs(joyVec.y)>0.15)){
+      dx = joyVec.x; dz = joyVec.y;
+    } else {
+      if(keys.left) dx=-1; else if(keys.right) dx=1;
+      if(keys.up) dz=-1; else if(keys.down) dz=1;
+    }
+    const mag = Math.hypot(dx,dz);
+    if(mag>0.001){ dx/=mag; dz/=mag; }
+    else {
+      const facingDir = { left:{x:-1,z:0}, right:{x:1,z:0}, up:{x:0,z:-1}, down:{x:0,z:1} }[player.facing] || { x:0, z:-1 };
+      dx = facingDir.x; dz = facingDir.z;
+    }
+    shooterBoostDir = { x:dx, z:dz };
+    shooterBoostTimer = SHOOTER_BOOST_DURATION;
+    shooterBoostCooldown = SHOOTER_BOOST_COOLDOWN;
+    shooterBoostBtn.disabled = true;
+    shooterBoostBtn.textContent = 'リチャージ中';
+    triggerShake(0.12, 3);
+    sfx.shooterBoost();
+  }
+
   function killShooterPlayer(){
     if(!player.alive) return;
     player.alive = false;
@@ -3594,20 +4882,61 @@
 
   function updateShooter(dt){
     if(shooterFireCooldown>0) shooterFireCooldown -= dt;
+    if(shooterBoostCooldown>0){
+      shooterBoostCooldown -= dt;
+      if(shooterBoostCooldown<=0){
+        shooterBoostCooldown = 0;
+        shooterBoostBtn.disabled = false;
+        shooterBoostBtn.textContent = 'ブースト';
+      }
+    }
+
+    // boost afterimage trail: while dashing, periodically leave behind a
+    // fading translucent snapshot of the ship's current appearance
+    if(shooterBoostTimer>0 && player.mesh3d){
+      shooterAfterimageTimer -= dt;
+      if(shooterAfterimageTimer<=0){
+        shooterAfterimageTimer = 0.05;
+        const ghost = player.mesh3d.clone();
+        ghost.traverse(o=>{
+          if(o.material){
+            o.material = o.material.clone();
+            o.material.transparent = true;
+            o.material.depthWrite = false;
+            if(o.material.color) o.material.color.set(0x7ec8ff);
+            if('emissive' in o.material) o.material.emissive = new THREE.Color(0x2a5adf);
+          }
+        });
+        ghost.position.copy(player.mesh3d.position);
+        ghost.rotation.copy(player.mesh3d.rotation);
+        ghost.scale.copy(player.mesh3d.scale);
+        shooterAfterimages.push({ mesh:ghost, life:0.32, maxLife:0.32 });
+      }
+    }
+    for(let i=shooterAfterimages.length-1;i>=0;i--){
+      shooterAfterimages[i].life -= dt;
+      if(shooterAfterimages[i].life<=0) shooterAfterimages.splice(i,1);
+    }
 
     if(player.alive){
-      let sdx=0, sdz=0;
-      if(joyActive && (Math.abs(joyVec.x)>0.15 || Math.abs(joyVec.y)>0.15)){
-        sdx = joyVec.x; sdz = joyVec.y;
+      if(shooterBoostTimer>0){
+        shooterBoostTimer -= dt;
+        shooterShip.wx += shooterBoostDir.x*SHOOTER_BOOST_SPEED*dt;
+        shooterShip.wz += shooterBoostDir.z*SHOOTER_BOOST_SPEED*dt;
       } else {
-        if(keys.left) sdx=-1; else if(keys.right) sdx=1;
-        if(keys.up) sdz=-1; else if(keys.down) sdz=1;
-      }
-      const mag = Math.hypot(sdx,sdz);
-      if(mag>0.001){
-        shooterShip.wx += (sdx/mag)*SHOOTER_SHIP_SPEED*dt;
-        shooterShip.wz += (sdz/mag)*SHOOTER_SHIP_SPEED*dt;
-        player.facing = Math.abs(sdx)>Math.abs(sdz) ? (sdx<0?'left':'right') : (sdz<0?'up':'down');
+        let sdx=0, sdz=0;
+        if(joyActive && (Math.abs(joyVec.x)>0.15 || Math.abs(joyVec.y)>0.15)){
+          sdx = joyVec.x; sdz = joyVec.y;
+        } else {
+          if(keys.left) sdx=-1; else if(keys.right) sdx=1;
+          if(keys.up) sdz=-1; else if(keys.down) sdz=1;
+        }
+        const mag = Math.hypot(sdx,sdz);
+        if(mag>0.001){
+          shooterShip.wx += (sdx/mag)*SHOOTER_SHIP_SPEED*dt;
+          shooterShip.wz += (sdz/mag)*SHOOTER_SHIP_SPEED*dt;
+          player.facing = Math.abs(sdx)>Math.abs(sdz) ? (sdx<0?'left':'right') : (sdz<0?'up':'down');
+        }
       }
       shooterShip.wx = Math.max(-SHOOTER_BOUND_X, Math.min(SHOOTER_BOUND_X, shooterShip.wx));
       shooterShip.wz = Math.max(SHOOTER_Z_MIN, Math.min(SHOOTER_Z_MAX, shooterShip.wz));
@@ -3626,7 +4955,11 @@
       shooterWaveElapsed += dt;
       while(shooterSpawnQueue.length && shooterSpawnQueue[0].t<=shooterWaveElapsed){
         const s = shooterSpawnQueue.shift();
-        shooterEnemies.push({ wx:s.x, wz:-6.5, hp:1, wobble:Math.random()*10 });
+        if(s.wall){ spawnAsteroidWall(); continue; }
+        const type = s.type || 'drifter';
+        const hp = type==='tank' ? 3 : (type==='homer' ? 2 : 1);
+        const speedMul = type==='tank' ? 0.7 : (type==='weaver' ? 1.15 : (type==='homer' ? 0.85 : 1.0));
+        shooterEnemies.push({ wx:s.x, wz:-6.5, hp, type, wobble:Math.random()*10, speedMul, mesh3d:null });
       }
       if(shooterSpawnQueue.length===0 && shooterEnemies.length===0){
         shooterPhase = 'miniboss';
@@ -3634,15 +4967,37 @@
       }
     }
 
+    // indestructible asteroid walls / laser sweeps: dodge only, no shooting them down
+    for(const a of shooterAsteroids){
+      if(a.holdTime>0){ a.holdTime -= dt; } else { a.wz += SHOOTER_ENEMY_SPEED*(a.kind==='laser'?6.5:4.1)*dt; }
+      a.spin += dt;
+    }
+    if(player.alive && player.invincibleTimer<=0){
+      for(const a of shooterAsteroids){
+        if(Math.abs(a.wz-shooterShip.wz)<0.68 && Math.abs(a.wx-shooterShip.wx)<0.68){
+          killShooterPlayer();
+          break;
+        }
+      }
+    }
+    shooterAsteroids = shooterAsteroids.filter(a=>a.wz < SHOOTER_ENEMY_DESPAWN_Z);
+
     // player bullets
     for(const b of shooterBullets) b.wz -= SHOOTER_BULLET_SPEED*dt;
     shooterBullets = shooterBullets.filter(b=>b.wz > -8 && !b._used);
 
-    // grunt enemies: drift toward the player, gentle side-to-side wobble
+    // grunt enemies: drift toward the player, each type wobbling its own
+    // way - homers additionally steer toward wherever the player actually
+    // is, rather than just wobbling in place
     for(const en of shooterEnemies){
-      en.wz += SHOOTER_ENEMY_SPEED*dt;
+      en.wz += SHOOTER_ENEMY_SPEED*en.speedMul*dt;
       en.wobble += dt;
-      en.wx += Math.sin(en.wobble*1.6)*0.5*dt;
+      if(en.type==='homer'){
+        en.wx += (shooterShip.wx-en.wx)*0.9*dt;
+      } else {
+        const amp = en.type==='weaver' ? 1.1 : (en.type==='tank' ? 0.25 : 0.5);
+        en.wx += Math.sin(en.wobble*(en.type==='weaver'?2.2:1.6))*amp*dt;
+      }
     }
     if(player.alive && player.invincibleTimer<=0){
       for(const en of shooterEnemies){
@@ -3666,6 +5021,8 @@
             spawnShooterBurst(en.wx, en.wz, '#ffaa4d');
             sfx.shooterEnemyPop();
             score += 100;
+          } else {
+            sfx.bossHit();
           }
           break;
         }
@@ -3674,19 +5031,69 @@
     shooterBullets = shooterBullets.filter(b=>!b._used);
     shooterEnemies = shooterEnemies.filter(en=>en.hp>0);
 
-    // the miniboss
+    // the miniboss - phase 2 (below half HP) picks up the pace: faster
+    // patrol, a 3-way spread shot instead of a single aimed bolt, and an
+    // occasional lunging dash toward the player
     if(shooterMiniboss){
       const mb = shooterMiniboss;
-      mb.wx += mb.dir*1.6*dt;
-      if(mb.wx>4.5){ mb.wx=4.5; mb.dir=-1; }
-      if(mb.wx<-4.5){ mb.wx=-4.5; mb.dir=1; }
-      mb.fireTimer -= dt;
-      if(mb.fireTimer<=0){
-        mb.fireTimer = 1.1;
-        const toX = shooterShip.wx-mb.wx, toZ = shooterShip.wz-mb.wz;
-        const toLen = Math.max(0.5, Math.hypot(toX,toZ));
-        shooterEnemyBullets.push({ wx:mb.wx, wz:mb.wz, vx:(toX/toLen)*3.6, vz:(toZ/toLen)*3.6 });
-        sfx.shooterEnemyFire();
+      if(mb.phase===1 && mb.hp<=mb.maxHp*0.5){
+        mb.phase = 2;
+        triggerShake(0.3, 6);
+        sfx.hiddenBossAngry();
+      }
+      if(!mb.dashing){
+        mb.wx += mb.dir*(mb.phase===2?2.3:1.6)*dt;
+        if(mb.wx>4.5){ mb.wx=4.5; mb.dir=-1; }
+        if(mb.wx<-4.5){ mb.wx=-4.5; mb.dir=1; }
+        if(mb.phase===2){
+          mb.dashTimer -= dt;
+          if(mb.dashTimer<=0){
+            mb.dashing = true;
+            mb.dashClock = 0;
+            mb.dashStartWz = mb.wz;
+            sfx.dangerousBombPlace();
+          }
+        }
+        if(mb.laserCharging){
+          mb.laserChargeClock += dt;
+          if(mb.laserChargeClock>=1.8){
+            mb.laserCharging = false;
+            spawnMinibossLaserWave();
+          }
+        } else {
+          mb.laserTimer -= dt;
+          if(mb.laserTimer<=0){
+            mb.laserTimer = mb.phase===2 ? 6.5+Math.random()*2.0 : 9.0+Math.random()*2.5;
+            mb.laserCharging = true;
+            mb.laserChargeClock = 0;
+            sfx.dangerousBombPlace();
+          }
+        }
+        mb.fireTimer -= dt;
+        if(mb.fireTimer<=0){
+          mb.fireTimer = mb.phase===2 ? 0.8 : 1.1;
+          const toX = shooterShip.wx-mb.wx, toZ = shooterShip.wz-mb.wz;
+          const toLen = Math.max(0.5, Math.hypot(toX,toZ));
+          const dirX = toX/toLen, dirZ = toZ/toLen;
+          const shots = mb.phase===2 ? 3 : 1;
+          for(let i=0;i<shots;i++){
+            const spread = (i-(shots-1)/2)*0.32;
+            const cosA = Math.cos(spread), sinA = Math.sin(spread);
+            const vx = dirX*cosA - dirZ*sinA, vz = dirX*sinA + dirZ*cosA;
+            shooterEnemyBullets.push({ wx:mb.wx, wz:mb.wz, vx:vx*3.6, vz:vz*3.6 });
+          }
+          sfx.shooterEnemyFire();
+        }
+      } else {
+        mb.dashClock += dt;
+        const dashDur = 0.6;
+        const p = Math.min(1, mb.dashClock/dashDur);
+        mb.wz = mb.dashStartWz + (shooterShip.wz-1.4-mb.dashStartWz)*Math.sin(p*Math.PI);
+        if(p>=1){
+          mb.dashing = false;
+          mb.wz = mb.dashStartWz;
+          mb.dashTimer = 5+Math.random()*2;
+        }
       }
       for(const b of shooterBullets){
         if(b._used) continue;
@@ -3739,6 +5146,8 @@
         sfx.win();
         canvas.classList.add('warping');
         bombBtn.innerHTML = '神ビーム';
+        teardownShooterDecor();
+    shooterBoostBtn.style.display = 'none';
         updateHUD();
       }
     }
@@ -3767,14 +5176,10 @@
   // "waking up" message finishes holding.
   function spawnFPSBoss(){
     const epoch = fpsEpoch;
-    fpsBoss = { yaw:0, dist:6.5, hp:40, maxHp:40, wobble:0, mesh3d:null, attackTimer:2.4 };
+    fpsBoss = { yaw:0, dist:6.5, hp:40, maxHp:40, wobble:0, mesh3d:null, attackTimer:2.4, nextHand:-1 };
     fpsPhase = 'boss_speech';
     fpsClearTimer = 2.8;
-    bossBanner.textContent = '';
-    bossBanner.innerHTML = '<span>⚠️ 裏ボス、降臨 ⚠️</span>';
-    bossBanner.classList.add('show');
     sfx.hiddenBossWarning();
-    setTimeout(()=>{ if(fpsEpoch===epoch) bossBanner.classList.remove('show'); }, 1500);
     setTimeout(()=>{
       if(fpsEpoch===epoch && fpsBoss) showItemToast('「ワタシは不死身…」', 2.4);
     }, 1600);
@@ -3785,6 +5190,38 @@
   // After enduring the endless boss phase long enough, the creator god
   // itself steps in - clears the battlefield, delivers its line, then
   // reveals the Rick Bomb button once the words have had a moment to land
+  // The creator god's arrival briefly swaps the earthly backdrop for a
+  // bare star-filled void - a "speaking directly into your head" moment,
+  // disconnected from the ruined-Earth setting around it - then restores
+  // the normal FPS backdrop once it's gone.
+  function enterGodVisionBackdrop(){
+    if(primitiveGround) scene.remove(primitiveGround);
+    if(primitiveDecor) scene.remove(primitiveDecor);
+    if(primitiveSky) scene.remove(primitiveSky);
+    scene.background = new THREE.Color(0x05040f);
+    scene.fog.color = new THREE.Color(0x140a24);
+    if(!fpsGodVisionStars){
+      fpsGodVisionStars = new THREE.Group();
+      for(let i=0;i<220;i++){
+        const star = new THREE.Mesh(geo.sphere, basicMat(0xffffff));
+        const s = 0.02+Math.random()*0.04;
+        star.scale.set(s,s,s);
+        const ang1 = Math.random()*Math.PI*2, ang2 = Math.random()*Math.PI-Math.PI/2, r = 20+Math.random()*40;
+        star.position.set(Math.cos(ang1)*Math.cos(ang2)*r, Math.sin(ang2)*r+5, Math.sin(ang1)*Math.cos(ang2)*r-20);
+        fpsGodVisionStars.add(star);
+      }
+    }
+    scene.add(fpsGodVisionStars);
+  }
+  function exitGodVisionBackdrop(){
+    if(fpsGodVisionStars) scene.remove(fpsGodVisionStars);
+    if(primitiveGround) scene.add(primitiveGround);
+    if(primitiveDecor) scene.add(primitiveDecor);
+    if(primitiveSky) scene.add(primitiveSky);
+    applyFPSSkyPalette('night');
+    ensureFPSNightStars();
+  }
+
   function startCreatorGodSequence(){
     const epoch = fpsEpoch;
     fpsPhase = 'god_appear';
@@ -3793,8 +5230,11 @@
     fpsThrownBombs = [];
     fpsBoss = null;
     fpsBossBarWrap.classList.remove('show');
+    godBeamGaugeWrap.classList.remove('show');
+    fpsCrosshair.classList.remove('show');
     setShielding(false);
     triggerShake(0.3, 6);
+    enterGodVisionBackdrop();
     fpsGodAppearTimer = 0;
     if(!fpsCreatorGodMesh){
       fpsCreatorGodMesh = makeGodMesh();
@@ -3805,6 +5245,12 @@
         if(obj.material){
           obj.material = obj.material.clone();
           obj.material.transparent = true;
+          // depth writing off - with every part now forced transparent
+          // (including originally-opaque solid ones like the robe/head),
+          // leaving depthWrite on causes classic depth-sort fighting among
+          // the many overlapping meshes, which read as parts randomly
+          // vanishing depending on viewing angle
+          obj.material.depthWrite = false;
         }
       });
       // bigger, more dramatic wings for this particular appearance - only
@@ -3816,25 +5262,29 @@
     }
     sfx.godWarning();
     sfx.creatorGodFanfare();
-    const t1 = FPS_GOD_DESCEND_DURATION*1000+150;
-    const t2 = t1+2800;
-    const t3 = t2+2800;
-    const t4 = t3+2200;
+    const t1 = FPS_GOD_DESCEND_DURATION*1000+1800;
+    const t2 = t1+3200;
+    const t3 = t2+3200;
+    const t4 = t3+2900;
     setTimeout(()=>{
-      if(fpsEpoch===epoch) showItemToast('「あなたは創造神である<br>私を倒した。」', 2.8);
+      if(fpsEpoch===epoch) showItemToast('「あなたは創造神である<br>私を倒した。」', 3.2);
     }, t1);
     setTimeout(()=>{
-      if(fpsEpoch===epoch) showItemToast('「もう気付いてるはず。<br>使いなさい。」', 2.8);
+      if(fpsEpoch===epoch) showItemToast('「もう気付いてるはず。<br>使いなさい。」', 3.2);
     }, t2);
     setTimeout(()=>{
-      if(fpsEpoch===epoch) showItemToast('「破壊神よ。」', 2.2);
+      if(fpsEpoch===epoch) showItemToast('「…破壊神よ。」', 2.8);
     }, t3);
     setTimeout(()=>{
       if(fpsEpoch===epoch && fpsPhase==='god_appear'){
         fpsPhase = 'rick_ready';
+        exitGodVisionBackdrop();
         rickBombBtn.style.display = '';
+        godBeamGaugeWrap.classList.add('show');
+        fpsCrosshair.classList.add('show');
         refreshHintText();
         showItemToast('Rickボンバーが<br>使えるようになった', 2.6);
+        fpsRickReadyMessageTimer = 2.6;
       }
     }, t4);
   }
@@ -3891,6 +5341,22 @@
     refreshHintText();
     currentBgmKey = null;
     updateHUD();
+    godBeamGaugeActive = true;
+    godBeamGauge = GOD_BEAM_GAUGE_MAX;
+    godBeamLockedOut = false;
+    fpsPrevGodBeamLockedOut = false;
+    fpsBossFlashTimer = 0;
+    fpsBossFlashPending = false;
+    shieldBroken = false;
+    godBeamGaugeWrap.classList.add('show');
+    fpsCrosshair.classList.add('show');
+    // FPS mode is by far the heaviest scene in the game (comrades, boss,
+    // creator god, thrown-bomb/particle effects all at once) - drop to a
+    // lighter rendering profile the instant it starts, since this is
+    // exactly where crashes have been reported on mobile GPUs (shadow
+    // mapping and high pixel ratio are both expensive fill-rate costs)
+    renderer.shadowMap.enabled = false;
+    renderer.setPixelRatio(1);
   }
 
   function killFPSPlayer(){
@@ -3902,32 +5368,67 @@
     sfx.playerDeath();
   }
 
+  // the boss's guaranteed anti-shield flash: a bright burst from its head
+  // that breaks an active shield outright instead of being blocked by it,
+  // and locks the shield out until the god beam gauge is back to full -
+  // fires once every time the gauge runs dry while fighting the boss
+  function fireBossAntiShieldFlash(){
+    fpsBossFlashPending = false;
+    if(!fpsBoss || !player.alive) return;
+    triggerShake(0.35, 7);
+    sfx.crownGateOpen();
+    whiteFlash.style.transition = 'none';
+    whiteFlash.style.opacity = '0.85';
+    requestAnimationFrame(()=>{
+      whiteFlash.style.transition = 'opacity 0.5s ease';
+      whiteFlash.style.opacity = '0';
+    });
+    if(player.shielding){
+      setShielding(false);
+      shieldBroken = true;
+      showItemToast('シールドが割られた！', 2.2);
+    } else {
+      killFPSPlayer();
+    }
+  }
+
   function fireFPSShot(){
     if(gameOver || gameWin || !player.alive) return;
     if(!fpsActive) return;
     if(player.shielding) return;
     if(fpsPhase!=='waves' && fpsPhase!=='boss_intro' && fpsPhase!=='boss' && fpsPhase!=='rick_ready') return;
     if(fpsFireCooldown>0) return;
+    if(godBeamGaugeActive){
+      if(godBeamLockedOut) return;
+      if(godBeamGauge<=0){ godBeamLockedOut = true; return; }
+      godBeamGauge = Math.max(0, godBeamGauge - FPS_GOD_BEAM_GAUGE_COST);
+      if(godBeamGauge<=0) godBeamLockedOut = true;
+    }
     fpsFireCooldown = FPS_FIRE_COOLDOWN;
     fpsBeamTimer = 0.14;
     sfx.godBeam();
 
     const camPos = { x:0, y:FPS_EYE_HEIGHT, z:FPS_CAM_Z };
     const dir = { x:Math.sin(fpsYaw)*Math.cos(fpsPitch), y:Math.sin(fpsPitch), z:-Math.cos(fpsYaw)*Math.cos(fpsPitch) };
-    function inCrosshair(yaw, dist, targetY){
-      const idealPitch = Math.atan2(targetY-FPS_EYE_HEIGHT, Math.max(2, dist));
-      return Math.abs(yaw-fpsYaw)<FPS_HIT_TOL_YAW && Math.abs(idealPitch-fpsPitch)<FPS_HIT_TOL_PITCH;
+    function inCrosshair(yaw, dist, targetY, tolMult){
+      tolMult = tolMult || 1;
+      const idealPitch = Math.atan2(targetY-FPS_EYE_HEIGHT, Math.max(0.6, dist));
+      return Math.abs(yaw-fpsYaw)<FPS_HIT_TOL_YAW*tolMult && Math.abs(idealPitch-fpsPitch)<FPS_HIT_TOL_PITCH*tolMult;
     }
 
     // priority: the boss itself first, then any regular hacked comrade
     let bestKind=null, bestIdx=-1, bestDist=Infinity;
-    if(fpsBoss && inCrosshair(fpsBoss.yaw, fpsBoss.dist, 3.7)){
+    if(fpsBoss && inCrosshair(fpsBoss.yaw, fpsBoss.dist, 2.1)){
       bestDist = fpsBoss.dist; bestIdx = 0; bestKind = 'boss';
     }
     if(bestKind===null){
       for(let i=0;i<fpsDinos.length;i++){
         const d = fpsDinos[i];
-        if(inCrosshair(d.yaw, d.dist, 1.1) && d.dist<bestDist){ bestDist=d.dist; bestIdx=i; bestKind='dino'; }
+        // charging comrades get a noticeably wider hit tolerance - this
+        // is meant to be a fair "kill or be killed" moment, not a
+        // precision challenge on a fast-closing, growing target
+        const tolMult = d.charging ? 2.2 : 1;
+        if(inCrosshair(d.yaw, d.dist, 1.1, tolMult) && d.dist<bestDist){ bestDist=d.dist; bestIdx=i; bestKind='dino'; }
       }
     }
 
@@ -3950,24 +5451,66 @@
         fpsBossBarWrap.classList.remove('show');
         fpsPostBossTimer = 0;
         fpsPostBossLineIndex = 0;
+        // the sky shifts to sunset the moment the boss falls - holds
+        // until the creator god's departure brings on full night
+        applyFPSSkyPalette('sunset');
       }
     } else if(bestKind==='dino'){
       const d = fpsDinos[bestIdx];
-      d.hp -= 1;
-      if(d.hp<=0){
+      if(d.charging){
+        // a charging comrade is a fast, urgent threat - landing any hit
+        // at all stops it instantly, rather than expecting the normal
+        // 2-hit budget under that kind of time pressure
         spawnShooterBurst(camPos.x+Math.sin(d.yaw)*d.dist, camPos.z-Math.cos(d.yaw)*d.dist, '#ffaa4d', 1.8);
         sfx.shooterEnemyPop();
         score += 200;
         fpsDinos.splice(bestIdx,1);
       } else {
-        sfx.bossHit();
+        d.hp -= 1;
+        if(d.hp<=0){
+          spawnShooterBurst(camPos.x+Math.sin(d.yaw)*d.dist, camPos.z-Math.cos(d.yaw)*d.dist, '#ffaa4d', 1.8);
+          sfx.shooterEnemyPop();
+          score += 200;
+          fpsDinos.splice(bestIdx,1);
+        } else {
+          sfx.bossHit();
+        }
       }
     }
   }
 
   function updateFPS(dt){
     if(fpsFireCooldown>0) fpsFireCooldown -= dt;
+    if(fpsRickReadyMessageTimer>0){ fpsRickReadyMessageTimer -= dt; if(fpsRickReadyMessageTimer<0) fpsRickReadyMessageTimer = 0; }
     if(fpsBeamTimer>0){ fpsBeamTimer -= dt; if(fpsBeamTimer<=0) fpsBeamHitPoint = null; }
+
+    if(godBeamGaugeActive){
+      if(godBeamGauge<GOD_BEAM_GAUGE_MAX){
+        const rate = godBeamLockedOut ? GOD_BEAM_GAUGE_RECHARGE_REGEN : GOD_BEAM_GAUGE_REGEN;
+        godBeamGauge = Math.min(GOD_BEAM_GAUGE_MAX, godBeamGauge + rate*dt);
+        if(godBeamLockedOut && godBeamGauge>=GOD_BEAM_GAUGE_MAX) godBeamLockedOut = false;
+      }
+      godBeamGaugeFill.style.height = (godBeamGauge/GOD_BEAM_GAUGE_MAX*100)+'%';
+      godBeamGaugeWrap.classList.toggle('locked', godBeamLockedOut);
+      // the instant the gauge empties out against the boss, queue its
+      // guaranteed anti-shield flash attack; once the gauge is back to
+      // full, any shield the flash broke is usable again
+      if(godBeamLockedOut && !fpsPrevGodBeamLockedOut && fpsPhase==='boss' && fpsBoss && !fpsBossFlashPending){
+        fpsBossFlashPending = true;
+        fpsBossFlashTimer = 1.7;
+      }
+      if(!godBeamLockedOut){
+        shieldBroken = false;
+      }
+      fpsPrevGodBeamLockedOut = godBeamLockedOut;
+    }
+    if(fpsBossFlashTimer>0){
+      fpsBossFlashTimer -= dt;
+      if(fpsBossFlashTimer<=0){
+        fpsBossFlashTimer = 0;
+        fireBossAntiShieldFlash();
+      }
+    }
 
     if(player.alive){
       let adx=0, ady=0;
@@ -3995,7 +5538,7 @@
       fpsWaveElapsed += dt;
       while(fpsSpawnQueue.length && fpsSpawnQueue[0].t<=fpsWaveElapsed){
         const s = fpsSpawnQueue.shift();
-        fpsDinos.push({ yaw:s.yaw, dist:FPS_DINO_SPAWN_DIST, standDist:4.5+Math.random()*3, hp:2, wobble:Math.random()*10, speed:0.9+Math.random()*0.3, mesh3d:null });
+        fpsDinos.push({ yaw:s.yaw, dist:FPS_DINO_SPAWN_DIST, standDist:4.5+Math.random()*3, hp:2, wobble:Math.random()*10, speed:0.9+Math.random()*0.3, mesh3d:null, throwAnim:0, charging:false });
       }
       if(fpsSpawnQueue.length===0 && fpsDinos.length===0){
         fpsPhase = 'boss_intro';
@@ -4003,14 +5546,32 @@
       }
     }
 
-    // comrades approach to a standoff distance and hold there - they no
-    // longer charge in for a melee kill, their only attack is the shared
-    // thrown-bomb pool below
+    // comrades normally approach only to a standoff distance and hold
+    // there, attacking via the shared thrown-bomb pool below - but any
+    // one of them can occasionally break off and charge straight in for
+    // a point-blank kill instead. That charge ignores the standoff
+    // distance entirely, and closing to FPS_PROXIMITY_KILL_DIST is an
+    // instant kill that the shield/invincibility cannot stop - only
+    // shooting the charging comrade down first prevents it.
     for(const d of fpsDinos){
-      if(d.dist>d.standDist) d.dist -= d.speed*dt;
-      if(d.dist<d.standDist) d.dist = d.standDist;
+      if(!d.charging && player.alive && fpsRickReadyMessageTimer<=0 && d.dist<=d.standDist+0.4 && Math.random()<0.15*dt){
+        d.charging = true;
+        sfx.enemyRush();
+        triggerShake(0.1, 3);
+      }
+      if(d.charging){
+        d.dist -= d.speed*1.6*dt;
+        if(d.dist<=FPS_PROXIMITY_KILL_DIST){
+          d.dist = FPS_PROXIMITY_KILL_DIST;
+          if(player.alive) killFPSPlayer();
+        }
+      } else {
+        if(d.dist>d.standDist) d.dist -= d.speed*dt;
+        if(d.dist<d.standDist) d.dist = d.standDist;
+      }
       d.wobble += dt;
       d.yaw = Math.max(-FPS_MAX_YAW-0.15, Math.min(FPS_MAX_YAW+0.15, d.yaw + Math.sin(d.wobble*1.2)*0.1*dt));
+      if(d.throwAnim>0){ d.throwAnim -= dt; if(d.throwAnim<0) d.throwAnim = 0; }
     }
 
     if(fpsPhase==='boss_intro'){
@@ -4042,12 +5603,27 @@
       const b = fpsBoss;
       b.wobble += dt;
       b.yaw = Math.max(-FPS_MAX_YAW, Math.min(FPS_MAX_YAW, Math.sin(b.wobble*0.4)*0.4));
-      // the boss's own attack: dual hand-cannon beams, not the bomb pool
-      b.attackTimer -= dt;
-      if(b.attackTimer<=0){
-        b.attackTimer = 2.0+Math.random()*1.2;
-        fpsThrownBombs.push({ kind:'beam', yaw:b.yaw, dist:b.dist, startDist:b.dist, fuse:1.1, maxFuse:1.1 });
-        sfx.shooterEnemyFire();
+      // the boss's own attack: dual hand-cannon beams, not the bomb pool.
+      // Normally alternates left/right hand each shot, but as its HP
+      // drops it gets more desperate: attacks come faster, and it starts
+      // mixing in a dual-handed volley (both guns at once) instead of a
+      // single alternating shot. Paused entirely while winding up the
+      // anti-shield flash, so the two attacks never overlap.
+      if(fpsBossFlashTimer<=0){
+        b.attackTimer -= dt;
+        if(b.attackTimer<=0){
+          const hpFrac = b.hp/b.maxHp;
+          const dualChance = hpFrac<0.5 ? 0.4 : 0.15;
+          b.attackTimer = (2.0+Math.random()*1.2) * Math.max(0.6, hpFrac*0.4+0.6);
+          if(Math.random()<dualChance){
+            fpsThrownBombs.push({ kind:'beam', yaw:b.yaw, dist:b.dist, startDist:b.dist, fuse:1.1, maxFuse:1.1, hand:-1 });
+            fpsThrownBombs.push({ kind:'beam', yaw:b.yaw, dist:b.dist, startDist:b.dist, fuse:1.1, maxFuse:1.1, hand:1 });
+          } else {
+            fpsThrownBombs.push({ kind:'beam', yaw:b.yaw, dist:b.dist, startDist:b.dist, fuse:1.1, maxFuse:1.1, hand:b.nextHand });
+            b.nextHand = -b.nextHand;
+          }
+          sfx.shooterEnemyFire();
+        }
       }
     }
     // once the boss itself has actually fallen, hacked comrades keep
@@ -4062,7 +5638,7 @@
         fpsEndlessSpawnTimer = 1.3+Math.random()*1.2;
         const spawnCount = 1+Math.floor(Math.random()*2);
         for(let i=0;i<spawnCount;i++){
-          fpsDinos.push({ yaw:(Math.random()*1.2-0.6), dist:FPS_DINO_SPAWN_DIST, standDist:4.5+Math.random()*3, hp:2, wobble:Math.random()*10, speed:0.9+Math.random()*0.3, mesh3d:null });
+          fpsDinos.push({ yaw:(Math.random()*1.2-0.6), dist:FPS_DINO_SPAWN_DIST, standDist:4.5+Math.random()*3, hp:2, wobble:Math.random()*10, speed:0.9+Math.random()*0.3, mesh3d:null, throwAnim:0, charging:false });
         }
       }
     }
@@ -4073,10 +5649,10 @@
           showItemToast(FPS_POST_BOSS_LINES[fpsPostBossLineIndex].text, 2.6);
           fpsPostBossLineIndex++;
         }
-      }
-      fpsSurviveTimer += dt;
-      if(fpsSurviveTimer>=FPS_SURVIVE_GOAL){
-        startCreatorGodSequence();
+        fpsSurviveTimer += dt;
+        if(fpsSurviveTimer>=FPS_SURVIVE_GOAL){
+          startCreatorGodSequence();
+        }
       }
     }
 
@@ -4084,10 +5660,11 @@
     // at the player (the boss uses its own beam attack instead) - either
     // is only survived by holding the shield the instant it lands
     if(fpsBombTimer>0) fpsBombTimer -= dt;
-    if(fpsBombTimer<=0 && fpsDinos.length>0 && player.alive){
+    if(fpsBombTimer<=0 && fpsDinos.length>0 && player.alive && fpsRickReadyMessageTimer<=0){
       fpsBombTimer = 2.6 + Math.random()*1.6;
       const thrower = fpsDinos[Math.floor(Math.random()*fpsDinos.length)];
       fpsThrownBombs.push({ kind:'bomb', yaw:thrower.yaw, dist:thrower.dist, startDist:thrower.dist, fuse:1.5, maxFuse:1.5 });
+      thrower.throwAnim = 0.6;
       sfx.dangerousBombPlace();
     }
     for(const b of fpsThrownBombs) b.fuse -= dt;
@@ -4158,6 +5735,9 @@
     // forcibly, since we can't be sure which one it was
     teardownHeavenTheme();
     teardownPrimitiveTheme();
+    if(fpsGodVisionStars){ scene.remove(fpsGodVisionStars); }
+    teardownShooterDecor();
+    shooterBoostBtn.style.display = 'none';
     if(hiddenArenaDecor){ scene.remove(hiddenArenaDecor); hiddenArenaDecor = null; }
     if(starField){ scene.remove(starField); starField = null; }
     spaceMode = false;
@@ -4237,6 +5817,7 @@
     player.y = player.gy*TILE + (TILE-ENTITY_SIZE)/2;
     player.facing = 'up';
     attachAngelToPlayer();
+    setWingOpacity(0.5);
     godBeamCooldown = 0;
     godBeamBeam = null;
     setGodBeamMode(true);
@@ -4262,7 +5843,7 @@
         sfx.win();
         if(stage===21 && godBoss){
           relicsCollected = 0;
-          items = items.filter(it=>it.type!=='relic');
+          items = items.filter(it=>!RELIC_INFO[it.type]);
           spawnRelics();
         }
       } else {
@@ -4289,6 +5870,7 @@
       case 'b': case 'B': if(!e.repeat && allyBombBtn.style.display!=='none') useAllyBomb(); e.preventDefault(); break;
       case 'c': case 'C': if(!e.repeat) setShielding(true); e.preventDefault(); break;
       case 'r': case 'R': if(!e.repeat && rickBombBtn.style.display!=='none') activateRickBomb(); e.preventDefault(); break;
+      case 'v': case 'V': if(!e.repeat && shooterActive) activateShooterBoost(); e.preventDefault(); break;
     }
   });
   window.addEventListener('keyup', e=>{
@@ -4322,6 +5904,7 @@
       shieldOverlay.classList.remove('show');
       return;
     }
+    if(active && shieldBroken) return;
     player.shielding = active;
     shieldBtn.classList.toggle('shieldActive', active);
     shieldOverlay.classList.toggle('show', active);
@@ -4332,9 +5915,14 @@
   shieldBtn.addEventListener('pointerleave', ()=>setShielding(false));
   shieldBtn.addEventListener('pointercancel', ()=>setShielding(false));
   const fpsBossBarWrap = document.getElementById('fpsBossBarWrap');
+  const godBeamGaugeWrap = document.getElementById('godBeamGaugeWrap');
+  const godBeamGaugeFill = document.getElementById('godBeamGaugeFill');
+  const fpsCrosshair = document.getElementById('fpsCrosshair');
   const fpsBossBarFill = document.getElementById('fpsBossBarFill');
   const rickBombBtn = document.getElementById('rickBombBtn');
   rickBombBtn.addEventListener('pointerdown', e=>{ e.preventDefault(); activateRickBomb(); });
+  const shooterBoostBtn = document.getElementById('shooterBoostBtn');
+  shooterBoostBtn.addEventListener('pointerdown', e=>{ e.preventDefault(); activateShooterBoost(); });
   const epilogueScreen = document.getElementById('epilogueScreen');
   document.getElementById('epilogueContinueBtn').addEventListener('click', ()=>{
     epilogueScreen.classList.remove('show');
@@ -4439,6 +6027,7 @@
     destroyRayBtn.style.display = 'none';
     crownCracked = false;
     treasuresEverCollected = new Set(['ring','earring','necklace','goldbar']);
+    updateTreasureIcons();
     crownPos = { gx: Math.floor(COLS/2), gy: 1 };
     crownTaken = false;
     heavenGateActive = true;
@@ -4601,16 +6190,25 @@
     }
   }
 
+  // reflects the permanent (across deaths/restarts, this session)
+  // treasuresEverCollected record in the title-bar icons
+  function updateTreasureIcons(){
+    ['ring','earring','necklace','goldbar'].forEach(t=>{
+      const el = document.getElementById('treasureIcon-'+t);
+      if(el) el.classList.toggle('collected', treasuresEverCollected.has(t));
+    });
+  }
+
   function applyItem(type){
     if(TREASURE_INFO[type]){
       const name = TREASURE_INFO[type].name;
       collectedTreasures.push(name);
-      treasuresEverCollected.add(type);
+      collectedTreasureTypesThisRun.add(type);
       if(altarsReplaced) sneakyTreasureTaken = true;
       showItemToast(`${name}を手に入れた`, 1.6);
       return;
     }
-    if(type==='relic'){
+    if(RELIC_INFO[type]){
       relicsCollected++;
       if(relicsCollected>=RELIC_TOTAL){
         goldenBombCharged = true;
@@ -4618,7 +6216,7 @@
         showItemToast('神器が揃った…<br>黄金の裁きの爆弾!', 2.0);
         sfx.win();
       } else {
-        showItemToast(`神器を手に入れた(${relicsCollected}/${RELIC_TOTAL})`, 1.4);
+        showItemToast(`${RELIC_INFO[type].name}を手に入れた(${relicsCollected}/${RELIC_TOTAL})`, 1.4);
       }
       sfx.stepItem();
       return;
@@ -4748,7 +6346,7 @@
       }
     }
     // explosion burns any *pre-existing* item caught in the blast (not the ones it just dropped)
-    items = items.filter(it=>it.type==='relic' || !cells.some(c=>c.gx===it.gx && c.gy===it.gy));
+    items = items.filter(it=>RELIC_INFO[it.type] || !cells.some(c=>c.gx===it.gx && c.gy===it.gy));
     items.push(...newItems);
     explosions.push({cells, timer:EXPLOSION_DURATION, owner, core3x3, golden: !!bomb.golden});
     sfx.explosion();
@@ -4798,7 +6396,7 @@
         // no ending here - a white hole opens up instead, leading back
         // to the crown room to decide how this really ends
         heavenReturnGatePos = { gx: Math.floor(COLS/2), gy: Math.floor(ROWS/2) };
-        items = items.filter(it=>it.type!=='relic');
+        items = items.filter(it=>!RELIC_INFO[it.type]);
         score += 5000;
         updateHUD();
       }
@@ -4810,7 +6408,12 @@
     if(pendingEnd){
       pendingEnd.timer -= dt;
       if(pendingEnd.timer<=0){
-        if(pendingEnd.isWin){ gameWin = true; showOverlay(true); }
+        if(pendingEnd.isWin){
+          gameWin = true;
+          showOverlay(true);
+          collectedTreasureTypesThisRun.forEach(t=>treasuresEverCollected.add(t));
+          updateTreasureIcons();
+        }
         else { gameOver = true; showOverlay(false); }
         pendingEnd = null;
       }
@@ -5360,7 +6963,7 @@
         const angleOffset = Math.random()*Math.PI*2;
         for(let i=0;i<count;i++){
           const angle = angleOffset + (i/count)*Math.PI*2 + (Math.random()-0.5)*0.3;
-          projectiles.push({ x:cx, y:cy, dx:Math.cos(angle), dy:Math.sin(angle) });
+          projectiles.push({ x:cx, y:cy, dx:Math.cos(angle), dy:Math.sin(angle), godly:true });
         }
         godBoss.attackTimer = 1.0 + Math.random()*0.7;
         sfx.rayBlast();
@@ -5997,6 +7600,11 @@
         if(!pendingEnd) pendingEnd = { isWin:true, timer:1.3 };
         portals = null;
         sfx.whiteHoleEnter();
+        // a clean White Hole finish makes this run's treasure pickups
+        // permanent - shown as icons in the title bar from now on,
+        // across any future death or restart this session
+        collectedTreasureTypesThisRun.forEach(t=>treasuresEverCollected.add(t));
+        updateTreasureIcons();
       } else if(pc.gx===portals.black.gx && pc.gy===portals.black.gy){
         // either way, the black hole swirls the player in first - only
         // what happens the instant it's done differs
@@ -6010,6 +7618,9 @@
         portals = null;
         clearTreasureBlocks();
         sfx.blackHoleEnter();
+        // going through the Black Hole never makes this run's pickups
+        // permanent, even if all 4 were found
+        collectedTreasureTypesThisRun = new Set();
       }
     }
 
@@ -6121,6 +7732,7 @@
         // them - wings and a halo on the spot, and a god beam in place of
         // their bomb, for as long as they linger in the crown room
         attachAngelToPlayer();
+        setWingOpacity(0.5);
         setGodBeamMode(true);
         reachedShooterCheckpoint = true;
         updateHUD();
@@ -6329,13 +7941,19 @@
   }
 
   // Scatters the seven relics across open floor tiles, away from the
-  // hard-wall pillars, so the player has to actually cross the god's line
-  // of fire to gather them all.
+  // hard-wall pillars AND away from the god's own position (it never
+  // moves, but its all-direction laser bursts make anything too close to
+  // its feet a death trap), so the player has to cross its line of fire
+  // at range rather than tiptoe right up next to it.
   function spawnRelics(){
+    const godGx = Math.floor(COLS/2), godGy = Math.floor(ROWS/2);
+    const SAFE_DIST = 3;
     const candidates = [];
     for(let y=1;y<ROWS-1;y++){
       for(let x=1;x<COLS-1;x++){
-        if(!isSolidTile(x,y)) candidates.push({gx:x,gy:y});
+        if(isSolidTile(x,y)) continue;
+        if(Math.max(Math.abs(x-godGx), Math.abs(y-godGy))<SAFE_DIST) continue;
+        candidates.push({gx:x,gy:y});
       }
     }
     for(let i=candidates.length-1;i>0;i--){
@@ -6343,8 +7961,13 @@
       const tmp = candidates[i]; candidates[i] = candidates[j]; candidates[j] = tmp;
     }
     const picks = candidates.slice(0, RELIC_TOTAL);
-    for(const c of picks){
-      items.push({ gx:c.gx, gy:c.gy, type:'relic' });
+    const types = RELIC_TYPES.slice();
+    for(let i=picks.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      const tmp = types[i]; types[i] = types[j]; types[j] = tmp;
+    }
+    for(let i=0;i<picks.length;i++){
+      items.push({ gx:picks[i].gx, gy:picks[i].gy, type:types[i] || 'relicHalo' });
     }
   }
 
@@ -6427,6 +8050,7 @@
       treasureBlocks[c.key] = { gx:c.gx, gy:c.gy, itemKey:c.itemKey, broken:false };
     }
     collectedTreasures = [];
+    collectedTreasureTypesThisRun = new Set();
   }
 
   // Swaps the sky/fog for a dark space palette and adds a persistent
@@ -6469,123 +8093,439 @@
     const c = document.createElement('canvas');
     c.width = 512; c.height = 512;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#33323a';
+    const S = 512/512;
+
+    // base: a greener grass tone (less yellow than the main game's own
+    // stage-1 floor, so it reads as lawn rather than dry/yellowed grass)
+    ctx.fillStyle = '#1f5215';
     ctx.fillRect(0,0,512,512);
-    for(let i=0;i<260;i++){
-      const x=Math.random()*512, y=Math.random()*512, r=6+Math.random()*30;
-      const shade = 25+Math.random()*35;
-      ctx.fillStyle = `rgba(${shade+14},${shade+12},${shade+16},${0.18+Math.random()*0.28})`;
+
+    // broad, very soft tonal variation - patches of lighter/darker grass
+    // instead of hard-edged shapes, so it reads as a smooth painted lawn
+    for(let i=0;i<26;i++){
+      const x=Math.random()*512, y=Math.random()*512, r=(90+Math.random()*180)*S;
+      const light = Math.random()<0.5;
+      const grad = ctx.createRadialGradient(x,y,0,x,y,r);
+      const c1 = light ? 'rgba(95,165,85,0.14)' : 'rgba(14,38,10,0.14)';
+      grad.addColorStop(0, c1);
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
       ctx.beginPath();
-      ctx.ellipse(x,y,r,r*(0.5+Math.random()*0.4),Math.random()*Math.PI,0,Math.PI*2);
+      ctx.arc(x,y,r,0,Math.PI*2);
       ctx.fill();
     }
-    ctx.strokeStyle = 'rgba(8,8,10,0.55)';
-    for(let i=0;i<55;i++){
-      ctx.lineWidth = 1+Math.random()*2;
+
+    // a fine grain pass - small, low-opacity dots read as subtle blade-of-
+    // grass texture noise without needing a blur filter (Canvas2D's
+    // `filter` property blurs each individual draw call while it's
+    // active, so applying it across a loop like this is effectively
+    // hundreds of separate blur operations - very slow, and a plausible
+    // cause of a main-thread hang on mobile)
+    for(let i=0;i<700;i++){
+      const x=Math.random()*512, y=Math.random()*512;
+      const light = Math.random()<0.5;
+      ctx.fillStyle = light ? `rgba(105,165,90,${0.025+Math.random()*0.035})` : `rgba(14,34,10,${0.025+Math.random()*0.035})`;
       ctx.beginPath();
+      ctx.arc(x, y, 2+Math.random()*2, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    // a few soft worn dirt patches - bare-earth spots trodden into the
+    // grass, kept subtle rather than looking like burn damage
+    for(let i=0;i<5;i++){
+      const x=Math.random()*512, y=Math.random()*512, r=(45+Math.random()*60)*S;
+      const grad = ctx.createRadialGradient(x,y,0,x,y,r);
+      grad.addColorStop(0, 'rgba(140,110,60,0.32)');
+      grad.addColorStop(0.6, 'rgba(140,110,60,0.14)');
+      grad.addColorStop(1, 'rgba(140,110,60,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(x,y,r,0,Math.PI*2);
+      ctx.fill();
+    }
+
+    // gently curved worn footpath trails, drawn as smooth quadratic
+    // curves - lighter, trodden-down grass rather than concrete cracks
+    ctx.strokeStyle = 'rgba(195,190,120,0.22)';
+    ctx.lineCap = 'round';
+    for(let i=0;i<14;i++){
       let x=Math.random()*512, y=Math.random()*512;
+      ctx.lineWidth = (3+Math.random()*3)*S;
+      ctx.beginPath();
       ctx.moveTo(x,y);
-      for(let j=0;j<5;j++){ x += (Math.random()*2-1)*44; y += (Math.random()*2-1)*44; ctx.lineTo(x,y); }
+      let ang = Math.random()*Math.PI*2;
+      for(let j=0;j<4;j++){
+        ang += (Math.random()-0.5)*1.0;
+        const dist = (50+Math.random()*60)*S;
+        const midx = x+Math.cos(ang)*dist*0.5+(Math.random()-0.5)*20*S;
+        const midy = y+Math.sin(ang)*dist*0.5+(Math.random()-0.5)*20*S;
+        const nx = x+Math.cos(ang)*dist, ny = y+Math.sin(ang)*dist;
+        ctx.quadraticCurveTo(midx, midy, nx, ny);
+        x = nx; y = ny;
+      }
       ctx.stroke();
     }
-    // faded lane-marking scraps, to sell "this used to be a road"
-    ctx.fillStyle = 'rgba(200,190,150,0.12)';
-    for(let i=0;i<10;i++){
-      ctx.fillRect(Math.random()*512, Math.random()*512, 3+Math.random()*30, 3);
-    }
+
     const tex = new THREE.CanvasTexture(c);
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(16,16);
+    tex.repeat.set(8,8);
+    // kept simple/cheap regardless: no mipmaps, plain bilinear filtering
+    tex.generateMipmaps = false;
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
     return tex;
   }
 
-  // A dusk-toned gradient sky dome (dark violet overhead, fading to a
-  // hazy burnt-orange horizon) instead of a single flat background color.
-  function makeSkyDome(){
-    const skyGeo = new THREE.SphereGeometry(160, 24, 16);
+  // Soft, photo-like cumulus clouds that melt into the sky dome rather
+  // than reading as flat cartoon blobs: an irregular fluffy silhouette
+  // built from many overlapping, heavily-blurred soft circles (so the
+  // outline is feathered and uneven, never a crisp circle edge), then a
+  // single gentle top-lit / bottom soft-blue-grey tint is painted only
+  // onto that silhouette (source-atop) so the shading gradates smoothly
+  // instead of sitting in separate light/shadow "stickers". Three
+  // variants: big fluffy cumulus, a smaller puffy cloud, and a thin
+  // wispy streak (like the faint high clouds in the reference photo).
+  const cloudTextures = {};
+  function makeCloudTexture(variant){
+    variant = variant||0;
+    if(cloudTextures[variant]) return cloudTextures[variant];
+    const isWispy = variant===2;
+    const c = document.createElement('canvas');
+    c.width = isWispy ? 640 : 512;
+    c.height = isWispy ? 190 : (variant===1 ? 240 : 320);
+    const ctx = c.getContext('2d');
+    const cx = c.width/2, cy = c.height/2;
+    // irregular fluffy silhouette: scattered soft circles of varying
+    // size, jittered around the centre so the boundary is lumpy/uneven
+    const puffCount = isWispy ? 6 : (variant===1 ? 7 : 11);
+    ctx.filter = isWispy ? 'blur(24px)' : 'blur(15px)';
+    for(let i=0;i<puffCount;i++){
+      const px = cx + (Math.random()-0.5)*c.width*0.72;
+      const py = cy + (Math.random()-0.5)*c.height*(isWispy?0.3:0.55);
+      const pr = (isWispy ? c.height*0.38 : c.height*0.34) * (0.55+Math.random()*0.75);
+      const grad = ctx.createRadialGradient(px,py,0,px,py,pr);
+      grad.addColorStop(0, 'rgba(255,255,255,0.95)');
+      grad.addColorStop(0.7, 'rgba(255,255,255,0.85)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(px,py,pr,0,Math.PI*2);
+      ctx.fill();
+    }
+    ctx.filter = 'none';
+    // one smooth top-to-bottom tint, masked to only the cloud silhouette
+    // just painted - a hint of warm-white light on top fading to a very
+    // soft blue-grey near the base, matching how real cumulus look
+    // against open sky rather than a hard-edged cartoon shadow band
+    ctx.globalCompositeOperation = 'source-atop';
+    const tint = ctx.createLinearGradient(0,0,0,c.height);
+    tint.addColorStop(0, 'rgba(255,255,255,0.45)');
+    tint.addColorStop(0.5, 'rgba(255,255,255,0)');
+    tint.addColorStop(1, isWispy ? 'rgba(205,220,235,0.22)' : 'rgba(185,202,222,0.42)');
+    ctx.fillStyle = tint;
+    ctx.fillRect(0,0,c.width,c.height);
+    ctx.globalCompositeOperation = 'source-over';
+    cloudTextures[variant] = new THREE.CanvasTexture(c);
+    return cloudTextures[variant];
+  }
+  function makeCloudSprite(scale, variant){
+    variant = variant||0;
+    const mat = new THREE.SpriteMaterial({ map: makeCloudTexture(variant), transparent:true, depthWrite:false, fog:false });
+    const sprite = new THREE.Sprite(mat);
+    const aspect = variant===2 ? 3.4 : 1.6;
+    sprite.scale.set(scale*aspect, scale, 1);
+    return sprite;
+  }
+
+  // A richer, multi-stop sky gradient instead of a flat 2-color lerp - a
+  // hazy band near the horizon, through mid sky color, up to a strongly
+  // saturated zenith, eased with smoothstep at each segment. Punchier
+  // color contrast than a first pass, and a steeper y-to-t mapping (the
+  // gradient completes over a much smaller altitude range) so the actual
+  // visible slice of the dome shows the full gradient instead of just its
+  // washed-out lower third. Three palettes: day (default), sunset (once
+  // the FPS boss falls), and night (once the creator god departs).
+  const SKY_PALETTE_DAY = [
+    [0, 0xf3f9ff], [0.22, 0x9fd4f7], [0.55, 0x3f8de8], [1, 0x0d3aa0]
+  ];
+  const SKY_PALETTE_SUNSET = [
+    [0, 0xffcf80], [0.22, 0xf07a3c], [0.5, 0x6a2f52], [1, 0x0c0818]
+  ];
+  const SKY_PALETTE_NIGHT = [
+    [0, 0x25315c], [0.3, 0x141c3c], [0.65, 0x080b20], [1, 0x020208]
+  ];
+  let fpsSkyMode = 'day'; // 'day' | 'sunset' | 'night'
+  function smoothstep(t){ return t*t*(3-2*t); }
+  function sampleSkyGradient(stops, t){
+    t = Math.max(0, Math.min(1, t));
+    for(let i=0;i<stops.length-1;i++){
+      const t0=stops[i][0], t1=stops[i+1][0];
+      if(t<=t1 || i===stops.length-2){
+        const localT = t1>t0 ? smoothstep(Math.max(0, Math.min(1, (t-t0)/(t1-t0)))) : 0;
+        return new THREE.Color(stops[i][1]).lerp(new THREE.Color(stops[i+1][1]), localT);
+      }
+    }
+    return new THREE.Color(stops[stops.length-1][1]);
+  }
+  function buildSkyDomeColors(skyGeo, stops, radius){
     const pos = skyGeo.attributes.position;
-    const topColor = new THREE.Color(0x1a1230);
-    const bottomColor = new THREE.Color(0xd9622f);
+    const r = radius || 85;
     const colors = [];
     for(let i=0;i<pos.count;i++){
       const y = pos.getY(i);
-      const t = Math.max(0, Math.min(1, (y+18)/150));
-      const c = bottomColor.clone().lerp(topColor, t);
+      const t = Math.max(0, Math.min(1, (y/r)/0.55));
+      const c = sampleSkyGradient(stops, t);
       colors.push(c.r, c.g, c.b);
     }
     skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  }
+  function makeSkyDome(stops){
+    // radius kept comfortably inside the camera's far clipping plane
+    // (100) so the dome always actually renders instead of being culled
+    const domeRadius = 85;
+    const skyGeo = new THREE.SphereGeometry(domeRadius, 24, 16);
+    buildSkyDomeColors(skyGeo, stops || SKY_PALETTE_DAY, domeRadius);
     const skyMat = new THREE.MeshBasicMaterial({ vertexColors:true, side:THREE.BackSide, fog:false, depthWrite:false });
     return new THREE.Mesh(skyGeo, skyMat);
+  }
+  // swaps the live sky dome + background + fog to the given palette mode -
+  // 'sunset' is applied once the FPS boss falls, 'night' once the creator
+  // god departs, and 'day' is the reset state whenever the primitive theme
+  // is freshly set up (stage entry/restart)
+  function applyFPSSkyPalette(mode){
+    fpsSkyMode = mode;
+    const stops = mode==='sunset' ? SKY_PALETTE_SUNSET : mode==='night' ? SKY_PALETTE_NIGHT : SKY_PALETTE_DAY;
+    if(primitiveSky && primitiveSky.geometry) buildSkyDomeColors(primitiveSky.geometry, stops);
+    scene.background = new THREE.Color(mode==='sunset' ? 0xff9550 : mode==='night' ? 0x060814 : 0x5aa8f0);
+    scene.fog.color = new THREE.Color(mode==='sunset' ? 0xd6714a : mode==='night' ? 0x141c3c : 0xbfe0ff);
+    // the sun sets the moment sunset falls (stays gone through night); the
+    // clouds only disappear once full night falls
+    if(primitiveDecor && primitiveDecor.userData.sunParts){
+      const sunVisible = mode==='day';
+      for(const part of primitiveDecor.userData.sunParts) part.visible = sunVisible;
+    }
+    if(primitiveDecor && primitiveDecor.userData.cloudParts){
+      const cloudsVisible = mode!=='night';
+      const cloudTint = mode==='sunset' ? 0x2e2432 : 0xffffff;
+      for(const part of primitiveDecor.userData.cloudParts){
+        part.visible = cloudsVisible;
+        if(part.material && part.material.color) part.material.color.setHex(cloudTint);
+      }
+    }
+  }
+
+  // a persistent field of twinkling stars added once the sky goes fully
+  // dark (after the creator god's departure) - unlike the temporary
+  // starfield used during the god's own appearance, this one stays for
+  // the rest of the stage and is built directly into primitiveDecor
+  let fpsNightStars = null;
+  function ensureFPSNightStars(){
+    if(fpsNightStars) return;
+    fpsNightStars = new THREE.Group();
+    for(let i=0;i<170;i++){
+      const star = new THREE.Mesh(geo.sphere, basicMat(0xffffff, {transparent:true, opacity:0.5+Math.random()*0.5, fog:false, depthWrite:false}));
+      const s = 0.08+Math.random()*0.1;
+      star.scale.set(s,s,s);
+      const ang1 = Math.random()*Math.PI*2, elevFrac = 0.2+Math.random()*0.75, r = 40+Math.random()*35;
+      const elev = elevFrac*Math.PI/2;
+      star.position.set(Math.cos(ang1)*Math.cos(elev)*r, Math.sin(elev)*r+9, Math.sin(ang1)*Math.cos(elev)*r-20);
+      star.userData.twinklePhase = Math.random()*Math.PI*2;
+      star.userData.twinkleSpeed = 1.4+Math.random()*2.6;
+      star.userData.baseOpacity = star.material.opacity;
+      fpsNightStars.add(star);
+    }
+    if(primitiveDecor) primitiveDecor.add(fpsNightStars);
+  }
+
+  // A much more detailed "hero" building for the handful placed close
+  // enough to actually be scrutinized - a real window grid, floor-line
+  // trims, a ground-level shopfront remnant, and one shattered top
+  // corner with exposed rebar poking out of the broken concrete.
+  function makeHeroBuilding(bx, bz, bw, bh, bd){
+    const g = new THREE.Group();
+    const wallMat = basicMat(0xc9c0a8);
+    const trimMat = basicMat(0x8a8478);
+    const body = new THREE.Mesh(geo.box, wallMat);
+    body.scale.set(bw, bh, bd);
+    body.position.set(0, bh/2, 0);
+    g.add(body);
+    const floors = Math.max(2, Math.floor(bh/1.6));
+    for(let f=1;f<floors;f++){
+      const trim = new THREE.Mesh(geo.box, trimMat);
+      trim.scale.set(bw+0.04, 0.06, bd+0.04);
+      trim.position.set(0, (bh/floors)*f, 0);
+      g.add(trim);
+    }
+    const cols = Math.max(2, Math.floor(bw/0.75));
+    for(let f=0;f<floors;f++){
+      for(let c=0;c<cols;c++){
+        const wx = -bw/2 + (c+0.5)*(bw/cols);
+        const wy = (bh/floors)*(f+0.5);
+        const lit = Math.random()<0.4;
+        const win = new THREE.Mesh(geo.box, basicMat(lit ? (Math.random()<0.7?0xffb35a:0x7ac8ff) : 0x4a4a52));
+        win.scale.set(bw/cols*0.55, bh/floors*0.5, 0.03);
+        win.position.set(wx, wy, bd/2+0.015);
+        g.add(win);
+        if(lit){
+          const winGlow = makeGlowSprite(0xffb35a, 0.22);
+          winGlow.position.set(wx, wy, bd/2+0.05);
+          g.add(winGlow);
+        }
+      }
+    }
+    // a ground-level shopfront band - darker, wider "windows" (blown out,
+    // no glass left) with a shutter frame
+    const shopfront = new THREE.Mesh(geo.box, trimMat);
+    shopfront.scale.set(bw*0.94, bh/floors*0.85, 0.05);
+    shopfront.position.set(0, bh/floors*0.5, bd/2+0.03);
+    g.add(shopfront);
+    // shattered top corner with exposed rebar
+    const corner = new THREE.Mesh(geo.box, wallMat);
+    corner.scale.set(bw*0.4, bh*0.16, bd*0.4);
+    corner.position.set(bw*0.25, bh+bh*0.04, bd*0.2);
+    corner.rotation.set((Math.random()-0.5)*0.5, 0.2, (Math.random()-0.5)*0.4);
+    g.add(corner);
+    const rebarMat = basicMat(0x5a5550);
+    for(let i=0;i<5;i++){
+      const rebar = new THREE.Mesh(geo.cylinder, rebarMat);
+      rebar.scale.set(0.012, 0.4+Math.random()*0.3, 0.012);
+      rebar.position.set(bw*0.2+(Math.random()-0.5)*bw*0.3, bh+0.1+Math.random()*0.2, bd*0.15+(Math.random()-0.5)*bd*0.3);
+      rebar.rotation.set((Math.random()-0.5)*0.8, 0, (Math.random()-0.5)*0.8);
+      g.add(rebar);
+    }
+    g.position.set(bx, 0, bz);
+    return g;
   }
 
   function setupPrimitiveTheme(){
     teardownSpaceTheme();
     teardownHeavenTheme();
-    scene.background = new THREE.Color(0x3a2038);
-    scene.fog.color = new THREE.Color(0x8a4a3a);
+    scene.background = new THREE.Color(0x5aa8f0);
+    scene.fog.color = new THREE.Color(0xbfe0ff);
     if(!primitiveSky){
       primitiveSky = makeSkyDome();
       scene.add(primitiveSky);
     }
+    fpsSkyMode = 'day';
+    fpsNightStars = null;
     if(!primitiveGround){
       const groundGeo = new THREE.PlaneGeometry(260, 260);
       const groundMat = new THREE.MeshLambertMaterial({ map: makeGroundTexture() });
       primitiveGround = new THREE.Mesh(groundGeo, groundMat);
       primitiveGround.rotation.x = -Math.PI/2;
       primitiveGround.position.set(0, 0, -20);
+      primitiveGround.receiveShadow = true;
       scene.add(primitiveGround);
     }
     if(!primitiveDecor){
       primitiveDecor = new THREE.Group();
+      primitiveDecor.userData.sunParts = [];
+      primitiveDecor.userData.cloudParts = [];
 
-      // a low, hazy, dying sun behind the haze of smoke
-      const sunGlow = makeGlowSprite(0xff8a4a, 8);
-      sunGlow.position.set(-6, 6, -60);
+      // a bright midday sun, high overhead - hidden once sunset/night falls
+      const sunGlow = makeGlowSprite(0xfff6d0, 9);
+      sunGlow.position.set(-10, 30, -70);
       primitiveDecor.add(sunGlow);
-      const sunCore = new THREE.Mesh(geo.sphere, basicMat(0xffcf9a));
-      sunCore.scale.set(1.5,1.5,1.5);
+      primitiveDecor.userData.sunParts.push(sunGlow);
+      const sunCore = new THREE.Mesh(geo.sphere, basicMat(0xffffff));
+      sunCore.scale.set(1.6,1.6,1.6);
       sunCore.position.copy(sunGlow.position);
       primitiveDecor.add(sunCore);
+      primitiveDecor.userData.sunParts.push(sunCore);
 
-      // a ruined city skyline ringing the horizon, silhouetted dark
-      // against the dusk sky, with scattered lit windows still burning
-      for(let i=0;i<16;i++){
-        const ang = (i/16)*Math.PI*2 + Math.random()*0.15;
-        const r = 30+Math.random()*26;
+      // a high drifting layer of proper puffy cumulus clouds, spread
+      // evenly across slots of the forward arc (with jitter) so they
+      // don't clump together, each casting a soft shadow on the ground
+      // below for a more three-dimensional, grounded feel - hidden once
+      // full night falls
+      const CLOUD_COUNT = 5;
+      for(let i=0;i<CLOUD_COUNT;i++){
+        const slot = (i/CLOUD_COUNT - 0.5)*1.9;
+        const cang = slot + (Math.random()-0.5)*0.22;
+        const cr = 28+Math.random()*48;
+        const cy = 13+Math.random()*16;
+        const cx = Math.sin(cang)*cr, cz = FPS_CAM_Z-Math.cos(cang)*cr-14;
+        const roll = Math.random();
+        const variant = roll<0.18 ? 2 : (roll<0.55 ? 1 : 0);
+        const cloud = makeCloudSprite((variant===2?7:6)+Math.random()*9, variant);
+        cloud.position.set(cx, cy, cz);
+        cloud.material.rotation = (Math.random()-0.5)*0.5;
+        primitiveDecor.add(cloud);
+        primitiveDecor.userData.cloudParts.push(cloud);
+        // thin wispy streaks are high, faint, and cast no visible ground
+        // shadow - only the puffy cumulus variants get one
+        if(variant!==2){
+          const shadow = new THREE.Mesh(geo.plane, basicMat(0x1a2a18, {transparent:true, opacity:0.16+Math.random()*0.06}));
+          shadow.rotation.x = -Math.PI/2;
+          const shadowScale = 3+Math.random()*3;
+          shadow.scale.set(shadowScale*1.6, shadowScale, 1);
+          shadow.position.set(cx+2, 0.03, cz+1.5);
+          primitiveDecor.add(shadow);
+          primitiveDecor.userData.cloudParts.push(shadow);
+        }
+      }
+
+      // a city skyline ringing the horizon, in the same bright, cheerful
+      // stone/concrete palette as the main game's own walls and blocks -
+      // varied silhouettes (sheared tops, skeletal frames, collapsed
+      // lean-tos) so it doesn't read as a row of identical boxes
+      const buildingPalette = [0xcfc6ac, 0xb8b4ae, 0xd8c9a3, 0xa8b0a0];
+      for(let i=0;i<20;i++){
+        const ang = (i/20)*Math.PI*2 + Math.random()*0.15;
+        const r = 28+Math.random()*28;
         const bx = Math.sin(ang)*r, bz = FPS_CAM_Z - Math.cos(ang)*r - 8;
-        const bw = 2.6+Math.random()*3.4, bh = 5+Math.random()*20, bd = 2.6+Math.random()*3.4;
-        const tilt = (Math.random()-0.5)*0.06; // a few lean, half-collapsed
-        const building = new THREE.Mesh(geo.box, basicMat(0x110d16));
-        building.scale.set(bw, bh, bd);
-        building.position.set(bx, bh/2, bz);
-        building.rotation.z = tilt;
-        primitiveDecor.add(building);
-        const winCount = 2+Math.floor(Math.random()*5);
-        for(let w=0;w<winCount;w++){
-          const win = new THREE.Mesh(geo.box, basicMat(Math.random()<0.7?0xffb35a:0x7ac8ff));
-          win.scale.set(0.28,0.32,0.04);
-          win.position.set(bx+(Math.random()*bw-bw/2)*0.75, Math.random()*bh*0.85+0.8, bz+bd/2+0.02);
-          primitiveDecor.add(win);
+        const bw = 2.4+Math.random()*3.2, bh = 5+Math.random()*21, bd = 2.4+Math.random()*3.2;
+        const buildingKind = Math.random();
+        const buildingMat = basicMat(buildingPalette[Math.floor(Math.random()*buildingPalette.length)]);
+        if(buildingKind<0.62){
+          // standard tower, but with a jagged sheared-off top instead of
+          // a flat roof - a smaller offset slab capping it at an angle
+          const tilt = (Math.random()-0.5)*0.07;
+          const building = new THREE.Mesh(geo.box, buildingMat);
+          building.scale.set(bw, bh, bd);
+          building.position.set(bx, bh/2, bz);
+          building.rotation.z = tilt;
+          primitiveDecor.add(building);
+          const shear = new THREE.Mesh(geo.box, buildingMat);
+          shear.scale.set(bw*0.7, bh*0.22, bd*0.7);
+          shear.position.set(bx+(Math.random()-0.5)*bw*0.3, bh+bh*0.08, bz);
+          shear.rotation.set((Math.random()-0.5)*0.5, 0, (Math.random()-0.5)*0.5+tilt);
+          primitiveDecor.add(shear);
+          const winCount = 2+Math.floor(Math.random()*5);
+          for(let w=0;w<winCount;w++){
+            const win = new THREE.Mesh(geo.box, basicMat(Math.random()<0.7?0xffb35a:0x7ac8ff));
+            win.scale.set(0.28,0.32,0.04);
+            win.position.set(bx+(Math.random()*bw-bw/2)*0.75, Math.random()*bh*0.85+0.8, bz+bd/2+0.02);
+            primitiveDecor.add(win);
+          }
+        } else if(buildingKind<0.84){
+          // fully collapsed - lying on its side, half-buried, no windows
+          const building = new THREE.Mesh(geo.box, buildingMat);
+          building.scale.set(bh*0.7, bw*0.8, bd*0.9);
+          building.position.set(bx, bw*0.4, bz);
+          building.rotation.z = Math.PI/2 - 0.15 + (Math.random()-0.5)*0.3;
+          building.rotation.y = Math.random()*Math.PI;
+          primitiveDecor.add(building);
+        } else {
+          // a skeletal, gutted frame - just the exposed structural beams,
+          // no walls left, sky visible straight through it
+          const beamMat = basicMat(0x9a9488);
+          for(let bi=0;bi<4;bi++){
+            const beam = new THREE.Mesh(geo.box, beamMat);
+            beam.scale.set(0.22, bh*0.9, 0.22);
+            const cx = (bi%2===0?-1:1)*bw*0.42, cz = (bi<2?-1:1)*bd*0.42;
+            beam.position.set(bx+cx, bh*0.45, bz+cz);
+            primitiveDecor.add(beam);
+          }
+          for(let fl=1;fl<4;fl++){
+            const floorSlab = new THREE.Mesh(geo.box, beamMat);
+            floorSlab.scale.set(bw*0.82, 0.12, bd*0.82);
+            floorSlab.position.set(bx, bh*0.9*(fl/4), bz);
+            primitiveDecor.add(floorSlab);
+          }
         }
       }
-
-      // smoke columns and glowing embers rising off the wreckage
-      for(let i=0;i<7;i++){
-        const sx = (Math.random()*2-1)*32, sz = FPS_CAM_Z-28-Math.random()*22;
-        for(let j=0;j<4;j++){
-          const smoke = makeGlowSprite(0x4a4650, 2.6+j*1.3);
-          smoke.position.set(sx+(Math.random()-0.5)*2.2, 3+j*3.2, sz);
-          primitiveDecor.add(smoke);
-        }
-        const fireGlow = makeGlowSprite(0xff6a2a, 2.2);
-        fireGlow.position.set(sx, 0.4, sz);
-        primitiveDecor.add(fireGlow);
-        const fireLight = new THREE.PointLight(0xff6a2a, 0.6, 10);
-        fireLight.position.set(sx, 0.6, sz);
-        primitiveDecor.add(fireLight);
-      }
-
       // rubble and shattered debris scattered around for ground-level
       // texture, kept clear of the lane straight ahead of the fixed eye
       // point so it never blocks the view of approaching comrades
@@ -6594,7 +8534,7 @@
         const r = 3+Math.random()*18;
         const rx = Math.sin(ang)*r, rz = FPS_CAM_Z - Math.cos(ang)*r - 4;
         if(Math.abs(rx)<1.5 && rz<FPS_CAM_Z) continue;
-        const rock = new THREE.Mesh(geo.icosa, basicMat(0x3a3a40));
+        const rock = new THREE.Mesh(geo.icosa, basicMat(0x8a8478));
         const rs = 0.16+Math.random()*0.3;
         rock.scale.set(rs, rs*0.65, rs);
         rock.position.set(rx, rs*0.4, rz);
@@ -6602,6 +8542,19 @@
         primitiveDecor.add(rock);
       }
 
+      // a handful of much more detailed "hero" buildings, close enough
+      // to actually be looked at - real window grids, floor trims, a
+      // shattered rebar corner - flanking the lane on both sides
+      const heroSpots = [
+        { x:-9.5, z:FPS_CAM_Z-16, w:3.2, h:9, d:3.0 },
+        { x:9.0, z:FPS_CAM_Z-13, w:2.8, h:12, d:2.6 },
+        { x:-11.5, z:FPS_CAM_Z-24, w:3.6, h:7, d:3.2 },
+      ];
+      for(const spot of heroSpots){
+        primitiveDecor.add(makeHeroBuilding(spot.x, spot.z, spot.w, spot.h, spot.d));
+      }
+
+      enableShadowsOn(primitiveDecor, true, false);
       scene.add(primitiveDecor);
     }
   }
@@ -6609,6 +8562,7 @@
     if(primitiveGround){ scene.remove(primitiveGround); primitiveGround = null; }
     if(primitiveDecor){ scene.remove(primitiveDecor); primitiveDecor = null; }
     if(primitiveSky){ scene.remove(primitiveSky); primitiveSky = null; }
+    fpsNightStars = null;
   }
 
   // A single dinosaur, built from simple tapered segments (tail, torso,
@@ -6802,6 +8756,11 @@
     shot.width = canvas.width;
     shot.height = canvas.height;
     const sctx = shot.getContext('2d');
+    // preserveDrawingBuffer is off (it's a known mobile-GPU performance/
+    // stability cost), so force one fresh render right before grabbing
+    // pixels - this still works reliably since nothing else renders
+    // between this call and the synchronous drawImage right after it
+    renderer.render(scene, camera);
     sctx.drawImage(canvas, 0, 0);
 
     sctx.textAlign = 'center';
@@ -7025,56 +8984,158 @@
   function makeGodMesh(){
     const g = new THREE.Group();
     const bodyMat = mat.godBody;
-    const robeLower = new THREE.Mesh(geo.hexPrism, bodyMat);
-    robeLower.scale.set(0.55, 0.9, 0.55);
-    robeLower.position.set(0, 0.45, 0);
-    g.add(robeLower);
+    const bodyMatDk = stdMat(0xe6d9bc, 0xcc9944, {metalness:0.5, roughness:0.24});
+    const goldMat = basicMat(0xffd68c);
+    const goldGlow = 0xfff2c0;
+
+    // robe: layered, flowing silhouette instead of one plain hex prism
+    const robeLayers = 3;
+    for(let i=0;i<robeLayers;i++){
+      const t = i/(robeLayers-1);
+      const layer = new THREE.Mesh(geo.hexPrism, i%2===0?bodyMat:bodyMatDk);
+      const rBot = 0.58-t*0.08;
+      layer.scale.set(rBot, 0.34, rBot);
+      layer.position.y = 0.18+i*0.32;
+      g.add(layer);
+      if(i<robeLayers-1){
+        const seam = new THREE.Mesh(geo.torus, basicMat(goldGlow, {transparent:true, opacity:0.5, side:THREE.DoubleSide}));
+        seam.scale.set(rBot*1.02, rBot*1.02, 0.35);
+        seam.rotation.x = Math.PI/2;
+        seam.position.y = 0.18+i*0.32+0.17;
+        g.add(seam);
+      }
+    }
     const robeTop = new THREE.Mesh(geo.hexPoint, bodyMat);
-    robeTop.scale.set(0.55, 0.4, 0.55);
-    robeTop.position.set(0, 0.9+0.2, 0);
+    robeTop.scale.set(0.44, 0.38, 0.44);
+    robeTop.position.y = 0.18+robeLayers*0.32-0.02;
     g.add(robeTop);
+
+    // trailing hem ribbons, swaying gently
+    const ribbons = new THREE.Group();
+    for(let i=0;i<3;i++){
+      const ribbon = new THREE.Mesh(geo.cone, basicMat(goldGlow, {transparent:true, opacity:0.5, side:THREE.DoubleSide}));
+      ribbon.scale.set(0.03, 0.5, 0.1);
+      const a = (i/3)*Math.PI*2+0.4;
+      ribbon.position.set(Math.cos(a)*0.3, 0.05, Math.sin(a)*0.3);
+      ribbon.rotation.x = Math.PI;
+      ribbon.userData.swayPhase = i*1.4;
+      ribbons.add(ribbon);
+    }
+    g.add(ribbons);
+    g.userData.ribbons = ribbons;
+
+    // chest emblem
+    const emblemGem = new THREE.Mesh(geo.icosa, basicMat(0xffffff, {transparent:true, opacity:0.92, side:THREE.DoubleSide}));
+    emblemGem.scale.set(0.08, 0.1, 0.05);
+    emblemGem.position.set(0, 0.78, 0.28);
+    g.add(emblemGem);
+    g.userData.emblemGem = emblemGem;
+    const emblemGlow = makeGlowSprite(goldGlow, 0.5);
+    emblemGlow.position.set(0, 0.78, 0.3);
+    g.add(emblemGlow);
+
+    // sleeved arms
+    for(const side of [-1,1]){
+      const sleeve = new THREE.Mesh(geo.cone, bodyMatDk);
+      sleeve.scale.set(0.16, 0.46, 0.16);
+      sleeve.position.set(side*0.46, 0.68, 0.05);
+      sleeve.rotation.z = side*0.25;
+      sleeve.rotation.x = 0.15;
+      g.add(sleeve);
+      const hand = new THREE.Mesh(geo.sphere, bodyMat);
+      hand.scale.set(0.075,0.075,0.075);
+      hand.position.set(side*0.58, 0.48, 0.16);
+      g.add(hand);
+    }
+
+    // head
     const head = new THREE.Mesh(geo.sphere, bodyMat);
-    head.scale.set(0.32,0.32,0.32);
-    head.position.set(0, 1.25, 0);
+    head.scale.set(0.3,0.34,0.3);
+    head.position.set(0, 1.35, 0);
     g.add(head);
-    const core = new THREE.Mesh(geo.sphere, basicMat(0xffffff, {transparent:true, opacity:0.9}));
+    const faceGlow = makeGlowSprite(0xfff8ec, 0.4);
+    faceGlow.position.set(0, 1.33, 0.26);
+    g.add(faceGlow);
+    g.userData.faceGlow = faceGlow;
+    const core = new THREE.Mesh(geo.sphere, basicMat(0xffffff, {transparent:true, opacity:0.9, side:THREE.DoubleSide}));
     core.scale.set(0.16,0.16,0.16);
-    core.position.set(0, 0.75, 0.28);
+    core.position.set(0, 0.78, 0.24);
     g.add(core);
+    g.userData.core = core;
     const coreLight = new THREE.PointLight(0xfff6d8, 1.3, 3.6);
-    coreLight.position.set(0, 0.75, 0);
+    coreLight.position.set(0, 0.78, 0);
     g.add(coreLight);
-    // large layered-feather wings, spreading wide from the back
-    const wingMat = basicMat(0xffffff, {transparent:true, opacity:0.92});
+    g.userData.coreLight = coreLight;
+
+    // wings: two feather rows for real volume, trimmed a bit from the
+    // review draft to keep the god's total mesh count reasonable
     for(const side of [-1,1]){
       const wing = new THREE.Group();
-      for(let i=0;i<6;i++){
-        const t = i/5;
-        const feather = new THREE.Mesh(geo.icosa, wingMat);
-        feather.scale.set(0.22-t*0.05, 0.09, 0.55-t*0.3);
-        feather.position.set(side*(0.3+t*0.95), 0.15-t*0.25, -0.1-t*0.55);
-        feather.rotation.y = side*(0.3+t*0.15);
+      const primaryCount = 5;
+      for(let i=0;i<primaryCount;i++){
+        const t = i/(primaryCount-1);
+        const feather = new THREE.Mesh(geo.icosa, basicMat(0xffffff, {transparent:true, opacity:0.94, side:THREE.DoubleSide}));
+        feather.scale.set(0.22-t*0.06, 0.09, 0.6-t*0.34);
+        feather.position.set(side*(0.32+t*1.0), 0.13-t*0.3, -0.12-t*0.6);
+        feather.rotation.y = side*(0.32+t*0.16);
         feather.rotation.z = side*0.1;
         wing.add(feather);
       }
-      wing.position.set(side*0.32, 0.95, -0.15);
+      const covertCount = 4;
+      for(let i=0;i<covertCount;i++){
+        const t = i/(covertCount-1);
+        const covert = new THREE.Mesh(geo.icosa, basicMat(0xfaf3e6, {transparent:true, opacity:0.9, side:THREE.DoubleSide}));
+        covert.scale.set(0.15-t*0.04, 0.07, 0.3-t*0.15);
+        covert.position.set(side*(0.28+t*0.58), 0.2-t*0.1, -0.05-t*0.28);
+        covert.rotation.y = side*(0.25+t*0.1);
+        wing.add(covert);
+      }
+      wing.position.set(side*0.34, 0.98, -0.16);
       wing.rotation.z = side*0.15;
       g.userData['wing'+side] = wing;
       g.add(wing);
     }
-    // a halo, floating above the head - the boss's real signature, not an
-    // afterthought bolted onto a saucer
-    const halo = new THREE.Mesh(geo.ring, basicMat(0xfff2c0, {transparent:true, opacity:0.85, side:THREE.DoubleSide}));
-    halo.rotation.x = -Math.PI/2.3;
-    halo.scale.set(0.42, 0.42, 1);
-    halo.position.set(0, 1.65, 0.05);
-    g.add(halo);
-    const haloGlow = makeGlowSprite(0xfff6d8, 1.8);
-    haloGlow.position.set(0, 1.65, 0.05);
-    g.add(haloGlow);
+
+    // halo: double ring + radiating spokes + a few orbiting motes
+    const haloGroup = new THREE.Group();
+    const haloOuter = new THREE.Mesh(geo.ring, basicMat(goldGlow, {transparent:true, opacity:0.85, side:THREE.DoubleSide}));
+    haloOuter.scale.set(0.44, 0.44, 1);
+    haloGroup.add(haloOuter);
+    const haloInner = new THREE.Mesh(geo.torus, basicMat(0xffffff, {transparent:true, opacity:0.7, side:THREE.DoubleSide}));
+    haloInner.scale.set(0.28, 0.28, 0.55);
+    haloGroup.add(haloInner);
+    const spokeCount = 6;
+    for(let i=0;i<spokeCount;i++){
+      const a = (i/spokeCount)*Math.PI*2;
+      const spoke = new THREE.Mesh(geo.cone, goldMat);
+      spoke.scale.set(0.015, 0.09, 0.015);
+      spoke.position.set(Math.cos(a)*0.48, 0, Math.sin(a)*0.48);
+      spoke.rotation.z = Math.PI/2;
+      spoke.rotation.y = -a;
+      haloGroup.add(spoke);
+    }
+    haloGroup.rotation.x = -Math.PI/2.3;
+    haloGroup.position.set(0, 1.62, 0.06);
+    g.add(haloGroup);
+    g.userData.haloGroup = haloGroup;
+    const haloGlowSprite = makeGlowSprite(0xfff6d8, 1.9);
+    haloGlowSprite.position.set(0, 1.62, 0.06);
+    g.add(haloGlowSprite);
     const haloLight = new THREE.PointLight(0xfff2c0, 0.9, 2.8);
-    haloLight.position.set(0, 1.65, 0);
+    haloLight.position.set(0, 1.62, 0);
     g.add(haloLight);
+    const motes = new THREE.Group();
+    for(let i=0;i<4;i++){
+      const mote = new THREE.Mesh(geo.sphere, basicMat(0xfff2c0));
+      mote.scale.set(0.03,0.03,0.03);
+      mote.userData.orbitAngle = (i/4)*Math.PI*2;
+      mote.userData.orbitR = 0.58+Math.random()*0.1;
+      mote.userData.orbitSpeed = 0.5+Math.random()*0.3;
+      motes.add(mote);
+    }
+    haloGroup.add(motes);
+    g.userData.haloMotes = motes;
+
     const shadow = new THREE.Mesh(geo.ring, basicMat(0x000000, {transparent:true, opacity:0.3, side:THREE.DoubleSide}));
     shadow.rotation.x = -Math.PI/2;
     shadow.scale.set(0.6,0.6,1);
@@ -7096,6 +9157,29 @@
     const wingL = b.mesh3d.userData['wing-1'], wingR = b.mesh3d.userData['wing1'];
     if(wingL) wingL.rotation.z = -0.15 - wingFlap;
     if(wingR) wingR.rotation.z = 0.15 + wingFlap;
+    if(b.mesh3d.userData.haloGroup) b.mesh3d.userData.haloGroup.rotation.z += 0.006;
+    if(b.mesh3d.userData.haloMotes){
+      for(const mote of b.mesh3d.userData.haloMotes.children){
+        const a = mote.userData.orbitAngle + t*mote.userData.orbitSpeed;
+        mote.position.set(Math.cos(a)*mote.userData.orbitR, Math.sin(a)*mote.userData.orbitR*0.3, Math.sin(a)*mote.userData.orbitR);
+      }
+    }
+    if(b.mesh3d.userData.core){
+      const corePulse = 1+0.15*Math.sin(t*2.4);
+      b.mesh3d.userData.core.scale.set(0.16*corePulse,0.16*corePulse,0.16*corePulse);
+    }
+    if(b.mesh3d.userData.emblemGem){
+      b.mesh3d.userData.emblemGem.material.opacity = 0.75+0.2*Math.sin(t*3+1);
+    }
+    if(b.mesh3d.userData.faceGlow){
+      b.mesh3d.userData.faceGlow.material.opacity = 0.5+0.2*Math.sin(t*1.6);
+    }
+    if(b.mesh3d.userData.ribbons){
+      b.mesh3d.userData.ribbons.children.forEach(ribbon=>{
+        ribbon.rotation.z = Math.sin(t*1.2+ribbon.userData.swayPhase)*0.15;
+        ribbon.rotation.x = Math.PI+Math.cos(t*0.9+ribbon.userData.swayPhase)*0.1;
+      });
+    }
     dynamicGroup.add(b.mesh3d);
   }
 
@@ -7328,6 +9412,18 @@
         const tglow = makeGlowSprite(0xffe066, 0.9);
         tglow.position.set(w.x, 0.42+bob, w.z);
         dynamicGroup.add(tglow);
+      } else if(RELIC_INFO[it.type]){
+        // one of the seven relics - its own distinct gold model, spinning
+        // and bobbing just like the other treasures
+        const rmesh = makeRelicMesh(it.type);
+        rmesh.position.set(w.x, 0.5+bob, w.z);
+        rmesh.rotation.y = performance.now()/900;
+        dynamicGroup.add(rmesh);
+        if(it.type!=='relicHalo'){
+          const rglow = makeGlowSprite(0xffe066, 0.8);
+          rglow.position.set(w.x, 0.5+bob, w.z);
+          dynamicGroup.add(rglow);
+        }
       } else {
         const iconSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: itemTextures[it.type], transparent:true }));
         iconSprite.scale.set(0.95,0.95,1);
@@ -7489,6 +9585,27 @@
         const boltLight = new THREE.PointLight(0xff2020, 1.1, 2.6);
         boltLight.position.set(w.x, 1.15, w.z);
         dynamicGroup.add(boltLight);
+        continue;
+      }
+      if(p.godly){
+        // the creator god's own bolts - radiant gold-white, with a bright
+        // core, a soft halo glow, and a real point light, unmistakably
+        // divine rather than just another boss's orange spark
+        const wTrailG = pixelToWorld(p.x - p.dx*7, p.y - p.dy*7);
+        const trailG = new THREE.Mesh(geo.sphere, basicMat(0xffe066, {transparent:true, opacity:0.4}));
+        trailG.scale.set(0.24,0.24,0.24);
+        trailG.position.set(wTrailG.x, 1.15, wTrailG.z);
+        dynamicGroup.add(trailG);
+        const boltG = new THREE.Mesh(geo.sphere, basicMat(0xfff6d8));
+        boltG.scale.set(0.17,0.17,0.17);
+        boltG.position.set(w.x, 1.15, w.z);
+        dynamicGroup.add(boltG);
+        const boltGlowG = makeGlowSprite(0xffe066, 0.85);
+        boltGlowG.position.set(w.x, 1.15, w.z);
+        dynamicGroup.add(boltGlowG);
+        const boltLightG = new THREE.PointLight(0xffe066, 0.7, 2.2);
+        boltLightG.position.set(w.x, 1.15, w.z);
+        dynamicGroup.add(boltLightG);
         continue;
       }
       const wTrail = pixelToWorld(p.x - p.dx*6, p.y - p.dy*6);
@@ -7718,18 +9835,30 @@
     }
 
     // the transcended player's god beam - thicker and brighter gold than
-    // the destroy ray, with a bigger muzzle flare to sell the extra
-    // spectacle
+    // the destroy ray, with a bigger muzzle flare and a string of glow
+    // puffs riding its length so it reads as a genuinely blazing shaft of
+    // light rather than a thin solid cylinder
     if(godBeamBeam){
-      const alphaG = Math.max(0, godBeamBeam.timer/0.4);
+      const alphaG = Math.max(0, godBeamBeam.timer/0.55);
       const endPxG = godBeamBeam.x + godBeamBeam.dx*700;
       const endPyG = godBeamBeam.y + godBeamBeam.dy*700;
-      renderBeamSegment(godBeamBeam.x, godBeamBeam.y, endPxG, endPyG, 0xffd75e, 0.28, alphaG, 1.1);
-      const muzzleGlowG = makeGlowSprite(0xfff2c0, 2.6*alphaG+0.4);
+      // a wide, soft halo pass first, then the brighter core beam on top -
+      // reads as a genuinely glowing energy shaft instead of a thin rod
+      renderBeamSegment(godBeamBeam.x, godBeamBeam.y, endPxG, endPyG, 0xffe066, 1.15, alphaG*0.5, 1.1);
+      renderBeamSegment(godBeamBeam.x, godBeamBeam.y, endPxG, endPyG, 0xffcc00, 0.58, alphaG, 1.1);
       const mwG = pixelToWorld(godBeamBeam.x, godBeamBeam.y);
+      const ewG = pixelToWorld(endPxG, endPyG);
+      const beamGlowSteps = 7;
+      for(let s=0;s<beamGlowSteps;s++){
+        const t = s/(beamGlowSteps-1);
+        const glowSeg = makeGlowSprite(0xffe066, (2.0-t*0.9)*alphaG+0.4);
+        glowSeg.position.set(mwG.x+(ewG.x-mwG.x)*t, 1.1, mwG.z+(ewG.z-mwG.z)*t);
+        dynamicGroup.add(glowSeg);
+      }
+      const muzzleGlowG = makeGlowSprite(0xfff0b0, 4.2*alphaG+0.6);
       muzzleGlowG.position.set(mwG.x, 1.1, mwG.z);
       dynamicGroup.add(muzzleGlowG);
-      const muzzleLightG = new THREE.PointLight(0xffd75e, 1.6*alphaG, 4.5);
+      const muzzleLightG = new THREE.PointLight(0xffcc00, 2.8*alphaG, 7.5);
       muzzleLightG.position.set(mwG.x, 1.1, mwG.z);
       dynamicGroup.add(muzzleLightG);
     }
@@ -8001,6 +10130,11 @@
     // and the miniboss - all in raw world coordinates directly, since
     // there's no grid here to convert through
     if(stage===23){
+      for(const a of shooterAfterimages){
+        const t = Math.max(0, a.life/a.maxLife);
+        a.mesh.traverse(o=>{ if(o.material) o.material.opacity = 0.32*t; });
+        dynamicGroup.add(a.mesh);
+      }
       for(const b of shooterBullets){
         const bolt = new THREE.Mesh(geo.sphere, basicMat(0xfff2c0));
         bolt.scale.set(0.1,0.1,0.26);
@@ -8011,11 +10145,43 @@
         dynamicGroup.add(bglow);
       }
       for(const en of shooterEnemies){
-        const rock = new THREE.Mesh(geo.icosa, basicMat(0x8a6a4a));
-        rock.scale.set(0.34,0.3,0.34);
-        rock.position.set(en.wx, 0.65, en.wz);
-        rock.rotation.set(en.wobble, en.wobble*0.7, en.wobble*0.4);
-        dynamicGroup.add(rock);
+        if(!en.mesh3d) en.mesh3d = makeShooterEnemyMesh(en.type);
+        en.mesh3d.position.set(en.wx, 0.65, en.wz);
+        en.mesh3d.rotation.y = Math.PI;
+        en.mesh3d.rotation.z = Math.sin(en.wobble*1.6)*0.35;
+        dynamicGroup.add(en.mesh3d);
+      }
+      const tHazard = performance.now()/1000;
+      for(const a of shooterAsteroids){
+        if(a.kind==='laser'){
+          const core = new THREE.Mesh(geo.cylinder, basicMat(0xfff2c0));
+          core.scale.set(0.12, 1.7, 0.12);
+          core.position.set(a.wx, 0.85, a.wz);
+          dynamicGroup.add(core);
+          const outer = new THREE.Mesh(geo.cylinder, basicMat(0xff3b3b, {transparent:true, opacity:0.5}));
+          outer.scale.set(0.34, 1.7, 0.34);
+          outer.position.set(a.wx, 0.85, a.wz);
+          dynamicGroup.add(outer);
+          for(let i=0;i<2;i++){
+            const ring = new THREE.Mesh(geo.ring, basicMat(0xff6a4a, {transparent:true, opacity:0.7, side:THREE.DoubleSide}));
+            ring.scale.set(0.42, 0.42, 1);
+            ring.position.set(a.wx, 0.4+i*0.9, a.wz);
+            ring.rotation.x = Math.PI/2 + Math.sin(tHazard*3+i)*0.3;
+            ring.rotation.z = tHazard*2+i;
+            dynamicGroup.add(ring);
+          }
+          const beamGlow = makeGlowSprite(0xff6a4a, 1.3);
+          beamGlow.position.set(a.wx, 0.85, a.wz);
+          dynamicGroup.add(beamGlow);
+          const beamLight = new THREE.PointLight(0xff3b3b, 0.8, 3);
+          beamLight.position.set(a.wx, 0.85, a.wz);
+          dynamicGroup.add(beamLight);
+        } else {
+          if(!a.mesh3d) a.mesh3d = makeAsteroidMesh();
+          a.mesh3d.position.set(a.wx, 0.65, a.wz);
+          a.mesh3d.rotation.set(a.spin, a.spin*0.6, a.spin*0.3);
+          dynamicGroup.add(a.mesh3d);
+        }
       }
       for(const eb of shooterEnemyBullets){
         const ebm = new THREE.Mesh(geo.sphere, basicMat(0xff3b6b));
@@ -8043,6 +10209,17 @@
           bar.position.set(mb.wx-(barMaxW-barW)/2, 2.3, mb.wz);
           dynamicGroup.add(bar);
         }
+        if(mb.laserCharging){
+          const chargeP = Math.max(0, Math.min(1, mb.laserChargeClock/1.8));
+          const orb = new THREE.Mesh(geo.sphere, basicMat(0xff3b3b, {transparent:true, opacity:0.6+0.3*chargeP}));
+          const orbScale = 0.15+0.35*chargeP;
+          orb.scale.set(orbScale, orbScale, orbScale);
+          orb.position.set(mb.wx, 0.9, mb.wz+0.7);
+          dynamicGroup.add(orb);
+          const chargeGlow = makeGlowSprite(0xff6a4a, 0.6+1.2*chargeP);
+          chargeGlow.position.set(mb.wx, 0.9, mb.wz+0.7);
+          dynamicGroup.add(chargeGlow);
+        }
       }
     }
 
@@ -8051,12 +10228,18 @@
     if(stage===26){
       const fpCamPos = { x:0, y:FPS_EYE_HEIGHT, z:FPS_CAM_Z };
       const tFps = performance.now()/1000;
+      if(fpsNightStars){
+        for(const star of fpsNightStars.children){
+          const tw = 0.5+0.5*Math.sin(tFps*star.userData.twinkleSpeed+star.userData.twinklePhase);
+          star.material.opacity = star.userData.baseOpacity*(0.4+0.6*tw);
+        }
+      }
       for(const d of fpsDinos){
         const dx = fpCamPos.x + Math.sin(d.yaw)*d.dist;
         const dz = fpCamPos.z - Math.cos(d.yaw)*d.dist;
         if(!d.mesh3d){
-          d.mesh3d = makeCharacterMesh(mat.enemyBody, mat.enemyVisor, 0xffb3b3, true);
-          d.mesh3d.scale.set(1.8,1.8,1.8);
+          d.mesh3d = makeFPSComradeMesh();
+          d.mesh3d.scale.set(1.35,1.35,1.35);
         }
         const pD = worldToPixel(dx, dz);
         const facingAngleD = Math.atan2(fpCamPos.x-dx, fpCamPos.z-dz);
@@ -8064,11 +10247,43 @@
         // a flickering red malfunction aura - these are hijacked, not
         // simply hostile, and it should read that way at a glance
         const glitch = 0.55+0.45*Math.sin(tFps*9+d.wobble*4);
+        if(d.mesh3d.userData.visorGlow){
+          const vs = 0.32+0.18*glitch;
+          d.mesh3d.userData.visorGlow.scale.set(vs, vs, 1);
+        }
+        if(d.mesh3d.userData.statusLight){
+          d.mesh3d.userData.statusLight.visible = Math.sin(tFps*6+d.wobble*3)>-0.3;
+        }
+        if(d.mesh3d.userData.coreGlow){
+          d.mesh3d.userData.coreGlow.material.opacity = 0.5+0.5*Math.sin(tFps*7+d.wobble*3+1.2);
+        }
+        if(d.mesh3d.userData.dishLight){
+          d.mesh3d.userData.dishLight.visible = Math.sin(tFps*6+d.wobble*3+2)>-0.2;
+        }
+        // walking leg-swing while actually closing the distance to its
+        // stand-off point; a very slight idle sway once it's holding
+        if(d.mesh3d.userData.leftLeg && d.mesh3d.userData.rightLeg){
+          const isWalking = d.dist > d.standDist + 0.02;
+          const walkSwing = isWalking ? Math.sin(d.wobble*7)*0.5 : Math.sin(d.wobble*1.5)*0.05;
+          d.mesh3d.userData.leftLeg.rotation.x = walkSwing;
+          d.mesh3d.userData.rightLeg.rotation.x = -walkSwing;
+        }
+        // bomb-throw arm swing - a single back-and-through arc timed to
+        // the shared throwAnim window set the instant this comrade lobs
+        // a bomb (see the thrown-bomb attack code in updateFPS)
+        if(d.mesh3d.userData.rightArm){
+          if(d.throwAnim>0){
+            const throwT = 1 - d.throwAnim/0.6;
+            d.mesh3d.userData.rightArm.rotation.x = -Math.sin(throwT*Math.PI)*1.3;
+          } else {
+            d.mesh3d.userData.rightArm.rotation.x = 0;
+          }
+        }
         const auraGlow = makeGlowSprite(0xff2020, 0.55*glitch+0.3);
         auraGlow.position.set(dx, 1.35, dz);
         dynamicGroup.add(auraGlow);
         if(Math.sin(tFps*14+d.wobble*7)>0.85){
-          const spark = new THREE.Mesh(geo.sphere, basicMat(0x7ef2ff));
+          const spark = new THREE.Mesh(geo.sphere, basicMat(0xffcf6a));
           spark.scale.set(0.05,0.05,0.05);
           spark.position.set(dx+(Math.random()-0.5)*0.4, 1.5+Math.random()*0.3, dz+(Math.random()-0.5)*0.4);
           dynamicGroup.add(spark);
@@ -8079,25 +10294,83 @@
         const bx = fpCamPos.x + Math.sin(b.yaw)*b.dist;
         const bz = fpCamPos.z - Math.cos(b.yaw)*b.dist;
         if(!b.mesh3d){
-          b.mesh3d = makeAlienBossMesh(false, 'dual');
+          b.mesh3d = makeFPSBossMesh();
           b.mesh3d.scale.set(1.9,1.9,1.9);
         }
         const pB = worldToPixel(bx, bz);
         const facingAngleB = Math.atan2(fpCamPos.x-bx, fpCamPos.z-bz);
         renderCharacter3D({ x:pB.px-ENTITY_SIZE/2, y:pB.py-ENTITY_SIZE/2 }, b.mesh3d, false, facingAngleB);
-        // glowing hand-cannon accents either side, brightening just before
-        // it fires so the beam attack reads as coming from its hands
+        if(b.mesh3d.userData.coreGlowSprite){
+          const corePulse = 1+0.12*Math.sin(tFps*2.6);
+          b.mesh3d.userData.coreGlowSprite.scale.set(1.7*corePulse, 1.7*corePulse, 1);
+          b.mesh3d.userData.coreGlow.intensity = 0.9+0.3*Math.sin(tFps*2.6);
+        }
+        if(fpsBossFlashTimer>0 && b.mesh3d.userData.headPoint){
+          const chargeT = 1 - fpsBossFlashTimer/1.7;
+          const hp = new THREE.Vector3();
+          b.mesh3d.userData.headPoint.getWorldPosition(hp);
+          // strobe speeds up as the charge builds, for urgency
+          const strobe = 0.6+0.4*Math.sin(tFps*(4+chargeT*14));
+          // a wide amber outer halo, growing steadily
+          const outerGlow = makeGlowSprite(0xffaa33, 0.6+3.2*chargeT);
+          outerGlow.position.set(hp.x, hp.y, hp.z);
+          dynamicGroup.add(outerGlow);
+          // a smaller, much brighter hot-white core riding on top, pulsing
+          const coreGlow = makeGlowSprite(0xffffff, (0.3+2.2*chargeT)*(0.7+0.3*strobe));
+          coreGlow.position.set(hp.x, hp.y, hp.z);
+          dynamicGroup.add(coreGlow);
+          const flashLight = new THREE.PointLight(0xffcc66, (0.6+5*chargeT)*strobe, 8);
+          flashLight.position.set(hp.x, hp.y, hp.z);
+          dynamicGroup.add(flashLight);
+          // small warning sparks orbiting the head, more of them and
+          // faster as the charge nears completion
+          const sparkCount = 3+Math.floor(chargeT*5);
+          for(let i=0;i<sparkCount;i++){
+            const a = (i/sparkCount)*Math.PI*2 + tFps*(2+chargeT*6);
+            const r = 0.35+0.15*Math.sin(tFps*5+i);
+            const spark = makeGlowSprite(0xffe066, 0.16+0.12*chargeT);
+            spark.position.set(hp.x+Math.cos(a)*r, hp.y+Math.sin(a*1.3)*r*0.5, hp.z+Math.sin(a)*r);
+            dynamicGroup.add(spark);
+          }
+        }
+        if(b.mesh3d.userData.organs){
+          b.mesh3d.userData.organs.children.forEach((organ,i)=>{
+            organ.material.opacity = 0.6+0.35*Math.sin(tFps*3+i*1.3);
+          });
+        }
+        if(b.mesh3d.userData.tentacles){
+          b.mesh3d.userData.tentacles.children.forEach(tGroup=>{
+            tGroup.rotation.x = Math.sin(tFps*1.4+tGroup.userData.swayPhase)*0.12;
+            tGroup.rotation.z = Math.cos(tFps*1.1+tGroup.userData.swayPhase)*0.1;
+          });
+        }
+        if(b.mesh3d.userData.frills){
+          b.mesh3d.userData.frills.rotation.z = Math.sin(tFps*1.6)*0.06;
+          b.mesh3d.userData.frills.rotation.x = Math.sin(tFps*1.2)*0.04;
+        }
+        // glowing hand-cannon accent, brightening just before it fires so
+        // the beam attack reads as coming from its hand - only the gun
+        // that's actually about to fire pulses; the other stays at a
+        // faint idle glow
         const chargeUp = fpsPhase==='boss' ? Math.max(0, 1-b.attackTimer/0.5) : 0;
         for(const side of [-1,1]){
-          const hx = bx + Math.cos(b.yaw)*side*0.55;
-          const hz = bz + Math.sin(b.yaw)*side*0.55;
-          const cannonGlow = makeGlowSprite(0xff3b3b, 0.5+0.8*chargeUp);
-          cannonGlow.position.set(hx, 1.1, hz);
+          const muzzle = b.mesh3d.userData['gunMuzzle'+side];
+          let hx, hy, hz;
+          if(muzzle){
+            const wp = new THREE.Vector3();
+            muzzle.getWorldPosition(wp);
+            hx = wp.x; hy = wp.y; hz = wp.z;
+          } else {
+            hx = bx + Math.cos(b.yaw)*side*0.75;
+            hy = 1.0;
+            hz = bz + Math.sin(b.yaw)*side*0.75;
+          }
+          const isNextToFire = side===(b.nextHand||1);
+          const glowSize = isNextToFire ? 0.5+0.8*chargeUp : 0.3;
+          const cannonGlow = makeGlowSprite(0xff3b3b, glowSize);
+          cannonGlow.position.set(hx, hy, hz);
           dynamicGroup.add(cannonGlow);
         }
-        const auraLight = new THREE.PointLight(0xff3b3b, 0.7+0.6*chargeUp, 5);
-        auraLight.position.set(bx, 1.3, bz);
-        dynamicGroup.add(auraLight);
       }
       // the creator god itself, descending faintly from above, facing
       // straight back at the player - visible only while it's actually
@@ -8128,21 +10401,52 @@
         const bz = fpCamPos.z - Math.cos(bm.yaw)*curDist;
         const urgency = Math.max(0, 1-bm.fuse/0.6);
         if(bm.kind==='beam'){
-          // a searing red bolt fired straight from the boss's hand cannons
-          const by = 1.35;
+          // a searing red laser bolt that travels in a straight line from
+          // the gun's actual live world position (read directly off the
+          // boss mesh, not approximated with trig) to the player, so both
+          // the leading shot and its trailing glow genuinely originate
+          // from the ray gun instead of the body's center line
+          const side = bm.hand || 1;
+          let originX, originZ, originY = 1.0;
+          const muzzle = fpsBoss && fpsBoss.mesh3d && fpsBoss.mesh3d.userData['gunMuzzle'+side];
+          if(muzzle){
+            const wp = new THREE.Vector3();
+            muzzle.getWorldPosition(wp);
+            originX = wp.x; originZ = wp.z; originY = wp.y;
+          } else {
+            const offX = Math.cos(bm.yaw)*side*0.75;
+            const offZ = Math.sin(bm.yaw)*side*0.75;
+            originX = fpCamPos.x + Math.sin(bm.yaw)*bm.startDist + offX;
+            originZ = fpCamPos.z - Math.cos(bm.yaw)*bm.startDist + offZ;
+          }
+          const targetX = fpCamPos.x + Math.sin(bm.yaw)*1.2;
+          const targetZ = fpCamPos.z - Math.cos(bm.yaw)*1.2;
+          const curX = originX + (targetX-originX)*travel;
+          const curZ = originZ + (targetZ-originZ)*travel;
+          const by = originY;
           const bg = new THREE.Mesh(geo.sphere, basicMat(0xff3b3b));
           bg.scale.set(0.14,0.14,0.14);
-          bg.position.set(bx, by, bz);
+          bg.position.set(curX, by, curZ);
           dynamicGroup.add(bg);
           const bglow = makeGlowSprite(0xff5a3b, 1.1+0.6*urgency);
-          bglow.position.set(bx, by, bz);
+          bglow.position.set(curX, by, curZ);
           dynamicGroup.add(bglow);
+          const trailSteps = 6;
+          for(let s=0;s<trailSteps;s++){
+            const tt = s/(trailSteps-1);
+            const tx = originX + (curX-originX)*tt;
+            const tz = originZ + (curZ-originZ)*tt;
+            const trailGlow = makeGlowSprite(0xff3b3b, 0.4+0.35*(1-tt));
+            trailGlow.position.set(tx, by, tz);
+            dynamicGroup.add(trailGlow);
+          }
         } else {
           const arcH = Math.sin(travel*Math.PI)*1.1;
-          const bomb = new THREE.Mesh(geo.sphere, basicMat(0x1a1a1a));
-          bomb.scale.set(0.18,0.18,0.18);
-          bomb.position.set(bx, 1.0+arcH, bz);
-          dynamicGroup.add(bomb);
+          if(!bm.mesh3d) bm.mesh3d = makeThrownBombMesh();
+          bm.mesh3d.position.set(bx, 1.0+arcH, bz);
+          bm.mesh3d.rotation.set(travel*6, travel*4, travel*3);
+          bm.mesh3d.scale.set(1.6,1.6,1.6);
+          dynamicGroup.add(bm.mesh3d);
           if(urgency>0){
             const warnGlow = makeGlowSprite(0xff2020, 1.3*urgency);
             warnGlow.position.set(bx, 1.0+arcH, bz);
@@ -8344,7 +10648,11 @@
       burst2.position.set(w.x, 0.05, w.z);
       dynamicGroup.add(burst2);
     }
-    if(heavenMode){
+    if(stage>=24 && stage<=26){
+      // the FPS section's own background (setupPrimitiveTheme, or the
+      // creator god's temporary starfield vision) is managed elsewhere -
+      // this generic per-stage theme logic must not touch it here
+    } else if(heavenMode){
       scene.background = new THREE.Color(0xfff3d6);
       scene.fog.color = new THREE.Color(0xffe9b8);
       if(heavenDecor){

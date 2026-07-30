@@ -2289,7 +2289,7 @@
     bombPlace(){ playTone(220, 0.07, 'square', 0.12); },
     kick(){ playTone(140, 0.05, 'square', 0.1); },
     stepItem(){ playTone(660, 0.08, 'square', 0.14); playTone(880, 0.09, 'square', 0.14, 0.08); },
-    explosion(){ playNoise(0.32, 0.22); playSlide(180, 40, 0.3, 'sawtooth', 0.14); },
+    explosion(){ playNoise(0.55, 0.22); playSlide(180, 35, 0.5, 'sawtooth', 0.14); },
     enemyDeath(){ playTone(320, 0.12, 'triangle', 0.16); playTone(160, 0.14, 'triangle', 0.13, 0.06); },
     playerDeath(){ playSlide(440, 90, 0.6, 'sawtooth', 0.18); },
     bossHit(){ playNoise(0.12, 0.18); playTone(140, 0.1, 'square', 0.1); },
@@ -2747,6 +2747,7 @@
   const EXPLOSION_DURATION = 0.45;
   const SAFE_GRACE = 0.6; // how long a just-destroyed block's tile stays guaranteed-safe
   const ROLL_SPEED = 230;
+  const KICK_CHAIN_DELAY = 0.25; // grace period before a bomb that rolls into a lingering blast catches fire, so the kicker has a moment to dodge clear
   const ITEM_DROP_CHANCE = 0.35;
   const ITEM_TYPES = ['bombUp','fireUp','speedUp'];
   const ITEM_ICON = { bombUp:'💣', fireUp:'🔥', speedUp:'🛼' };
@@ -6454,19 +6455,47 @@
   function updateRollingBombs(dt){
     for(const b of bombs){
       if(b.exploded || !b.rolling) continue;
-      b.cx += b.rollDx*ROLL_SPEED*dt;
-      b.cy += b.rollDy*ROLL_SPEED*dt;
-      const newGx = Math.floor(b.cx/TILE), newGy = Math.floor(b.cy/TILE);
-      if(newGx!==b.gx || newGy!==b.gy){
-        const blocked = isSolidTile(newGx,newGy) ||
-          bombs.some(o=>o!==b && !o.exploded && o.gx===newGx && o.gy===newGy) ||
-          livingBlockerAtCell(newGx,newGy);
-        if(blocked){
-          b.cx = b.gx*TILE+TILE/2;
-          b.cy = b.gy*TILE+TILE/2;
-          b.rolling = false;
-        } else {
-          b.gx = newGx; b.gy = newGy;
+      // Move in capped sub-steps rather than one big jump. A single large
+      // dt (frame hitch) could otherwise carry cx/cy clean past an entire
+      // tile in one go, and since only the *final* landed tile was ever
+      // checked, an intervening tile - a wall, or a tile with a lingering
+      // blast - could get skipped over without ever being tested against.
+      // The longer a bomb rolls, the more frames it takes, and the more
+      // chances there are to hit one bad frame - which is why this mostly
+      // showed up on long kicks. Capping each sub-step at half a tile
+      // guarantees every tile boundary along the way gets its own check.
+      let dist = ROLL_SPEED*dt;
+      while(dist>0 && b.rolling){
+        const step = Math.min(dist, TILE*0.5);
+        dist -= step;
+        b.cx += b.rollDx*step;
+        b.cy += b.rollDy*step;
+        const newGx = Math.floor(b.cx/TILE), newGy = Math.floor(b.cy/TILE);
+        if(newGx!==b.gx || newGy!==b.gy){
+          const blocked = isSolidTile(newGx,newGy) ||
+            bombs.some(o=>o!==b && !o.exploded && o.gx===newGx && o.gy===newGy) ||
+            livingBlockerAtCell(newGx,newGy);
+          if(blocked){
+            b.cx = b.gx*TILE+TILE/2;
+            b.cy = b.gy*TILE+TILE/2;
+            b.rolling = false;
+          } else {
+            b.gx = newGx; b.gy = newGy;
+            // check for a lingering blast the instant the bomb enters this
+            // tile, rather than waiting for the end of the whole frame's
+            // movement, so a fast/long roll can't pass through unnoticed
+            if(!b.exploded && !b.chainIgniting && explosions.some(ex=>ex.cells.some(c=>c.gx===b.gx && c.gy===b.gy))){
+              b.timer = Math.min(b.timer, KICK_CHAIN_DELAY);
+              b.chainIgniting = true;
+              // stop it right here rather than letting it keep sliding for
+              // the whole delay - otherwise it explodes wherever it happened
+              // to end up, not where it actually caught fire
+              b.cx = b.gx*TILE+TILE/2;
+              b.cy = b.gy*TILE+TILE/2;
+              b.rolling = false;
+              dist = 0;
+            }
+          }
         }
       }
     }
@@ -7201,6 +7230,19 @@
     }
 
     updateRollingBombs(dt);
+
+    // A stationary bomb that a blast reaches from some other source (e.g.
+    // sitting where a lingering blast/attack lands after the fact) should
+    // catch fire too, after the same short grace fuse. Rolling bombs are
+    // already checked tile-by-tile inside updateRollingBombs above.
+    for(const b of bombs){
+      if(b.exploded || b.chainIgniting || b.rolling) continue;
+      if(explosions.some(ex=>ex.cells.some(c=>c.gx===b.gx && c.gy===b.gy))){
+        b.timer = Math.min(b.timer, KICK_CHAIN_DELAY);
+        b.chainIgniting = true;
+      }
+    }
+
     checkItemPickup();
 
     // bombs countdown - resolve any bombs (and their chain reactions) that

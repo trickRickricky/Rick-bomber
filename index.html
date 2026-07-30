@@ -451,10 +451,15 @@
   #treasureIcons { display:inline-block; margin-left:4px; vertical-align:middle; }
   .treasureIcon {
     display:inline-block;
-    font-size:15px;
-    opacity:0.15;
+    width:21px;
+    height:21px;
+    background-size:contain;
+    background-repeat:no-repeat;
+    background-position:center;
+    vertical-align:middle;
+    margin-left:2px;
+    opacity:0.2;
     filter:grayscale(1);
-    margin-left:1px;
     transition: opacity 0.3s ease, filter 0.3s ease;
   }
   .treasureIcon.collected {
@@ -553,7 +558,7 @@
 </div>
 <div id="app">
   <h1><span id="skipToFirstBossBtn" title="最初のボスへスキップ">💣</span> Rickボンバー <span id="skipToBossBtn" title="真のラスボスへスキップ">💣</span><span id="treasureIcons">
-    <span class="treasureIcon" id="treasureIcon-ring" title="指輪">💍</span><span class="treasureIcon" id="treasureIcon-earring" title="ピアス">💎</span><span class="treasureIcon" id="treasureIcon-necklace" title="ネックレス">📿</span><span class="treasureIcon" id="treasureIcon-goldbar" title="金の延べ棒">🪙</span></span></h1>
+    <span class="treasureIcon" id="treasureIcon-ring" title="指輪"></span><span class="treasureIcon" id="treasureIcon-earring" title="ピアス"></span><span class="treasureIcon" id="treasureIcon-necklace" title="ネックレス"></span><span class="treasureIcon" id="treasureIcon-goldbar" title="金の延べ棒"></span></span></h1>
   <button id="muteBtn" title="サウンドON/OFF">🔊</button>
   <button id="skipToPortalBtn" title="ワープゾーンへスキップ">🤖</button>
   <button id="skipToHeavenBtn" title="神ステージ前のホワイトホールへスキップ">👼</button>
@@ -839,6 +844,131 @@
       g.add(shine);
     }
     return g;
+  }
+
+  // Clean, custom-drawn 2D icons for the title-bar treasure display - a
+  // small 3D-model snapshot didn't read clearly at this size, so these are
+  // simple flat shapes instead, using the same gold/gem colors as the
+  // actual in-game 3D models for consistency.
+  function renderTreasureIconDataURL(type){
+    const size = 64;
+    const cvs = document.createElement('canvas');
+    cvs.width = size; cvs.height = size;
+    const ctx = cvs.getContext('2d');
+    const cx = size/2, cy = size/2;
+    const gold = '#ffd75e';
+    const goldDk = '#c9962c';
+    const outline = '#3a2508';
+    ctx.lineJoin = 'round';
+
+    function gem(x, y, r, color, lightColor){
+      ctx.save();
+      ctx.translate(x,y);
+      ctx.beginPath();
+      for(let i=0;i<6;i++){
+        const a = -Math.PI/2 + i*(Math.PI/3);
+        const px = Math.cos(a)*r, py = Math.sin(a)*r;
+        if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+      }
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = outline;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0,-r*0.75);
+      ctx.lineTo(r*0.35,-r*0.1);
+      ctx.lineTo(0,r*0.15);
+      ctx.closePath();
+      ctx.fillStyle = lightColor;
+      ctx.globalAlpha = 0.65;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+
+    if(type==='ring'){
+      ctx.beginPath();
+      ctx.ellipse(cx, cy+8, 19, 12, 0, 0, Math.PI*2);
+      ctx.ellipse(cx, cy+8, 11, 6, 0, 0, Math.PI*2);
+      ctx.fillStyle = gold;
+      ctx.fill('evenodd');
+      ctx.lineWidth = 2.2;
+      ctx.strokeStyle = outline;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(cx-5, cy+2, 12, 4, -0.2, 0, Math.PI*2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      gem(cx, cy-14, 10, '#ff3b6b', '#ffb0c8');
+    } else if(type==='earring'){
+      ctx.beginPath();
+      ctx.arc(cx, cy-14, 11, Math.PI*0.15, Math.PI*0.85, false);
+      ctx.lineWidth = 4.5;
+      ctx.strokeStyle = gold;
+      ctx.stroke();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = outline;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx, cy-4);
+      ctx.lineTo(cx, cy+8);
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = goldDk;
+      ctx.stroke();
+      gem(cx, cy+16, 9, '#cdefff', '#ffffff');
+    } else if(type==='necklace'){
+      ctx.beginPath();
+      ctx.ellipse(cx, cy-6, 20, 13, 0, Math.PI*0.08, Math.PI*0.92);
+      ctx.lineWidth = 4.5;
+      ctx.strokeStyle = gold;
+      ctx.stroke();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = outline;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx-14, cy+3);
+      ctx.lineTo(cx, cy+13);
+      ctx.lineTo(cx+14, cy+3);
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = goldDk;
+      ctx.stroke();
+      gem(cx, cy+17, 10, '#2ecc71', '#c8ffdf');
+    } else if(type==='goldbar'){
+      ctx.beginPath();
+      ctx.moveTo(cx-19, cy+13);
+      ctx.lineTo(cx-13, cy-11);
+      ctx.lineTo(cx+19, cy-11);
+      ctx.lineTo(cx+13, cy+13);
+      ctx.closePath();
+      ctx.fillStyle = gold;
+      ctx.fill();
+      ctx.lineWidth = 2.2;
+      ctx.strokeStyle = outline;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx-11, cy+13);
+      ctx.lineTo(cx-6, cy-11);
+      ctx.lineTo(cx-1, cy-11);
+      ctx.lineTo(cx-6, cy+13);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(255,255,255,0.45)';
+      ctx.fill();
+    }
+    return cvs.toDataURL('image/png');
+  }
+  let treasureIconURLs = null;
+  function initTreasureIconImages(){
+    if(treasureIconURLs) return;
+    treasureIconURLs = {};
+    ['ring','earring','necklace','goldbar'].forEach(t=>{
+      const url = renderTreasureIconDataURL(t);
+      treasureIconURLs[t] = url;
+      const el = document.getElementById('treasureIcon-'+t);
+      if(el) el.style.backgroundImage = `url(${url})`;
+    });
   }
 
   function makeRelicMesh(type){
@@ -2615,6 +2745,17 @@
     necklace: { name:'ネックレス' },
     goldbar: { name:'金の延べ棒' },
   };
+  // the altar's own name for itself (shown while empty), distinct from the
+  // carried item's name (shown once something is actually offered there)
+  const ALTAR_NAMES = {
+    ring: '指輪の祭壇',
+    earring: '耳飾りの祭壇',
+    necklace: '首輪の祭壇',
+    goldbar: '金の祭壇',
+  };
+  const ALTAR_TYPES = ['ring','earring','necklace','goldbar']; // matches altarPositions order: top-left, top-right, bottom-left, bottom-right
+  let treasuresOffered = new Set(); // which altars have received their treasure this "clean crown" period
+  let offeredTreasureMeshes = {}; // type -> the small 3D model sitting on that altar once offered
 
   // the seven relics scattered around the creator god's own arena - each
   // one individually modeled (see makeRelicMesh), all gold
@@ -2745,6 +2886,7 @@
   // per-run heaven-stage state (all reset by resetGame())
   let heavenGateActive = false; // true once a clean-crown hidden-boss kill unlocks the white hole, if all 4 treasures have ever been found
   let heavenGatePos = null; // {gx,gy} where that white hole sits
+  let heavenGateAppearTimer = 0; // >0 during the gate's materializing burst, before its "come to me" message shows
   let heavenMode = false; // true once inside the heaven stage itself
   let godBoss = null;
   let relicsCollected = 0;
@@ -2994,6 +3136,8 @@
     godDyingTimer = 0;
     altarsReplaced = false;
     sneakyTreasureTaken = false;
+    treasuresOffered = new Set();
+    player._onAltarType = null;
     const spots = [[COLS-2,1],[1,ROWS-2],[COLS-2,ROWS-2]];
     enemies = spots.slice(0,ENEMY_COUNT).map(([x,y])=>makeEntity(x,y,ENEMY_SPEED));
     bombs = [];
@@ -3022,6 +3166,7 @@
     treasureBlocks = null;
     collectedTreasures = [];
     collectedTreasureTypesThisRun = new Set();
+    updateTreasureIcons();
     timeStopTimer = 0;
     crownCrackEffectTimer = 0;
     shieldBreakEffectTimer = 0;
@@ -3037,6 +3182,7 @@
     playerDizzyTimer = 0;
     heavenGateActive = false;
     heavenGatePos = null;
+    heavenGateAppearTimer = 0;
     teardownHeavenTheme();
     godBoss = null;
     relicsCollected = 0;
@@ -3786,8 +3932,9 @@
 
   // Cracks the still-clean crown open on the spot, leaving a mysterious
   // gate in its place instead of the usual pickup - an alternative to
-  // ever actually claiming the crown at all.
-  function openCrownGate(){
+  // ever actually claiming the crown at all. Also reused by the treasure-
+  // offering altars (with their own message) once all four are fulfilled.
+  function openCrownGate(customMessage){
     if(crownGateOpen || !crownPos) return;
     crownGateOpen = true;
     crownGateEffectTimer = 1.8;
@@ -3798,7 +3945,7 @@
     spawnSlowBurst(cw.x, cw.y, '#ffe066', 30, 1.8);
     spawnSlowBurst(cw.x, cw.y, '#b57bff', 18, 1.5);
     sfx.crownGateOpen();
-    showItemToast('ゲートが出現した。<br>ここから地球に<br>戻れそうだ。', 2.6);
+    showItemToast(customMessage || 'ゲートが出現した。<br>ここから地球に<br>戻れそうだ。', 2.6);
     updateHUD();
   }
 
@@ -5776,6 +5923,16 @@
     shieldOverlay.classList.remove('show');
     fpsBossBarWrap.classList.remove('show');
     rickBombBtn.style.display = 'none';
+    godBeamGaugeActive = false;
+    godBeamGauge = GOD_BEAM_GAUGE_MAX;
+    godBeamLockedOut = false;
+    fpsPrevGodBeamLockedOut = false;
+    fpsBossFlashTimer = 0;
+    fpsBossFlashPending = false;
+    shieldBroken = false;
+    fpsRickReadyMessageTimer = 0;
+    godBeamGaugeWrap.classList.remove('show');
+    fpsCrosshair.classList.remove('show');
     shooterActive = false;
     shooterPhase = 'waves';
     shooterShip = null;
@@ -6190,12 +6347,12 @@
     }
   }
 
-  // reflects the permanent (across deaths/restarts, this session)
-  // treasuresEverCollected record in the title-bar icons
+  // reflects both the permanent (across deaths/restarts, this session)
+  // record and anything currently being carried this run
   function updateTreasureIcons(){
     ['ring','earring','necklace','goldbar'].forEach(t=>{
       const el = document.getElementById('treasureIcon-'+t);
-      if(el) el.classList.toggle('collected', treasuresEverCollected.has(t));
+      if(el) el.classList.toggle('collected', treasuresEverCollected.has(t) || collectedTreasureTypesThisRun.has(t));
     });
   }
 
@@ -6204,6 +6361,7 @@
       const name = TREASURE_INFO[type].name;
       collectedTreasures.push(name);
       collectedTreasureTypesThisRun.add(type);
+      updateTreasureIcons();
       if(altarsReplaced) sneakyTreasureTaken = true;
       showItemToast(`${name}を手に入れた`, 1.6);
       return;
@@ -6368,6 +6526,7 @@
     }
     if(crownCrackEffectTimer>0) crownCrackEffectTimer -= dt;
     if(crownGateEffectTimer>0) crownGateEffectTimer -= dt;
+    if(heavenGateAppearTimer>0) heavenGateAppearTimer -= dt;
     if(shieldBreakEffectTimer>0) shieldBreakEffectTimer -= dt;
     if(playerDizzyTimer>0) playerDizzyTimer -= dt;
     if(itemToastTimer>0){
@@ -7482,13 +7641,10 @@
             sfx.trueBossDeath();
             if(crownCracked){
               bgmPlaying = false;
-            } else if(treasuresEverCollected.size>=4){
-              // every treasure has been found across past runs, and this
-              // crown came off clean - a second white hole opens up,
-              // offering the choice of the normal ending or pushing on
-              heavenGateActive = true;
-              heavenGatePos = { gx: Math.floor(COLS/2), gy: ROWS-2 };
             }
+            // (the secret gate no longer opens automatically just because
+            // treasuresEverCollected is full - it now only appears once
+            // the treasures are actually offered at the altars this run)
             // a clean crown keeps a quiet, continuous "kira-kira" sparkle
             // loop playing instead (handled by bgmKeyForStage), rather
             // than a one-shot chime or silence
@@ -7621,25 +7777,93 @@
         // going through the Black Hole never makes this run's pickups
         // permanent, even if all 4 were found
         collectedTreasureTypesThisRun = new Set();
+    updateTreasureIcons();
+      }
+    }
+
+    // a flavor warning on either side of the black hole - no mechanical
+    // effect, just a bit of dread before actually stepping into it
+    if(player.alive && stage===7 && portals){
+      const pcB = occupiedCell(player);
+      const flankingBlack = pcB.gy===portals.black.gy && (pcB.gx===portals.black.gx-1 || pcB.gx===portals.black.gx+1);
+      if(flankingBlack){
+        if(!player._onBlackHoleFlank){
+          player._onBlackHoleFlank = true;
+          showItemToast('この先から<br>ただならぬ気配を感じる…', 2.0);
+        }
+      } else {
+        player._onBlackHoleFlank = false;
+      }
+      const flankingWhite = pcB.gy===portals.white.gy && (pcB.gx===portals.white.gx-1 || pcB.gx===portals.white.gx+1);
+      if(flankingWhite){
+        if(!player._onWhiteHoleFlank){
+          player._onWhiteHoleFlank = true;
+          showItemToast('ここから<br>帰還できそうだ', 2.0);
+        }
+      } else {
+        player._onWhiteHoleFlank = false;
+      }
+    }
+
+    // a hint standing next to one of the four treasure-crystal blocks,
+    // until that particular treasure has actually been picked up this run
+    if(player.alive && stage===7 && treasureBlocks){
+      const pcT = occupiedCell(player);
+      let adjKey = null;
+      for(const key of Object.keys(treasureBlocks)){
+        const tb = treasureBlocks[key];
+        if(collectedTreasureTypesThisRun.has(tb.itemKey)) continue;
+        if(Math.abs(pcT.gx-tb.gx)+Math.abs(pcT.gy-tb.gy)===1){ adjKey = key; break; }
+      }
+      if(adjKey){
+        if(player._onTreasureBlockKey !== adjKey){
+          player._onTreasureBlockKey = adjKey;
+          showItemToast('中に宝物がある…<br>爆弾で壊せそうもない…', 2.0);
+        }
+      } else {
+        player._onTreasureBlockKey = null;
       }
     }
 
     // the four offering altars in the crown room - only shown for a clean
-    // crown, until the god falls and they're replaced by actual treasures
+    // crown, until the god falls and they're replaced by actual treasures.
+    // Carrying the matching treasure and stepping onto an altar offers it
+    // on the spot; once all four are offered, a gate to the god appears.
     if(player.alive && !altarsReplaced && !crownCracked && (stage===10 || stage===11 || stage===13)){
       const pcA = occupiedCell(player);
-      const onAltar = altarPositions.some(a=>a.gx===pcA.gx && a.gy===pcA.gy);
-      if(onAltar){
-        if(!player._onAltar){
-          player._onAltar = true;
-          if(heavenGateActive){
+      const altarIdx = altarPositions.findIndex(a=>a.gx===pcA.gx && a.gy===pcA.gy);
+      if(altarIdx>=0){
+        const type = ALTAR_TYPES[altarIdx];
+        if(player._onAltarType !== type){
+          player._onAltarType = type;
+          if(treasuresOffered.has(type)){
+            // already offered - nothing more to say here
+          } else if(collectedTreasureTypesThisRun.has(type) || treasuresEverCollected.has(type)){
+            treasuresOffered.add(type);
+            sfx.stepItem();
+            showItemToast(`祭壇に${TREASURE_INFO[type].name}を供えた`, 2.0);
+            if(treasuresOffered.size>=4 && !heavenGateActive && !crownGateOpen){
+              heavenGateActive = true;
+              heavenGatePos = { gx: Math.floor(COLS/2), gy: ROWS-2 };
+              heavenGateAppearTimer = 1.6;
+              sfx.whiteHoleEnter();
+              const hw = { x: heavenGatePos.gx*TILE+TILE/2, y: heavenGatePos.gy*TILE+TILE/2 };
+              spawnDeathEffect(hw.x, hw.y, '#bfe8ff', 2.6);
+              spawnSlowBurst(hw.x, hw.y, '#bfe8ff', 30, 1.6);
+              spawnSlowBurst(hw.x, hw.y, '#ffffff', 20, 1.4);
+              triggerShake(0.3, 5);
+              setTimeout(()=>{
+                if(heavenGateActive) showItemToast('私のもとへ来なさい、<br>○○神よ', 2.6);
+              }, 1600);
+            }
+          } else if(heavenGateActive){
             showItemToast('宝を集めし者よ、<br>我のもとに来るがよい', 2.0);
           } else {
-            showItemToast('「宝物を供えよ…」<br>と書いてあるようだ…', 1.8);
+            showItemToast(`${ALTAR_NAMES[type]}<br>－宝物を供えよ－`, 1.8);
           }
         }
       } else {
-        player._onAltar = false;
+        player._onAltarType = null;
       }
     }
 
@@ -7722,12 +7946,9 @@
         cutsceneFlashDone = false;
         triggerShake(0.3, 5);
         sfx.whiteHoleEnter();
-        // the altars are gone now - each one has left a treasure behind
-        altarsReplaced = true;
-        items.push({ gx:altarPositions[0].gx, gy:altarPositions[0].gy, type:'ring' });
-        items.push({ gx:altarPositions[1].gx, gy:altarPositions[1].gy, type:'earring' });
-        items.push({ gx:altarPositions[2].gx, gy:altarPositions[2].gy, type:'necklace' });
-        items.push({ gx:altarPositions[3].gx, gy:altarPositions[3].gy, type:'goldbar' });
+        // the treasures were already offered at these altars before the
+        // White Hole ever opened - keep showing them as fulfilled altars
+        // rather than dropping fresh pickups here
         // having beaten the god itself, the player carries that back with
         // them - wings and a halo on the spot, and a god beam in place of
         // their bomb, for as long as they linger in the crown room
@@ -8051,6 +8272,7 @@
     }
     collectedTreasures = [];
     collectedTreasureTypesThisRun = new Set();
+    updateTreasureIcons();
   }
 
   // Swaps the sky/fog for a dark space palette and adds a persistent
@@ -8874,18 +9096,19 @@
   // Renders one warp-zone portal: a bright swirling white hole, or a dark
   // event-horizon black hole, with orbiting particles spiraling into the
   // core and a couple of rotating accretion rings.
-  function renderPortalHole(gx, gy, isWhite, tintColor){
+  function renderPortalHole(gx, gy, isWhite, tintColor, appearScale){
+    const scale = appearScale===undefined ? 1 : appearScale;
     const w = cellCenterToWorld(gx, gy);
     const t = performance.now()/1000;
     const ringColor = tintColor!==undefined ? tintColor : (isWhite ? 0xbfe8ff : 0x8a3ad0);
     const coreMat = isWhite ? basicMat(0xffffff) : basicMat(0x0a0612, {transparent:true, opacity:0.94});
     const core = new THREE.Mesh(geo.sphere, coreMat);
-    core.scale.set(0.55,0.55,0.55);
+    core.scale.set(0.55*scale,0.55*scale,0.55*scale);
     core.position.set(w.x, 0.6, w.z);
     dynamicGroup.add(core);
 
     for(let i=0;i<3;i++){
-      const ringR = 0.62 + i*0.2;
+      const ringR = (0.62 + i*0.2)*scale;
       const ring = new THREE.Mesh(geo.ring, basicMat(ringColor, {transparent:true, opacity:0.5-i*0.13, side:THREE.DoubleSide}));
       ring.rotation.x = Math.PI/2.4 + Math.sin(t*0.6+i)*0.12;
       ring.rotation.z = t*(isWhite?1.1:-1.4)*(i%2===0?1:-1);
@@ -8897,7 +9120,7 @@
     const count = 8;
     for(let i=0;i<count;i++){
       const phase = (t*(isWhite?0.85:1.25) + i/count) % 1;
-      const r = 1.15*(1-phase) + 0.16;
+      const r = (1.15*(1-phase) + 0.16)*scale;
       const ang = i*1.3 + t*(isWhite?2:2.6);
       const px = w.x+Math.cos(ang)*r, pz = w.z+Math.sin(ang)*r;
       const particle = new THREE.Mesh(geo.sphere, basicMat(ringColor, {transparent:true, opacity:0.8*(1-phase)}));
@@ -8907,7 +9130,7 @@
     }
 
     const glowColor = tintColor!==undefined ? tintColor : (isWhite?0xffffff:0x8a3ad0);
-    const glow = makeGlowSprite(glowColor, isWhite?2.6:2.0);
+    const glow = makeGlowSprite(glowColor, (isWhite?2.6:2.0)*scale);
     glow.position.set(w.x, 0.6, w.z);
     dynamicGroup.add(glow);
     const light = new THREE.PointLight(glowColor, isWhite?1.4:0.8, 4);
@@ -8916,7 +9139,7 @@
 
     const shadow = new THREE.Mesh(geo.ring, basicMat(0x000000, {transparent:true, opacity:0.3, side:THREE.DoubleSide}));
     shadow.rotation.x = -Math.PI/2;
-    shadow.scale.set(0.7,0.7,1);
+    shadow.scale.set(0.7*scale,0.7*scale,1);
     shadow.position.set(w.x, 0.015, w.z);
     dynamicGroup.add(shadow);
   }
@@ -9589,8 +9812,10 @@
       }
       if(p.godly){
         // the creator god's own bolts - radiant gold-white, with a bright
-        // core, a soft halo glow, and a real point light, unmistakably
-        // divine rather than just another boss's orange spark
+        // core and a soft halo glow (no real point light - up to a dozen
+        // or more of these can be alive at once, and a THREE.PointLight
+        // is one of the most expensive things to add per-instance in a
+        // WebGL scene, since every lit material has to account for it)
         const wTrailG = pixelToWorld(p.x - p.dx*7, p.y - p.dy*7);
         const trailG = new THREE.Mesh(geo.sphere, basicMat(0xffe066, {transparent:true, opacity:0.4}));
         trailG.scale.set(0.24,0.24,0.24);
@@ -9600,12 +9825,9 @@
         boltG.scale.set(0.17,0.17,0.17);
         boltG.position.set(w.x, 1.15, w.z);
         dynamicGroup.add(boltG);
-        const boltGlowG = makeGlowSprite(0xffe066, 0.85);
+        const boltGlowG = makeGlowSprite(0xffe066, 0.95);
         boltGlowG.position.set(w.x, 1.15, w.z);
         dynamicGroup.add(boltGlowG);
-        const boltLightG = new THREE.PointLight(0xffe066, 0.7, 2.2);
-        boltLightG.position.set(w.x, 1.15, w.z);
-        dynamicGroup.add(boltLightG);
         continue;
       }
       const wTrail = pixelToWorld(p.x - p.dx*6, p.y - p.dy*6);
@@ -9688,8 +9910,12 @@
         const shrink = Math.max(0.04, 1-fadeP*0.9);
         godBoss.mesh3d.scale.multiplyScalar(shrink);
         const fadeAlpha = Math.max(0, 1-fadeP);
+        if(!godBoss._fadeMatReady){
+          godBoss._fadeMatReady = true;
+          godBoss.mesh3d.traverse(o=>{ if(o.material) o.material.transparent = true; });
+        }
         godBoss.mesh3d.traverse(o=>{
-          if(o.material){ o.material.transparent = true; o.material.opacity = fadeAlpha; }
+          if(o.material) o.material.opacity = fadeAlpha;
         });
         const gwF = pixelToWorld(godBoss.x+ENTITY_SIZE/2, godBoss.y+ENTITY_SIZE/2);
         const fadeGlow = makeGlowSprite(0xfff6d8, 2.4*fadeAlpha+0.6);
@@ -10001,7 +10227,8 @@
     if(!altarsReplaced && !crownCracked && (stage===10 || stage===11 || stage===13)){
       const altarMat = stdMat(0x8a8a92, 0x0a0a0c, {roughness:0.65, metalness:0.25});
       const tA = performance.now()/1000;
-      for(const a of altarPositions){
+      for(let ai=0;ai<altarPositions.length;ai++){
+        const a = altarPositions[ai];
         const aw = cellCenterToWorld(a.gx, a.gy);
         const base = new THREE.Mesh(geo.cylinder, altarMat);
         base.scale.set(0.5, 0.5, 0.5);
@@ -10012,9 +10239,22 @@
         rim.rotation.x = Math.PI/2;
         rim.position.set(aw.x, 0.52, aw.z);
         dynamicGroup.add(rim);
-        const glow = makeGlowSprite(0xaab0d8, 0.7+0.08*Math.sin(tA*1.3));
-        glow.position.set(aw.x, 0.6, aw.z);
-        dynamicGroup.add(glow);
+        const offeredType = ALTAR_TYPES[ai];
+        if(treasuresOffered.has(offeredType)){
+          // the actual treasure now sitting on the altar, slowly turning
+          const treasureMesh = makeTreasureMesh(offeredType);
+          treasureMesh.scale.set(0.85,0.85,0.85);
+          treasureMesh.position.set(aw.x, 0.72, aw.z);
+          treasureMesh.rotation.y = tA*0.6;
+          dynamicGroup.add(treasureMesh);
+          const offeredGlow = makeGlowSprite(0xffe066, 0.55+0.08*Math.sin(tA*1.6));
+          offeredGlow.position.set(aw.x, 0.68, aw.z);
+          dynamicGroup.add(offeredGlow);
+        } else {
+          const glow = makeGlowSprite(0xaab0d8, 0.7+0.08*Math.sin(tA*1.3));
+          glow.position.set(aw.x, 0.6, aw.z);
+          dynamicGroup.add(glow);
+        }
       }
     }
 
@@ -10117,7 +10357,8 @@
     // the secret second white hole, only ever present alongside a clean
     // crown when every treasure has been found across past runs
     if(stage===11 && heavenGateActive && heavenGatePos){
-      renderPortalHole(heavenGatePos.gx, heavenGatePos.gy, true);
+      const appearProgress = heavenGateAppearTimer>0 ? 1-Math.pow(heavenGateAppearTimer/1.6, 2) : 1;
+      renderPortalHole(heavenGatePos.gx, heavenGatePos.gy, true, undefined, Math.max(0.05, appearProgress));
     }
 
     // once the god falls, a white hole opens in the heaven stage leading
@@ -11332,6 +11573,8 @@
     resetGame();
     requestAnimationFrame(loop);
   }
+  initTreasureIconImages();
+  updateTreasureIcons();
 })();
 </script>
 </body>

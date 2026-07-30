@@ -5951,15 +5951,17 @@
     crownTaken = false;
     crownCracked = false;
     godDefeated = true;
-    altarsReplaced = true;
     bombs = []; explosions = []; projectiles = []; items = [];
     // a debug skip button may have jumped straight past the normal setup
     // and left this null - the checkpoint always needs a real crown here
     if(!crownPos) crownPos = { gx: Math.floor(COLS/2), gy: 1 };
-    items.push({ gx:altarPositions[0].gx, gy:altarPositions[0].gy, type:'ring' });
-    items.push({ gx:altarPositions[1].gx, gy:altarPositions[1].gy, type:'earring' });
-    items.push({ gx:altarPositions[2].gx, gy:altarPositions[2].gy, type:'necklace' });
-    items.push({ gx:altarPositions[3].gx, gy:altarPositions[3].gy, type:'goldbar' });
+    // this checkpoint represents having already been here before - the
+    // treasures were already offered at their altars, so keep showing
+    // that instead of dropping fresh pickups. The heaven gate itself is
+    // gone though - a God restart drops the player back before it opens.
+    treasuresOffered = new Set(['ring','earring','necklace','goldbar']);
+    heavenGateActive = false;
+    heavenGatePos = null;
     clearAllSoftBlocks();
     buildBoardMeshes();
     stage = 11;

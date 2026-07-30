@@ -7455,7 +7455,7 @@
     // direction, forcing the player to dodge while hunting for relics
     if(stage===21 && godBoss && godBoss.alive && !godBoss.dying){
       if(godBoss.invuln>0) godBoss.invuln -= dt;
-      if(!godBossFrozen){
+      if(!godBossFrozen && godBoss.hasBeenHit){
         godBoss.attackTimer -= dt;
         if(godBoss.attackTimer<=0){
           const cx = godBoss.x+ENTITY_SIZE/2, cy = godBoss.y+ENTITY_SIZE/2;
@@ -8009,6 +8009,7 @@
         if(hitCell){
           const dmg = ex.golden ? 20 : 1;
           godBoss.hp = Math.max(0, godBoss.hp - dmg);
+          godBoss.hasBeenHit = true; // the god boss holds its fire until the player lands the first hit
           godBoss.invuln = ex.golden ? 1.4 : 0.5;
           if(!ex.golden){
             // a normal bomb briefly staggers it, holding off the next
@@ -8529,6 +8530,7 @@
     godBoss.hp = GOD_HP;
     godBoss.invuln = 1.2;
     godBoss.attackTimer = 1.8;
+    godBoss.hasBeenHit = false; // holds its fire until the player lands the first hit
     godBoss._landedFX = false;
     godBoss.dying = false;
   }

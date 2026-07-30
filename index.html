@@ -2765,6 +2765,7 @@
     goldbar: '金の祭壇',
   };
   const ALTAR_TYPES = ['ring','earring','necklace','goldbar']; // matches altarPositions order: top-left, top-right, bottom-left, bottom-right
+  const altarTreasureMeshCache = []; // one persistent mesh per altar index, built once the treasure is offered
   let treasuresOffered = new Set(); // which altars have received their treasure this "clean crown" period
   let offeredTreasureMeshes = {}; // type -> the small 3D model sitting on that altar once offered
 
@@ -2978,6 +2979,7 @@
   let shooterBoostTimer = 0; // >0 while a boost dash is actively overriding normal movement
   let shooterBoostDir = { x:0, z:0 };
   let shooterAfterimages = []; // {mesh,life,maxLife} - fading ghost copies of the ship left behind during a boost dash
+  let boostGhostIdx = 0; // round-robin index into the pooled boost-ghost slots
   let shooterAfterimageTimer = 0;
   let shooterAsteroids = []; // {wx,wz} - indestructible hazard rocks, dodge only
   let reachedShooterCheckpoint = false; // true once the god has ever been beaten and the crown room reached this session - not reset by resetGame, so the "God restart" option (which drops the player right back there) stays available on any later game over
@@ -3588,6 +3590,105 @@
       explosionCoreInnerPool[i] = m;
     }
     return m;
+  }
+
+  // ---- generic per-frame VFX pooling ----
+  // Same idea as the debris/death/explosion pools above, generalized:
+  // bullet-hell-ish stages (stage 23 shooter bullets, laser hazards) were
+  // building a brand new Mesh/Sprite/PointLight for every bullet or hazard
+  // on screen, every single frame, only to have disposeDynamicChild() throw
+  // it straight away a moment later. At a given pool index the object is
+  // "the same bullet slot" frame to frame, just repositioned - so these
+  // helpers cache by (poolKey, index) and just move/restyle the cached
+  // object instead of rebuilding it. Materials/sprites are registered in
+  // sharedMaterials so the per-frame dynamicGroup cleanup never disposes
+  // the pooled object's own material out from under it.
+  const vfxPools = {};
+  function pooledPoolFor(key){
+    let pool = vfxPools[key];
+    if(!pool){ pool = []; vfxPools[key] = pool; }
+    return pool;
+  }
+  function pooledMesh(poolKey, i, geometry, materialFactory){
+    const pool = pooledPoolFor(poolKey);
+    let m = pool[i];
+    if(!m){
+      const mat = materialFactory();
+      sharedMaterials.add(mat);
+      m = new THREE.Mesh(geometry, mat);
+      pool[i] = m;
+    }
+    return m;
+  }
+  function pooledGlowSprite(poolKey, i, colorHex, size){
+    const pool = pooledPoolFor(poolKey);
+    let s = pool[i];
+    if(!s){
+      s = makeGlowSprite(colorHex, size);
+      sharedMaterials.add(s.material);
+      pool[i] = s;
+    } else {
+      s.material.color.set(colorHex);
+      s.scale.set(size,size,1);
+    }
+    return s;
+  }
+  function pooledSprite(poolKey, i, texture, opacity){
+    const pool = pooledPoolFor(poolKey);
+    let s = pool[i];
+    if(!s){
+      const smat = new THREE.SpriteMaterial({ map:texture, transparent:true, opacity });
+      sharedMaterials.add(smat);
+      s = new THREE.Sprite(smat);
+      pool[i] = s;
+    } else {
+      s.material.opacity = opacity;
+    }
+    return s;
+  }
+  function pooledLight(poolKey, i, color, intensity, distance){
+    const pool = pooledPoolFor(poolKey);
+    let l = pool[i];
+    if(!l){
+      l = new THREE.PointLight(color, intensity, distance);
+      pool[i] = l;
+    } else {
+      l.color.set(color);
+      l.intensity = intensity;
+      l.distance = distance;
+    }
+    return l;
+  }
+
+  // ---- simultaneous PointLight budget ----
+  // Most of the game's PointLights (muzzle flashes, shield glows, crack
+  // flashes, ...) are paired 1:1 with an emissive mesh or glow sprite that
+  // already reads fine on its own - the light itself is just adding real
+  // per-pixel illumination on top, which is what actually costs GPU time
+  // (every MeshStandardMaterial fragment has to loop over every active
+  // light). Reclassifying each of the several dozen PointLight call sites
+  // by hand as "decorative, safe to drop" vs "structurally needed" would
+  // be slow and error-prone, and a wrong call would visibly break some
+  // effect. Instead this caps how many PointLights are allowed to actually
+  // light the scene on any given frame: whichever ones are currently
+  // closest to the camera and brightest stay lit, and the rest are simply
+  // turned invisible for that frame only (their paired sprite/emissive
+  // mesh keeps them looking present). It's re-decided fresh every frame,
+  // so a light that mattered a moment ago comes right back once the
+  // busier ones it was competing with are gone.
+  const MAX_ACTIVE_POINT_LIGHTS = 8;
+  function capActivePointLights(){
+    const lights = [];
+    scene.traverse(obj=>{ if(obj.isPointLight) lights.push(obj); });
+    for(const l of lights) l.visible = true;
+    if(lights.length <= MAX_ACTIVE_POINT_LIGHTS) return;
+    const camPos = camera.position;
+    lights.sort((a,b)=>{
+      const da = a.position.distanceToSquared(camPos);
+      const db = b.position.distanceToSquared(camPos);
+      return (b.intensity/(1+db)) - (a.intensity/(1+da));
+    });
+    for(let i=MAX_ACTIVE_POINT_LIGHTS;i<lights.length;i++) lights[i].visible = false;
   }
 
   function syncBlockDebris3D(){
@@ -4965,6 +5066,7 @@
     syncPlayerPixelFromShip();
     attachAngelToPlayer();
     setWingOpacity(0.22);
+    prewarmBoostGhostPool();
     shieldBtn.style.display = 'none';
     player.shielding = false;
     shieldOverlay.classList.remove('show');
@@ -4991,6 +5093,46 @@
     shooterFireCooldown = SHOOTER_FIRE_COOLDOWN;
     shooterBullets.push({ wx:shooterShip.wx, wz:shooterShip.wz-0.35 });
     sfx.shooterShot();
+  }
+
+  // player.mesh3d has 50+ nodes (body, angel wings, glow sprites, point
+  // lights...), so a fresh .clone() + per-node material.clone() every 0.05s
+  // while boosting was real, repeated allocation work on top of the
+  // GPU-dispose issue fixed earlier - a likely source of stutter. Ghosts
+  // only ever look identical (same fixed tint/opacity-target), so pool a
+  // handful of them and really clone the hierarchy only once per slot;
+  // every later boost just repositions and reuses the same objects.
+  // A boost (0.3s) at 0.05s spawn cadence produces ~6 ghosts, each living
+  // 0.32s, so ~7 can be alive at once - 12 slots leaves clean margin so a
+  // slot is never reused while its previous occupant is still alive.
+  const GHOST_POOL_SIZE = 12;
+  function getBoostGhostSlot(slot){
+    const pool = pooledPoolFor('boostGhost');
+    let ghost = pool[slot];
+    if(!ghost){
+      ghost = player.mesh3d.clone();
+      ghost.traverse(o=>{
+        if(o.material){
+          o.material = o.material.clone();
+          o.material.transparent = true;
+          o.material.depthWrite = false;
+          if(o.material.color) o.material.color.set(0x7ec8ff);
+          if('emissive' in o.material) o.material.emissive = new THREE.Color(0x2a5adf);
+        }
+      });
+      protectPersistentMesh(ghost);
+      pool[slot] = ghost;
+    }
+    return ghost;
+  }
+  // Build every slot right away, off the back of stage entry (before the
+  // player can possibly hit boost), so even the very first boost dash of
+  // the stage is already reusing ready-made ghosts instead of paying the
+  // one-time clone cost for however many slots that first dash happens to
+  // touch.
+  function prewarmBoostGhostPool(){
+    if(!player.mesh3d) return;
+    for(let i=0;i<GHOST_POOL_SIZE;i++) getBoostGhostSlot(i);
   }
 
   function activateShooterBoost(){
@@ -5044,16 +5186,8 @@
       shooterAfterimageTimer -= dt;
       if(shooterAfterimageTimer<=0){
         shooterAfterimageTimer = 0.05;
-        const ghost = player.mesh3d.clone();
-        ghost.traverse(o=>{
-          if(o.material){
-            o.material = o.material.clone();
-            o.material.transparent = true;
-            o.material.depthWrite = false;
-            if(o.material.color) o.material.color.set(0x7ec8ff);
-            if('emissive' in o.material) o.material.emissive = new THREE.Color(0x2a5adf);
-          }
-        });
+        const ghost = getBoostGhostSlot(boostGhostIdx % GHOST_POOL_SIZE);
+        boostGhostIdx++;
         ghost.position.copy(player.mesh3d.position);
         ghost.rotation.copy(player.mesh3d.rotation);
         ghost.scale.copy(player.mesh3d.scale);
@@ -5062,7 +5196,9 @@
     }
     for(let i=shooterAfterimages.length-1;i>=0;i--){
       shooterAfterimages[i].life -= dt;
-      if(shooterAfterimages[i].life<=0) shooterAfterimages.splice(i,1);
+      if(shooterAfterimages[i].life<=0){
+        shooterAfterimages.splice(i,1);
+      }
     }
 
     if(player.alive){
@@ -9824,20 +9960,22 @@
     // boss projectiles - flown above wall height so they stay visible while
     // passing straight through walls/blocks, matching how they actually
     // behave in the game (they pierce everything)
+    let _trueRayIdx = 0, _godlyIdx = 0, _normalProjIdx = 0;
     for(const p of projectiles){
       const w = pixelToWorld(p.x, p.y);
       if(p.isTrueBossRay){
         // the true boss's one-shot ray gun blast - a genuine laser beam
         // trailing behind the traveling hit-point, unmistakably red
         renderBeamSegment(p.x - p.dx*130, p.y - p.dy*130, p.x, p.y, 0xff2020, 0.16, 1, 1.15);
-        const bolt = new THREE.Mesh(geo.sphere, basicMat(0xffffff));
+        const rayIdx = _trueRayIdx++;
+        const bolt = pooledMesh('trueRayBolt', rayIdx, geo.sphere, ()=>basicMat(0xffffff));
         bolt.scale.set(0.22,0.22,0.22);
         bolt.position.set(w.x, 1.15, w.z);
         dynamicGroup.add(bolt);
-        const boltGlow = makeGlowSprite(0xff2020, 1.8);
+        const boltGlow = pooledGlowSprite('trueRayGlow', rayIdx, 0xff2020, 1.8);
         boltGlow.position.set(w.x, 1.15, w.z);
         dynamicGroup.add(boltGlow);
-        const boltLight = new THREE.PointLight(0xff2020, 1.1, 2.6);
+        const boltLight = pooledLight('trueRayLight', rayIdx, 0xff2020, 1.1, 2.6);
         boltLight.position.set(w.x, 1.15, w.z);
         dynamicGroup.add(boltLight);
         continue;
@@ -9847,27 +9985,31 @@
         // core and a soft halo glow (no real point light - up to a dozen
         // or more of these can be alive at once, and a THREE.PointLight
         // is one of the most expensive things to add per-instance in a
-        // WebGL scene, since every lit material has to account for it)
+        // WebGL scene, since every lit material has to account for it).
+        // Pooled per-slot since a dozen+ of these can be alive together
+        // for a second or more each while the player hunts the relics.
+        const godIdx = _godlyIdx++;
         const wTrailG = pixelToWorld(p.x - p.dx*7, p.y - p.dy*7);
-        const trailG = new THREE.Mesh(geo.sphere, basicMat(0xffe066, {transparent:true, opacity:0.4}));
+        const trailG = pooledMesh('godBoltTrail', godIdx, geo.sphere, ()=>basicMat(0xffe066, {transparent:true, opacity:0.4}));
         trailG.scale.set(0.24,0.24,0.24);
         trailG.position.set(wTrailG.x, 1.15, wTrailG.z);
         dynamicGroup.add(trailG);
-        const boltG = new THREE.Mesh(geo.sphere, basicMat(0xfff6d8));
+        const boltG = pooledMesh('godBoltCore', godIdx, geo.sphere, ()=>basicMat(0xfff6d8));
         boltG.scale.set(0.17,0.17,0.17);
         boltG.position.set(w.x, 1.15, w.z);
         dynamicGroup.add(boltG);
-        const boltGlowG = makeGlowSprite(0xffe066, 0.95);
+        const boltGlowG = pooledGlowSprite('godBoltGlow', godIdx, 0xffe066, 0.95);
         boltGlowG.position.set(w.x, 1.15, w.z);
         dynamicGroup.add(boltGlowG);
         continue;
       }
+      const normIdx = _normalProjIdx++;
       const wTrail = pixelToWorld(p.x - p.dx*6, p.y - p.dy*6);
-      const trail = new THREE.Mesh(geo.sphere, basicMat(0xff7828, {transparent:true, opacity:0.35}));
+      const trail = pooledMesh('normalProjTrail', normIdx, geo.sphere, ()=>basicMat(0xff7828, {transparent:true, opacity:0.35}));
       trail.scale.set(0.28,0.28,0.28);
       trail.position.set(wTrail.x, 1.15, wTrail.z);
       dynamicGroup.add(trail);
-      const bolt = new THREE.Mesh(geo.sphere, mat.projectile);
+      const bolt = pooledMesh('normalProjBolt', normIdx, geo.sphere, ()=>mat.projectile);
       bolt.scale.set(0.18,0.18,0.18);
       bolt.position.set(w.x, 1.15, w.z);
       dynamicGroup.add(bolt);
@@ -10274,17 +10416,24 @@
         dynamicGroup.add(rim);
         const offeredType = ALTAR_TYPES[ai];
         if(treasuresOffered.has(offeredType)){
-          // the actual treasure now sitting on the altar, slowly turning
-          const treasureMesh = makeTreasureMesh(offeredType);
+          // the actual treasure now sitting on the altar, slowly turning -
+          // built once and cached (same pattern as ground-item treasures),
+          // rather than rebuilding the whole multi-part gold model fresh
+          // every frame for every altar
+          if(!altarTreasureMeshCache[ai]){
+            altarTreasureMeshCache[ai] = makeTreasureMesh(offeredType);
+            protectPersistentMesh(altarTreasureMeshCache[ai]);
+          }
+          const treasureMesh = altarTreasureMeshCache[ai];
           treasureMesh.scale.set(0.85,0.85,0.85);
           treasureMesh.position.set(aw.x, 0.72, aw.z);
           treasureMesh.rotation.y = tA*0.6;
           dynamicGroup.add(treasureMesh);
-          const offeredGlow = makeGlowSprite(0xffe066, 0.55+0.08*Math.sin(tA*1.6));
+          const offeredGlow = pooledGlowSprite('altarOfferedGlow', ai, 0xffe066, 0.55+0.08*Math.sin(tA*1.6));
           offeredGlow.position.set(aw.x, 0.68, aw.z);
           dynamicGroup.add(offeredGlow);
         } else {
-          const glow = makeGlowSprite(0xaab0d8, 0.7+0.08*Math.sin(tA*1.3));
+          const glow = pooledGlowSprite('altarWaitingGlow', ai, 0xaab0d8, 0.7+0.08*Math.sin(tA*1.3));
           glow.position.set(aw.x, 0.6, aw.z);
           dynamicGroup.add(glow);
         }
@@ -10409,14 +10558,16 @@
         a.mesh.traverse(o=>{ if(o.material) o.material.opacity = 0.32*t; });
         dynamicGroup.add(a.mesh);
       }
+      let _shooterBulletIdx = 0;
       for(const b of shooterBullets){
-        const bolt = new THREE.Mesh(geo.sphere, basicMat(0xfff2c0));
+        const bolt = pooledMesh('shooterBullet', _shooterBulletIdx, geo.sphere, ()=>basicMat(0xfff2c0));
         bolt.scale.set(0.1,0.1,0.26);
         bolt.position.set(b.wx, 0.65, b.wz);
         dynamicGroup.add(bolt);
-        const bglow = makeGlowSprite(0xffd75e, 0.65);
+        const bglow = pooledGlowSprite('shooterBulletGlow', _shooterBulletIdx, 0xffd75e, 0.65);
         bglow.position.set(b.wx, 0.65, b.wz);
         dynamicGroup.add(bglow);
+        _shooterBulletIdx++;
       }
       for(const en of shooterEnemies){
         if(!en.mesh3d){ en.mesh3d = makeShooterEnemyMesh(en.type); protectPersistentMesh(en.mesh3d); }
@@ -10426,28 +10577,30 @@
         dynamicGroup.add(en.mesh3d);
       }
       const tHazard = performance.now()/1000;
+      let _laserHazardIdx = 0;
       for(const a of shooterAsteroids){
         if(a.kind==='laser'){
-          const core = new THREE.Mesh(geo.cylinder, basicMat(0xfff2c0));
+          const hi = _laserHazardIdx++;
+          const core = pooledMesh('laserCore', hi, geo.cylinder, ()=>basicMat(0xfff2c0));
           core.scale.set(0.12, 1.7, 0.12);
           core.position.set(a.wx, 0.85, a.wz);
           dynamicGroup.add(core);
-          const outer = new THREE.Mesh(geo.cylinder, basicMat(0xff3b3b, {transparent:true, opacity:0.5}));
+          const outer = pooledMesh('laserOuter', hi, geo.cylinder, ()=>basicMat(0xff3b3b, {transparent:true, opacity:0.5}));
           outer.scale.set(0.34, 1.7, 0.34);
           outer.position.set(a.wx, 0.85, a.wz);
           dynamicGroup.add(outer);
           for(let i=0;i<2;i++){
-            const ring = new THREE.Mesh(geo.ring, basicMat(0xff6a4a, {transparent:true, opacity:0.7, side:THREE.DoubleSide}));
+            const ring = pooledMesh('laserRing', hi*2+i, geo.ring, ()=>basicMat(0xff6a4a, {transparent:true, opacity:0.7, side:THREE.DoubleSide}));
             ring.scale.set(0.42, 0.42, 1);
             ring.position.set(a.wx, 0.4+i*0.9, a.wz);
             ring.rotation.x = Math.PI/2 + Math.sin(tHazard*3+i)*0.3;
             ring.rotation.z = tHazard*2+i;
             dynamicGroup.add(ring);
           }
-          const beamGlow = makeGlowSprite(0xff6a4a, 1.3);
+          const beamGlow = pooledGlowSprite('laserBeamGlow', hi, 0xff6a4a, 1.3);
           beamGlow.position.set(a.wx, 0.85, a.wz);
           dynamicGroup.add(beamGlow);
-          const beamLight = new THREE.PointLight(0xff3b3b, 0.8, 3);
+          const beamLight = pooledLight('laserBeamLight', hi, 0xff3b3b, 0.8, 3);
           beamLight.position.set(a.wx, 0.85, a.wz);
           dynamicGroup.add(beamLight);
         } else {
@@ -10457,14 +10610,16 @@
           dynamicGroup.add(a.mesh3d);
         }
       }
+      let _enemyBulletIdx = 0;
       for(const eb of shooterEnemyBullets){
-        const ebm = new THREE.Mesh(geo.sphere, basicMat(0xff3b6b));
+        const ebm = pooledMesh('shooterEnemyBullet', _enemyBulletIdx, geo.sphere, ()=>basicMat(0xff3b6b));
         ebm.scale.set(0.11,0.11,0.11);
         ebm.position.set(eb.wx, 0.65, eb.wz);
         dynamicGroup.add(ebm);
-        const ebglow = makeGlowSprite(0xff3b6b, 0.5);
+        const ebglow = pooledGlowSprite('shooterEnemyBulletGlow', _enemyBulletIdx, 0xff3b6b, 0.5);
         ebglow.position.set(eb.wx, 0.65, eb.wz);
         dynamicGroup.add(ebglow);
+        _enemyBulletIdx++;
       }
       if(shooterMiniboss){
         const mb = shooterMiniboss;
@@ -10671,7 +10826,9 @@
       }
       // thrown bombs - travel in from the thrower's distance, arcing up
       // and down, with a warning glow that grows as the fuse runs out
+      let _fpsBombIdx = 0;
       for(const bm of fpsThrownBombs){
+        const bombSlot = _fpsBombIdx++;
         const travel = Math.max(0, Math.min(1, 1-bm.fuse/bm.maxFuse));
         const curDist = bm.startDist - (bm.startDist-1.2)*travel;
         const bx = fpCamPos.x + Math.sin(bm.yaw)*curDist;
@@ -10701,11 +10858,11 @@
           const curX = originX + (targetX-originX)*travel;
           const curZ = originZ + (targetZ-originZ)*travel;
           const by = originY;
-          const bg = new THREE.Mesh(geo.sphere, basicMat(0xff3b3b));
+          const bg = pooledMesh('fpsBeamCore', bombSlot, geo.sphere, ()=>basicMat(0xff3b3b));
           bg.scale.set(0.14,0.14,0.14);
           bg.position.set(curX, by, curZ);
           dynamicGroup.add(bg);
-          const bglow = makeGlowSprite(0xff5a3b, 1.1+0.6*urgency);
+          const bglow = pooledGlowSprite('fpsBeamGlow', bombSlot, 0xff5a3b, 1.1+0.6*urgency);
           bglow.position.set(curX, by, curZ);
           dynamicGroup.add(bglow);
           const trailSteps = 6;
@@ -10713,7 +10870,7 @@
             const tt = s/(trailSteps-1);
             const tx = originX + (curX-originX)*tt;
             const tz = originZ + (curZ-originZ)*tt;
-            const trailGlow = makeGlowSprite(0xff3b3b, 0.4+0.35*(1-tt));
+            const trailGlow = pooledGlowSprite('fpsBeamTrail', bombSlot*trailSteps+s, 0xff3b3b, 0.4+0.35*(1-tt));
             trailGlow.position.set(tx, by, tz);
             dynamicGroup.add(trailGlow);
           }
@@ -10725,7 +10882,7 @@
           bm.mesh3d.scale.set(1.6,1.6,1.6);
           dynamicGroup.add(bm.mesh3d);
           if(urgency>0){
-            const warnGlow = makeGlowSprite(0xff2020, 1.3*urgency);
+            const warnGlow = pooledGlowSprite('fpsBombWarnGlow', bombSlot, 0xff2020, 1.3*urgency);
             warnGlow.position.set(bx, 1.0+arcH, bz);
             dynamicGroup.add(warnGlow);
           }
@@ -10875,7 +11032,7 @@
         const cw = cellCenterToWorld(rgx, rgy);
         const fallPhase = (t*1.1 + i*0.29) % 1;
         const dropH = 6*(1-fallPhase);
-        const bombDrop = new THREE.Sprite(new THREE.SpriteMaterial({ map: itemTextures.bombUp, transparent:true, opacity:0.8*(0.4+0.6*progress) }));
+        const bombDrop = pooledSprite('rainWarnDrop', i, itemTextures.bombUp, 0.8*(0.4+0.6*progress));
         bombDrop.scale.set(0.5,0.5,1);
         bombDrop.position.set(cw.x, 0.5+dropH, cw.z);
         dynamicGroup.add(bombDrop);
@@ -10897,16 +11054,18 @@
       // the primed carpet-bomb bombs themselves - visually real bombs, but
       // deliberately not collidable, so they can't strand the player
       const pulse = 1 + 0.12*Math.sin(performance.now()/100);
+      let _rainBombIdx = 0;
       for(const rb of rainBombs){
         const w = pixelToWorld(rb.cx, rb.cy);
         const body = new THREE.Mesh(geo.sphere, mat.trueBossBomb);
         body.scale.set(0.5*pulse,0.5*pulse,0.5*pulse);
         body.position.set(w.x, 0.5, w.z);
         dynamicGroup.add(body);
-        const fuseTip = new THREE.Mesh(geo.sphere, basicMat(0xff2020));
+        const fuseTip = pooledMesh('rainBombFuseTip', _rainBombIdx, geo.sphere, ()=>basicMat(0xff2020));
         fuseTip.scale.set(0.12,0.12,0.12);
         fuseTip.position.set(w.x, 0.5+0.5*pulse*0.95, w.z);
         dynamicGroup.add(fuseTip);
+        _rainBombIdx++;
       }
     } else if(stage===5 && trueBoss && trueBoss.phase==='attacking'){
       targetBgLerp = Math.max(0, trueBoss.phaseTimer/BOMBRAIN_ATTACK_DURATION);
@@ -11584,6 +11743,7 @@
       camera.lookAt(0, 0, 0);
     }
 
+    capActivePointLights();
     renderer.render(scene, camera);
   }
 

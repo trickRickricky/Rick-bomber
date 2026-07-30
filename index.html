@@ -306,6 +306,19 @@
     touch-action: none;
   }
   #allyBombBtn:active { transform: scale(0.94); }
+  #spaceWarpBtn {
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    border: none;
+    background: radial-gradient(circle at 35% 30%, #6fb3ff, #1a5fc0 70%);
+    color: #fff;
+    font-size: 9px;
+    line-height: 1.15;
+    font-weight: bold;
+    box-shadow: 0 4px 10px rgba(0,0,0,.5), inset 0 0 0 3px #123f80;
+    touch-action: none;
+  }
+  #spaceWarpBtn:active { transform: scale(0.94); }
   #destroyRayBtn:disabled {
     background: radial-gradient(circle at 35% 30%, #777, #444 70%);
     color: #aaa;
@@ -604,6 +617,7 @@
       <button id="bombBtn">爆弾<br>設置</button>
       <div id="smallBtnRow">
         <button id="allyBombBtn" style="display:none;">仲間爆破<br>装置起動</button>
+        <button id="spaceWarpBtn" style="display:none; width:58px; height:58px; border-radius:50%; border:none; background:radial-gradient(circle at 35% 30%, #6fb3ff, #1a5fc0 70%); color:#fff; font-size:9px; line-height:1.15; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,.5), inset 0 0 0 3px #123f80; touch-action:none;">宇宙<br>転送</button>
         <button id="destroyRayBtn" style="display:none;">破壊光線<br>1回のみ</button>
         <button id="shieldBtn" style="display:none;">シールド</button>
         <button id="rickBombBtn" style="display:none;">Rick<br>ボンバー</button>
@@ -1579,7 +1593,7 @@
   function buildBoardMeshes(){
     disposeGroup(boardGroup);
     tileMeshes = [];
-    const floorMesh = new THREE.Mesh(floorGeo, heavenMode ? heavenFloorMat : (spaceMode ? (stage>=8 ? hiddenFloorMat : spaceFloorMat) : floorMat));
+    const floorMesh = new THREE.Mesh(floorGeo, heavenMode ? heavenFloorMat : (spaceMode ? ((stage>=8 && stage!==30) ? hiddenFloorMat : spaceFloorMat) : floorMat));
     floorMesh.rotation.x = -Math.PI/2;
     floorMesh.position.set(0,0,0);
     floorMesh.receiveShadow = true;
@@ -1624,8 +1638,8 @@
     const h = isWall ? 1.0 : 0.55;
     const g = new THREE.Group();
 
-    const wallMat = heavenMode ? mat.heavenWall : (spaceMode ? (stage>=8 ? mat.hiddenWall : mat.spaceWall) : mat.wall);
-    const blockMat = heavenMode ? mat.heavenBlock : (spaceMode ? (stage>=8 ? mat.hiddenBlock : mat.spaceBlock) : mat.block);
+    const wallMat = heavenMode ? mat.heavenWall : (spaceMode ? ((stage>=8 && stage!==30) ? mat.hiddenWall : mat.spaceWall) : mat.wall);
+    const blockMat = heavenMode ? mat.heavenBlock : (spaceMode ? ((stage>=8 && stage!==30) ? mat.hiddenBlock : mat.spaceBlock) : mat.block);
     const bodyMat = isTreasure ? null : (isWall ? wallMat : blockMat);
     if(isTreasure){
       // a large, solid hexagonal quartz-style crystal (prism body + a
@@ -2697,6 +2711,7 @@
   let currentBgmKey = null;
 
   function bgmKeyForStage(){
+    if(stage===30) return 'trueBoss';
     if(stage===26 && fpsActive) return 'primitive';
     if(stage===23 && shooterActive) return 'shooter';
     if(stage===22 || stage===23 || stage===24 || stage===25) return 'mystery';
@@ -2766,7 +2781,7 @@
   const ENEMY_SPEED = 70;
   const ENEMY_COUNT = 3;
   const BOMB_FUSE = 1.8;
-  const EXPLOSION_DURATION = 0.45;
+  const EXPLOSION_DURATION = 0.4;
   const SAFE_GRACE = 0.6; // how long a just-destroyed block's tile stays guaranteed-safe
   const ROLL_SPEED = 230;
   const KICK_CHAIN_DELAY = 0.25; // grace period before a bomb that rolls into a lingering blast catches fire, so the kicker has a moment to dodge clear
@@ -2880,6 +2895,7 @@
   const HEAVEN_FLASH_DURATION = 2.2;
   const BOSS_INTRO_TIME = 2.6;
   const TRUEBOSS_DESCENT_DURATION = 10.6; // eject + rocket away -> beam pulls player in -> wreck teleports away -> white flash hold/fade -> UFO warps into new arena + player thrown clear -> true boss falls from above
+  const STAGE4_SKIP_DURATION = 2.0; // used when jumping straight to stage 4 with no wreck/flash phase (bossDeathPixelPos null) - just enough time for the true boss's fall-from-above landing, plus a short beat before the fight begins
   const PROJECTILE_SPEED = 210;
   const PROJECTILE_SIZE = 12;
   const PROJECTILE_BURST_COUNT = 14;
@@ -2914,6 +2930,7 @@
   // cleared this browser session; once it reaches 3, the "仲間爆破装置起動"
   // skip button becomes available on every subsequent restart
   let stage1ClearCount = 0;
+  let boss1ClearCount = 0; // times the first boss has been defeated this session - unlocks the space-warp button once it hits 3
   // NOT reset by resetGame() - which treasure types have ever been
   // collected across past runs this session (only one is obtainable per
   // run, so this tracks progress toward the secret heaven stage)
@@ -2926,6 +2943,7 @@
   let godBoss = null;
   let relicsCollected = 0;
   let goldenBombCharged = false; // true once all 7 relics are in hand - the next bomb the player places is the golden judgement bomb (20 damage instead of 1)
+  let godBossFrozen = false; // true from the moment all 7 relics are gathered until the golden bomb actually goes off - the god boss holds its fire during that whole window
   let godDefeated = false; // true once the god has been beaten this run - taking the clean crown afterward triggers the special ascension ending instead of the normal one
   let heavenReturnGatePos = null; // {gx,gy} - the white hole that appears in the heaven stage once the god falls, leading back to the crown room
   let playerAscending = false; // true while the stage-14 "transcended" cutscene is manually puppeteering the player (wings/halo, flying off)
@@ -3081,6 +3099,7 @@
     if(godBeamMode) text += ' / 爆弾ボタン(神ビーム、ゲージ切れに注意)';
     if(destroyRayMode) text += ' / X(破壊光線・1回のみ)';
     if(allyBombBtn.style.display !== 'none') text += ' / B(仲間爆破装置起動)';
+    if(spaceWarpBtn.style.display !== 'none') text += ' / N(宇宙転送)';
     if(rickBombBtn.style.display !== 'none') text += ' / R(Rickボンバー)';
     hintEl.textContent = text;
   }
@@ -3089,10 +3108,12 @@
   }
   const itemToast = document.getElementById('itemToast');
   let itemToastTimer = 0;
+  let standHintActive = false; // true while the toast is showing one of the continuous "while standing here" hints (crystal/portal/altar), as opposed to a one-shot timed message like picking up an item
   function showItemToast(text, duration){
     itemToast.innerHTML = text;
     itemToast.classList.add('show');
     itemToastTimer = duration || 1.6;
+    standHintActive = false; // a one-shot toast always takes priority over a stand-hint until its own timer runs out
   }
   const whiteFlash = document.getElementById('whiteFlash');
   const screenshotBtn = document.getElementById('screenshotBtn');
@@ -3164,6 +3185,7 @@
     player.destroyRayUsed = false;
     player.posing = false;
     itemToastTimer = 0;
+    standHintActive = false;
     itemToast.classList.remove('show');
     posePlayerStart = null;
     pendingEnd = null;
@@ -3223,6 +3245,7 @@
     godBoss = null;
     relicsCollected = 0;
     goldenBombCharged = false;
+    godBossFrozen = false;
     bombBtn.classList.remove('goldenReady');
     godDefeated = false;
     heavenReturnGatePos = null;
@@ -3288,6 +3311,7 @@
     whiteFlash.style.opacity = '0';
     descentMesh = null;
     stage4FX = null;
+    warpFX = null;
     hiddenDescentMesh = null;
     bossDeathPixelPos = null;
     bossBanner.classList.remove('show');
@@ -3302,7 +3326,8 @@
     destroyRayBtn.disabled = false;
     destroyRayBtn.innerHTML = '破壊光線<br>1回のみ';
     destroyRayBtn.style.display = 'none';
-    allyBombBtn.style.display = stage1ClearCount>=3 ? '' : 'none';
+    spaceWarpBtn.style.display = boss1ClearCount>=3 ? '' : 'none';
+    allyBombBtn.style.display = (stage1ClearCount>=3 && boss1ClearCount<3) ? '' : 'none';
     refreshHintText();
     if(audioCtx) bgmPlaying = true;
     updateHUD();
@@ -3981,6 +4006,37 @@
     allyBombBtn.style.display = 'none';
     refreshHintText();
     updateHUD();
+  }
+
+  // "宇宙転送" - available only after defeating the first boss 3 times this
+  // session, so veteran players don't have to grind through stages 1-4
+  // again just to get back to the true boss. Fully gears up the player and
+  // kicks off the stage-30 cutscene (wrecked UFO throws the player clear,
+  // landing right in the true boss's arena), then removes itself for the
+  // rest of this run.
+  function triggerSpaceWarp(){
+    if(stage!==1 || gameOver || gameWin) return;
+    player.maxBombs = MAX_BOMBS;
+    player.bombsAvailable = MAX_BOMBS;
+    player.fireRange = MAX_FIRE;
+    player.speedLevel = MAX_SPEED_LEVEL;
+    player.speed = BASE_SPEED + (MAX_SPEED_LEVEL-1)*SPEED_STEP;
+    player.canKick = true;
+    spaceWarpBtn.style.display = 'none';
+    enemies.forEach(en=>en.alive=false);
+    bombs = []; explosions = []; projectiles = []; items = [];
+    warpFX = null;
+    playerSuckedInVisual = true; // hide the player's normal render for the whole cutscene - they only reappear once actually thrown clear of the wreck
+    // the mesh is a persistent object, not something re-added per frame, so
+    // merely skipping its normal render call isn't enough to hide it - it
+    // would otherwise just sit frozen, fully visible, wherever it last was
+    if(player.mesh3d) player.mesh3d.visible = false;
+    stage = 30;
+    stageTimer = SPACE_WARP_DURATION;
+    cutsceneFlashDone = false;
+    refreshHintText();
+    updateHUD();
+    sfx.win();
   }
 
   function activateDestroyRay(){
@@ -6140,7 +6196,8 @@
     godBeamBeam = null;
     setGodBeamMode(true);
     destroyRayBtn.style.display = 'none';
-    allyBombBtn.style.display = stage1ClearCount>=3 ? '' : 'none';
+    spaceWarpBtn.style.display = 'none';
+    allyBombBtn.style.display = 'none';
     updateHUD();
     currentBgmKey = null;
     if(audioCtx) bgmPlaying = true;
@@ -6159,11 +6216,9 @@
         goldenBombCharged = false;
         bombBtn.classList.remove('goldenReady');
         sfx.win();
-        if(stage===21 && godBoss){
-          relicsCollected = 0;
-          items = items.filter(it=>!RELIC_INFO[it.type]);
-          spawnRelics();
-        }
+        // the god boss stays frozen and the new relics don't appear until
+        // this bomb actually goes off - see the golden-bomb branch in
+        // resolveExplosion
       } else {
         sfx.bombPlace();
       }
@@ -6186,6 +6241,7 @@
       case 'z': case 'Z': if(!e.repeat) activateInvincibility(); e.preventDefault(); break;
       case 'x': case 'X': if(!e.repeat && destroyRayMode) activateDestroyRay(); e.preventDefault(); break;
       case 'b': case 'B': if(!e.repeat && allyBombBtn.style.display!=='none') useAllyBomb(); e.preventDefault(); break;
+      case 'n': case 'N': if(!e.repeat && spaceWarpBtn.style.display!=='none') triggerSpaceWarp(); e.preventDefault(); break;
       case 'c': case 'C': if(!e.repeat) setShielding(true); e.preventDefault(); break;
       case 'r': case 'R': if(!e.repeat && rickBombBtn.style.display!=='none') activateRickBomb(); e.preventDefault(); break;
       case 'v': case 'V': if(!e.repeat && shooterActive) activateShooterBoost(); e.preventDefault(); break;
@@ -6212,6 +6268,9 @@
 
   const allyBombBtn = document.getElementById('allyBombBtn');
   allyBombBtn.addEventListener('pointerdown', e=>{ e.preventDefault(); useAllyBomb(); });
+
+  const spaceWarpBtn = document.getElementById('spaceWarpBtn');
+  spaceWarpBtn.addEventListener('pointerdown', e=>{ e.preventDefault(); triggerSpaceWarp(); });
 
   const shieldBtn = document.getElementById('shieldBtn');
   const shieldOverlay = document.getElementById('shieldOverlay');
@@ -6319,9 +6378,10 @@
     player.speed = BASE_SPEED + (MAX_SPEED_LEVEL-1)*SPEED_STEP;
     player.canKick = true;
     stage = 4;
-    stageTimer = 2.6; // no wreck/flash phase to wait through here - just enough for the fall-from-above landing
+    stageTimer = STAGE4_SKIP_DURATION; // no wreck/flash phase to wait through here - just enough for the fall-from-above landing
     descentMesh = null;
     stage4FX = null;
+    warpFX = null;
     bossDeathPixelPos = null;
     stage4Revealed = true; // no wreck/flash cutscene in this skip path, so it's already "revealed"
     bossBanner.innerHTML = '<span>💀 真のボス降臨 💀</span>';
@@ -6559,6 +6619,7 @@
       relicsCollected++;
       if(relicsCollected>=RELIC_TOTAL){
         goldenBombCharged = true;
+        godBossFrozen = true;
         bombBtn.classList.add('goldenReady');
         showItemToast('神器が揃った…<br>黄金の裁きの爆弾!', 2.0);
         sfx.win();
@@ -6697,6 +6758,15 @@
     items.push(...newItems);
     explosions.push({cells, timer:EXPLOSION_DURATION, owner, core3x3, golden: !!bomb.golden});
     sfx.explosion();
+    if(bomb.golden && stage===21 && godBoss){
+      // the golden judgement bomb going off is what actually ends the god
+      // boss's cease-fire and rolls in the next set of seven relics -
+      // not the moment the player merely places it
+      godBossFrozen = false;
+      relicsCollected = 0;
+      items = items.filter(it=>!RELIC_INFO[it.type]);
+      spawnRelics();
+    }
     updateHUD();
     return triggered;
   }
@@ -6784,6 +6854,7 @@
         godBoss = null;
         relicsCollected = 0;
         goldenBombCharged = false;
+        godBossFrozen = false;
         bombBtn.classList.remove('goldenReady');
         bombs = []; explosions = []; projectiles = []; items = [];
         heavenReturnGatePos = null;
@@ -6826,6 +6897,55 @@
         stage = 5;
         descentMesh = null;
         stage4FX = null;
+        updateHUD();
+      }
+      return true;
+    }
+
+    // stage 30: the space-warp button's own shortcut into the true boss
+    // fight - a quick white-flash cutover swaps the arena, then a wrecked
+    // UFO bursts in and throws the player clear of it, landing right where
+    // the fight starts. All the actual visuals live in the render pass
+    // below; this just drives the timeline and the one-time arena swap.
+    if(stage===30){
+      stageTimer -= dt;
+      if(!warpFX) warpFX = { flashed:false, burstDone:false, ejectLanded:false };
+      const elapsedW = SPACE_WARP_DURATION - stageTimer;
+      const W_FLASH_FULL = 0.35, W_FLASH_FADE_END = 0.9;
+      let flashOpacityW = 0;
+      if(elapsedW < W_FLASH_FULL) flashOpacityW = Math.min(1, elapsedW/W_FLASH_FULL);
+      else if(elapsedW < W_FLASH_FADE_END) flashOpacityW = Math.max(0, 1-((elapsedW-W_FLASH_FULL)/(W_FLASH_FADE_END-W_FLASH_FULL)));
+      whiteFlash.style.opacity = String(flashOpacityW);
+      if(!warpFX.flashed && elapsedW >= W_FLASH_FULL){
+        warpFX.flashed = true;
+        setupSpaceTheme();
+        clearAllSoftBlocks();
+        buildBoardMeshes();
+        bombs = []; explosions = []; projectiles = []; items = [];
+        player.gx = Math.floor(COLS/2); player.gy = ROWS-2;
+        player.moveDir = { dx:0, dy:0 }; player.progress = 0;
+        player.x = player.gx*TILE + (TILE-ENTITY_SIZE)/2;
+        player.y = player.gy*TILE + (TILE-ENTITY_SIZE)/2;
+        if(player.mesh3d) player.mesh3d.scale.set(1,1,1);
+        triggerShake(0.4, 7);
+      }
+      if(warpFX.flashed && !cutsceneFlashDone && elapsedW >= W_FLASH_FADE_END){
+        cutsceneFlashDone = true;
+        bossBanner.innerHTML = '<span>💀 真のボス降臨 💀</span>';
+        bossBanner.classList.add('show');
+        sfx.trueBossWarning();
+      }
+      if(stageTimer<=0){
+        playerSuckedInVisual = false;
+        warpFX = null;
+        // hand off into the exact same "true boss falls from above" beat
+        // used by the normal stage-4 intro - laugh, landing shake, and all
+        stage = 4;
+        stageTimer = STAGE4_SKIP_DURATION;
+        descentMesh = null;
+        stage4FX = null;
+        bossDeathPixelPos = null;
+        stage4Revealed = true; // banner already shown above, so it isn't re-triggered
         updateHUD();
       }
       return true;
@@ -7335,18 +7455,20 @@
     // direction, forcing the player to dodge while hunting for relics
     if(stage===21 && godBoss && godBoss.alive && !godBoss.dying){
       if(godBoss.invuln>0) godBoss.invuln -= dt;
-      godBoss.attackTimer -= dt;
-      if(godBoss.attackTimer<=0){
-        const cx = godBoss.x+ENTITY_SIZE/2, cy = godBoss.y+ENTITY_SIZE/2;
-        const count = 10 + Math.floor(Math.random()*5);
-        const angleOffset = Math.random()*Math.PI*2;
-        for(let i=0;i<count;i++){
-          const angle = angleOffset + (i/count)*Math.PI*2 + (Math.random()-0.5)*0.3;
-          projectiles.push({ x:cx, y:cy, dx:Math.cos(angle), dy:Math.sin(angle), godly:true });
+      if(!godBossFrozen){
+        godBoss.attackTimer -= dt;
+        if(godBoss.attackTimer<=0){
+          const cx = godBoss.x+ENTITY_SIZE/2, cy = godBoss.y+ENTITY_SIZE/2;
+          const count = 10 + Math.floor(Math.random()*5);
+          const angleOffset = Math.random()*Math.PI*2;
+          for(let i=0;i<count;i++){
+            const angle = angleOffset + (i/count)*Math.PI*2 + (Math.random()-0.5)*0.3;
+            projectiles.push({ x:cx, y:cy, dx:Math.cos(angle), dy:Math.sin(angle), godly:true });
+          }
+          godBoss.attackTimer = 1.0 + Math.random()*0.7;
+          sfx.rayBlast();
+          triggerShake(0.12, 3);
         }
-        godBoss.attackTimer = 1.0 + Math.random()*0.7;
-        sfx.rayBlast();
-        triggerShake(0.12, 3);
       }
     }
 
@@ -7810,6 +7932,7 @@
           boss.invuln = 1.0;
           if(boss.hp<=0){
             boss.alive = false;
+            boss1ClearCount++;
             bossDeathPixelPos = { x: boss.x+ENTITY_SIZE/2, y: boss.y+ENTITY_SIZE/2 };
             spawnDeathEffect(boss.x+ENTITY_SIZE/2, boss.y+ENTITY_SIZE/2, '#7a1fa2', 2.2);
             sfx.bossDeath();
@@ -7925,6 +8048,7 @@
       // regular enemies cleared - trigger the first boss's intro
       stage1ClearCount++;
       allyBombBtn.style.display = 'none';
+      spaceWarpBtn.style.display = 'none';
       refreshHintText();
       stage = 2;
       stageTimer = BOSS_INTRO_TIME;
@@ -8002,32 +8126,23 @@
     }
 
     // a flavor warning on either side of the black hole - no mechanical
-    // effect, just a bit of dread before actually stepping into it
+    // effect, just a bit of dread before actually stepping into it.
+    // standHintText is shown only while the condition holds (see the
+    // combined apply-step below, after the treasure/altar checks), rather
+    // than as a fixed-duration toast, so it disappears the instant the
+    // player steps off the tile.
+    let standHintText = null;
     if(player.alive && stage===7 && portals){
       const pcB = occupiedCell(player);
       const flankingBlack = pcB.gy===portals.black.gy && (pcB.gx===portals.black.gx-1 || pcB.gx===portals.black.gx+1);
-      if(flankingBlack){
-        if(!player._onBlackHoleFlank){
-          player._onBlackHoleFlank = true;
-          showItemToast('この先から<br>ただならぬ気配を感じる…', 2.0);
-        }
-      } else {
-        player._onBlackHoleFlank = false;
-      }
       const flankingWhite = pcB.gy===portals.white.gy && (pcB.gx===portals.white.gx-1 || pcB.gx===portals.white.gx+1);
-      if(flankingWhite){
-        if(!player._onWhiteHoleFlank){
-          player._onWhiteHoleFlank = true;
-          showItemToast('ここから<br>帰還できそうだ', 2.0);
-        }
-      } else {
-        player._onWhiteHoleFlank = false;
-      }
+      if(flankingBlack) standHintText = 'この先から<br>ただならぬ気配を感じる…';
+      else if(flankingWhite) standHintText = 'ここから<br>帰還できそうだ';
     }
 
     // a hint standing next to one of the four treasure-crystal blocks,
     // until that particular treasure has actually been picked up this run
-    if(player.alive && stage===7 && treasureBlocks){
+    if(player.alive && stage===7 && treasureBlocks && standHintText===null){
       const pcT = occupiedCell(player);
       let adjKey = null;
       for(const key of Object.keys(treasureBlocks)){
@@ -8035,20 +8150,15 @@
         if(collectedTreasureTypesThisRun.has(tb.itemKey)) continue;
         if(Math.abs(pcT.gx-tb.gx)+Math.abs(pcT.gy-tb.gy)===1){ adjKey = key; break; }
       }
-      if(adjKey){
-        if(player._onTreasureBlockKey !== adjKey){
-          player._onTreasureBlockKey = adjKey;
-          showItemToast('中に宝物がある…<br>爆弾で壊せそうもない…', 2.0);
-        }
-      } else {
-        player._onTreasureBlockKey = null;
-      }
+      if(adjKey) standHintText = '中に宝物がある…<br>爆弾で壊せそうもない…';
     }
 
     // the four offering altars in the crown room - only shown for a clean
     // crown, until the god falls and they're replaced by actual treasures.
     // Carrying the matching treasure and stepping onto an altar offers it
     // on the spot; once all four are offered, a gate to the god appears.
+    // The prompt hints below are continuous (while standing on the altar);
+    // the actual offering itself still only fires once, on arrival.
     if(player.alive && !altarsReplaced && !crownCracked && (stage===10 || stage===11 || stage===13)){
       const pcA = occupiedCell(player);
       const altarIdx = altarPositions.findIndex(a=>a.gx===pcA.gx && a.gy===pcA.gy);
@@ -8056,9 +8166,7 @@
         const type = ALTAR_TYPES[altarIdx];
         if(player._onAltarType !== type){
           player._onAltarType = type;
-          if(treasuresOffered.has(type)){
-            // already offered - nothing more to say here
-          } else if(collectedTreasureTypesThisRun.has(type) || treasuresEverCollected.has(type)){
+          if(!treasuresOffered.has(type) && (collectedTreasureTypesThisRun.has(type) || treasuresEverCollected.has(type))){
             treasuresOffered.add(type);
             sfx.stepItem();
             showItemToast(`祭壇に${TREASURE_INFO[type].name}を供えた`, 2.0);
@@ -8076,15 +8184,35 @@
                 if(heavenGateActive) showItemToast('私のもとへ来なさい、<br>○○神よ', 2.6);
               }, 1600);
             }
-          } else if(heavenGateActive){
-            showItemToast('宝を集めし者よ、<br>我のもとに来るがよい', 2.0);
-          } else {
-            showItemToast(`${ALTAR_NAMES[type]}<br>－宝物を供えよ－`, 1.8);
           }
+        }
+        if(standHintText===null && !treasuresOffered.has(type) && !(collectedTreasureTypesThisRun.has(type) || treasuresEverCollected.has(type))){
+          standHintText = heavenGateActive
+            ? '宝を集めし者よ、<br>我のもとに来るがよい'
+            : `${ALTAR_NAMES[type]}<br>－宝物を供えよ－`;
         }
       } else {
         player._onAltarType = null;
       }
+    }
+
+    // apply the computed stand-hint, if any, but only when no higher-
+    // priority one-shot toast (e.g. just picked up the ray gun) is still
+    // being shown - see showItemToast, which clears standHintActive
+    // whenever a one-shot toast takes over
+    if(standHintText!==null){
+      if(itemToastTimer<=0){
+        if(itemToast.innerHTML!==standHintText || !itemToast.classList.contains('show')){
+          itemToast.innerHTML = standHintText;
+          itemToast.classList.add('show');
+        }
+        standHintActive = true;
+      } else {
+        standHintActive = false;
+      }
+    } else if(standHintActive){
+      itemToast.classList.remove('show');
+      standHintActive = false;
     }
 
     // the crown, left behind after the hidden final boss falls - touching
@@ -9226,6 +9354,8 @@
   const cameraBase = camera.position.clone();
   let bgLerp = 0; // 0 = normal dark background, 1 = full red (desperation attack)
   let descentMesh = null; // the true boss's dramatic fall-from-above entrance
+  let warpFX = null; // { flashed, burstDone, ejectLanded } - state for the space-warp button's own "thrown clear of a wrecked UFO" cutscene
+  const SPACE_WARP_DURATION = 2.25; // flash cutover -> wrecked UFO bursts in -> player thrown clear -> lands
   let stage4FX = null; // { cutoverDone } - tracks the wreck-smoke/beam -> flash -> space-arena cutover for stage 4
   let hiddenDescentMesh = null; // the hidden final boss's own fall-from-its-UFO entrance
   let bossDeathPixelPos = null; // where the first boss died, for the eject animation
@@ -9927,8 +10057,14 @@
     }
 
     // bombs - classic look: a plain dark sphere with a small fuse spark on
-    // top, no glow or rings, so it doesn't visually compete with anything
+    // top, no glow or rings, so it doesn't visually compete with anything.
+    // Pooled per-slot (like the projectiles below) rather than allocating
+    // fresh meshes/materials/lights every frame - with up to 20 bombs live
+    // at once during the true boss fight, that was creating dozens of new
+    // objects every single frame and was a real source of stutter.
+    let _bombIdx = 0;
     for(const b of bombs){
+      const bombIdx = _bombIdx++;
       const w = pixelToWorld(b.cx, b.cy);
       const pulse = 1 + 0.12*Math.sin(performance.now()/100);
       const isTrueBossBomb = b.owner===trueBoss || b.owner===hiddenBoss;
@@ -9939,31 +10075,31 @@
         // ring on the floor so it reads as unmistakably different (and it
         // also has a much shorter fuse than a normal bomb)
         const dpulse = 1 + 0.22*Math.sin(performance.now()/70);
-        const body = new THREE.Mesh(geo.sphere, basicMat(0x151018));
+        const body = pooledMesh('bombDangerBody', bombIdx, geo.sphere, ()=>basicMat(0x151018));
         body.scale.set(0.56*dpulse,0.56*dpulse,0.56*dpulse);
         body.position.set(w.x, 0.5, w.z);
         dynamicGroup.add(body);
         // skull face: two eye sockets + a small nose divot
-        const eyeMat = basicMat(0xd8ffb0);
-        const eyeL = new THREE.Mesh(geo.sphere, eyeMat);
+        const eyeL = pooledMesh('bombDangerEyeL', bombIdx, geo.sphere, ()=>basicMat(0xd8ffb0));
         eyeL.scale.set(0.09,0.09,0.05);
         eyeL.position.set(w.x-0.16, 0.56, w.z+0.5);
         dynamicGroup.add(eyeL);
-        const eyeR = new THREE.Mesh(geo.sphere, eyeMat);
+        const eyeR = pooledMesh('bombDangerEyeR', bombIdx, geo.sphere, ()=>basicMat(0xd8ffb0));
         eyeR.scale.set(0.09,0.09,0.05);
         eyeR.position.set(w.x+0.16, 0.56, w.z+0.5);
         dynamicGroup.add(eyeR);
-        const fuseTip = new THREE.Mesh(geo.sphere, basicMat(0x9dff5a));
+        const fuseTip = pooledMesh('bombDangerFuse', bombIdx, geo.sphere, ()=>basicMat(0x9dff5a));
         fuseTip.scale.set(0.15,0.15,0.15);
         fuseTip.position.set(w.x, 0.5+0.56*dpulse*0.95, w.z);
         dynamicGroup.add(fuseTip);
-        const glow = makeGlowSprite(0x8a3ad0, 2.4);
+        const glow = pooledGlowSprite('bombDangerGlow', bombIdx, 0x8a3ad0, 2.4);
         glow.position.set(w.x, 0.5, w.z);
         dynamicGroup.add(glow);
-        const light = new THREE.PointLight(0x9dff5a, 0.9, 2.2);
+        const light = pooledLight('bombDangerLight', bombIdx, 0x9dff5a, 0.9, 2.2);
         light.position.set(w.x, 0.4, w.z);
         dynamicGroup.add(light);
-        const warnRing = new THREE.Mesh(geo.ring, basicMat(0x9dff5a, {transparent:true, opacity:0.35+0.2*Math.sin(performance.now()/90), side:THREE.DoubleSide}));
+        const warnRing = pooledMesh('bombDangerRing', bombIdx, geo.ring, ()=>basicMat(0x9dff5a, {transparent:true, side:THREE.DoubleSide}));
+        warnRing.material.opacity = 0.35+0.2*Math.sin(performance.now()/90);
         warnRing.rotation.x = -Math.PI/2;
         warnRing.scale.set(0.7,0.7,1);
         warnRing.position.set(w.x, 0.02, w.z);
@@ -9974,25 +10110,26 @@
         // the player's golden judgement bomb - unmistakably radiant, no
         // dark shell at all, with a bright halo ring underneath
         const gpulse = 1 + 0.16*Math.sin(performance.now()/90);
-        const body = new THREE.Mesh(geo.sphere, basicMat(0xffd75e));
+        const body = pooledMesh('bombGoldBody', bombIdx, geo.sphere, ()=>basicMat(0xffd75e));
         body.scale.set(0.54*gpulse,0.54*gpulse,0.54*gpulse);
         body.position.set(w.x, 0.5, w.z);
         dynamicGroup.add(body);
-        const highlight = new THREE.Mesh(geo.sphere, basicMat(0xffffff, {transparent:true, opacity:0.6}));
+        const highlight = pooledMesh('bombGoldHi', bombIdx, geo.sphere, ()=>basicMat(0xffffff, {transparent:true, opacity:0.6}));
         highlight.scale.set(0.12,0.12,0.12);
         highlight.position.set(w.x-0.14, 0.68, w.z+0.14);
         dynamicGroup.add(highlight);
-        const fuseTip = new THREE.Mesh(geo.sphere, basicMat(0xfff6d8));
+        const fuseTip = pooledMesh('bombGoldFuse', bombIdx, geo.sphere, ()=>basicMat(0xfff6d8));
         fuseTip.scale.set(0.14,0.14,0.14);
         fuseTip.position.set(w.x, 0.5+0.54*gpulse*0.95, w.z);
         dynamicGroup.add(fuseTip);
-        const glow = makeGlowSprite(0xffe066, 2.2);
+        const glow = pooledGlowSprite('bombGoldGlow', bombIdx, 0xffe066, 2.2);
         glow.position.set(w.x, 0.5, w.z);
         dynamicGroup.add(glow);
-        const light = new THREE.PointLight(0xffd75e, 1.0, 2.6);
+        const light = pooledLight('bombGoldLight', bombIdx, 0xffd75e, 1.0, 2.6);
         light.position.set(w.x, 0.4, w.z);
         dynamicGroup.add(light);
-        const ring = new THREE.Mesh(geo.ring, basicMat(0xffe066, {transparent:true, opacity:0.5+0.2*Math.sin(performance.now()/100), side:THREE.DoubleSide}));
+        const ring = pooledMesh('bombGoldRing', bombIdx, geo.ring, ()=>basicMat(0xffe066, {transparent:true, side:THREE.DoubleSide}));
+        ring.material.opacity = 0.5+0.2*Math.sin(performance.now()/100);
         ring.rotation.x = -Math.PI/2;
         ring.scale.set(0.65,0.65,1);
         ring.position.set(w.x, 0.02, w.z);
@@ -10000,22 +10137,22 @@
         continue;
       }
       const sparkColor = isTrueBossBomb ? 0xff2020 : 0xdddddd;
-      const body = new THREE.Mesh(geo.sphere, isTrueBossBomb ? mat.trueBossBomb : mat.bomb);
+      const body = pooledMesh(isTrueBossBomb ? 'bombBodyTrue' : 'bombBodyNormal', bombIdx, geo.sphere, ()=> isTrueBossBomb ? mat.trueBossBomb : mat.bomb);
       body.scale.set(0.52*pulse,0.52*pulse,0.52*pulse);
       body.position.set(w.x, 0.5, w.z);
       dynamicGroup.add(body);
-      const highlight = new THREE.Mesh(geo.sphere, basicMat(0xffffff, {transparent:true, opacity:isTrueBossBomb?0.3:0.5}));
+      const highlight = pooledMesh(isTrueBossBomb ? 'bombHiTrue' : 'bombHiNormal', bombIdx, geo.sphere, ()=>basicMat(0xffffff, {transparent:true, opacity:isTrueBossBomb?0.3:0.5}));
       highlight.scale.set(0.11,0.11,0.11);
       highlight.position.set(w.x-0.14, 0.68, w.z+0.14);
       dynamicGroup.add(highlight);
-      const fuseTip = new THREE.Mesh(geo.sphere, basicMat(sparkColor));
+      const fuseTip = pooledMesh(isTrueBossBomb ? 'bombFuseTrue' : 'bombFuseNormal', bombIdx, geo.sphere, ()=>basicMat(sparkColor));
       fuseTip.scale.set(isTrueBossBomb?0.13:0.1, isTrueBossBomb?0.13:0.1, isTrueBossBomb?0.13:0.1);
       fuseTip.position.set(w.x, 0.5+0.52*pulse*0.95, w.z);
       dynamicGroup.add(fuseTip);
       if(isTrueBossBomb){
         // a faint red under-glow specifically for the true boss's bombs -
         // the one deliberate exception, so they're unmistakable
-        const light = new THREE.PointLight(0xff2020, 0.5, 1.6);
+        const light = pooledLight('bombTrueLight', bombIdx, 0xff2020, 0.5, 1.6);
         light.position.set(w.x, 0.4, w.z);
         dynamicGroup.add(light);
       }
@@ -10073,6 +10210,16 @@
       trail.scale.set(0.28,0.28,0.28);
       trail.position.set(wTrail.x, 1.15, wTrail.z);
       dynamicGroup.add(trail);
+      // a thin rim behind the bolt itself - these orange orbs can get lost
+      // against busy or bright backgrounds, so a dark outline (drawn
+      // back-face only, so it only shows at the silhouette edge rather
+      // than covering the bolt) makes them easier to pick out and dodge.
+      // Tinted a dark burnt-orange rather than pure black so it still
+      // reads as part of the bolt rather than a flat UI ring.
+      const outline = pooledMesh('normalProjOutline', normIdx, geo.sphere, ()=>basicMat(0x2a1204, {side:THREE.BackSide}));
+      outline.scale.set(0.225,0.225,0.225);
+      outline.position.set(w.x, 1.15, w.z);
+      dynamicGroup.add(outline);
       const bolt = pooledMesh('normalProjBolt', normIdx, geo.sphere, ()=>mat.projectile);
       bolt.scale.set(0.18,0.18,0.18);
       bolt.position.set(w.x, 1.15, w.z);
@@ -11078,12 +11225,18 @@
       if(trueBoss.rainSafeGx!==undefined){
         const sw = cellCenterToWorld(trueBoss.rainSafeGx, trueBoss.rainSafeGy);
         const dotPulse = 0.5+0.25*Math.sin(t*2.4);
+        const safePatch = new THREE.Mesh(geo.plane, new THREE.MeshBasicMaterial({
+          map: glowTexture, color:0x3d8bff, transparent:true, opacity:0.45, depthWrite:false
+        }));
+        safePatch.rotation.x = -Math.PI/2;
+        safePatch.scale.set(1.3, 1.3, 1);
+        safePatch.position.set(sw.x, 0.015, sw.z);
+        dynamicGroup.add(safePatch);
         const safeDot = new THREE.Mesh(geo.sphere, basicMat(0x3d8bff, {transparent:true, opacity:0.45+0.2*dotPulse}));
         safeDot.scale.set(0.1,0.1,0.1);
         safeDot.position.set(sw.x, 0.05, sw.z);
         dynamicGroup.add(safeDot);
       }
-
       // an ominous scatter of bombs raining down over the rest of the map,
       // telegraphing exactly what's about to happen everywhere except the beacon
       const rainCount = 22;
@@ -11110,6 +11263,13 @@
       if(trueBoss.rainSafeGx!==undefined){
         const sw = cellCenterToWorld(trueBoss.rainSafeGx, trueBoss.rainSafeGy);
         const dotPulse = 0.5+0.25*Math.sin(t*2.4);
+        const safePatch = new THREE.Mesh(geo.plane, new THREE.MeshBasicMaterial({
+          map: glowTexture, color:0x3d8bff, transparent:true, opacity:0.45, depthWrite:false
+        }));
+        safePatch.rotation.x = -Math.PI/2;
+        safePatch.scale.set(1.3, 1.3, 1);
+        safePatch.position.set(sw.x, 0.015, sw.z);
+        dynamicGroup.add(safePatch);
         const safeDot = new THREE.Mesh(geo.sphere, basicMat(0x3d8bff, {transparent:true, opacity:0.45+0.2*dotPulse}));
         safeDot.scale.set(0.1,0.1,0.1);
         safeDot.position.set(sw.x, 0.05, sw.z);
@@ -11121,7 +11281,7 @@
       let _rainBombIdx = 0;
       for(const rb of rainBombs){
         const w = pixelToWorld(rb.cx, rb.cy);
-        const body = new THREE.Mesh(geo.sphere, mat.trueBossBomb);
+        const body = pooledMesh('rainBombBody', _rainBombIdx, geo.sphere, ()=>mat.trueBossBomb);
         body.scale.set(0.5*pulse,0.5*pulse,0.5*pulse);
         body.position.set(w.x, 0.5, w.z);
         dynamicGroup.add(body);
@@ -11249,8 +11409,14 @@
       // the true boss only starts falling once the player has actually
       // landed, so the two big moments don't compete for attention
       const FALL_START = bossDeathPixelPos ? (EJECT2_END + 0.15) : 0;
-      const FALL_END = FALL_START + 2.3;
-      const elapsed = Math.max(0, TOTAL - stageTimer);
+      const FALL_DUR = bossDeathPixelPos ? 2.3 : 1.5; // the space-warp skip path uses a snappier fall than the full natural-flow cutscene
+      const FALL_END = FALL_START + FALL_DUR;
+      // in the full flow, stageTimer counts down from TOTAL so elapsed
+      // naturally runs 0 -> TOTAL. In the skip path (no wreck/flash phase),
+      // stageTimer instead counts down from STAGE4_SKIP_DURATION, so elapsed
+      // must be measured against that instead or it'd already read as "long
+      // past FALL_END" on the very first frame, skipping the fall entirely.
+      const elapsed = bossDeathPixelPos ? Math.max(0, TOTAL - stageTimer) : Math.max(0, STAGE4_SKIP_DURATION - stageTimer);
       const clamp01 = x => Math.max(0, Math.min(1, x));
       const easeIn = x => x*x;
 
@@ -11488,6 +11654,61 @@
             player.mesh3d.rotation.z = 0;
             if(!stage4FX.ejectLanded){
               stage4FX.ejectLanded = true;
+              triggerShake(0.25, 5);
+              spawnDeathEffect(landW.x, landW.z, '#3d7bff', 1.3);
+            }
+            playerSuckedInVisual = false;
+          }
+        }
+      }
+    }
+
+    // stage 30: the space-warp button's own cutscene - once the flash has
+    // swapped the arena underneath, a wrecked UFO bursts into view and the
+    // player is thrown clear of it, landing right where the fight starts
+    if(stage===30 && warpFX && warpFX.flashed){
+      const elapsedW2 = SPACE_WARP_DURATION - stageTimer;
+      const clamp01w = x => Math.max(0, Math.min(1, x));
+      const WRECK_START = 0.95, BURST_END = WRECK_START+0.4;
+      const EJECT_START = WRECK_START+0.35, EJECT_END = EJECT_START+0.6;
+      if(elapsedW2 >= WRECK_START){
+        const wreckGx = Math.floor(COLS/2), wreckGy = ROWS-3;
+        const wreckW = cellCenterToWorld(wreckGx, wreckGy);
+        if(!warpFX.burstDone){
+          warpFX.burstDone = true;
+          triggerShake(0.35, 7);
+          spawnDeathEffect(wreckGx*TILE+TILE/2, wreckGy*TILE+TILE/2, '#ffe066', 2.2);
+        }
+        renderUfoWreck(wreckW.x, wreckW.z);
+        const burstP = clamp01w((elapsedW2-WRECK_START)/(BURST_END-WRECK_START));
+        if(burstP < 1){
+          const brs = 0.3+burstP*2.6;
+          const burstRing = new THREE.Mesh(geo.ring, basicMat(0xffe066, {transparent:true, opacity:0.85*(1-burstP), side:THREE.DoubleSide}));
+          burstRing.rotation.x = -Math.PI/2;
+          burstRing.scale.set(brs, brs, 1);
+          burstRing.position.set(wreckW.x, 0.1, wreckW.z);
+          dynamicGroup.add(burstRing);
+          const burstFlash = makeGlowSprite(0xffe066, 3.2*(1-burstP)+0.4);
+          burstFlash.position.set(wreckW.x, 0.6, wreckW.z);
+          dynamicGroup.add(burstFlash);
+        }
+        if(elapsedW2 >= EJECT_START && player.mesh3d){
+          playerSuckedInVisual = true;
+          player.mesh3d.visible = true;
+          const landW = pixelToWorld(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2);
+          const ejP = clamp01w((elapsedW2-EJECT_START)/(EJECT_END-EJECT_START));
+          const arcY = Math.sin(Math.PI*ejP)*1.5;
+          const tx = wreckW.x + (landW.x-wreckW.x)*ejP;
+          const tz = wreckW.z + (landW.z-wreckW.z)*ejP;
+          player.mesh3d.position.set(tx, arcY, tz);
+          player.mesh3d.scale.set(1,1,1);
+          player.mesh3d.rotation.y += 0.5;
+          player.mesh3d.rotation.z = (1-ejP)*1.4;
+          dynamicGroup.add(player.mesh3d);
+          if(ejP >= 1){
+            player.mesh3d.rotation.z = 0;
+            if(!warpFX.ejectLanded){
+              warpFX.ejectLanded = true;
               triggerShake(0.25, 5);
               spawnDeathEffect(landW.x, landW.z, '#3d7bff', 1.3);
             }

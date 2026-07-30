@@ -1584,6 +1584,28 @@
     floorMesh.position.set(0,0,0);
     floorMesh.receiveShadow = true;
     boardGroup.add(floorMesh);
+    if(heavenMode){
+      // four faint reddish scorch-like patches marking the god boss arena -
+      // a soft radial blend (not a hard-edged shape) so they read as a
+      // subtle stain in the gold floor rather than a UI marker. Top/bottom
+      // center, and three tiles in from the middle of the left/right edges.
+      const heavenFloorMarkSpots = [
+        { gx: Math.floor(COLS/2), gy: 1 },
+        { gx: Math.floor(COLS/2), gy: ROWS-2 },
+        { gx: 3, gy: Math.floor(ROWS/2) },
+        { gx: COLS-4, gy: Math.floor(ROWS/2) },
+      ];
+      for(const spot of heavenFloorMarkSpots){
+        const mw = cellCenterToWorld(spot.gx, spot.gy);
+        const mark = new THREE.Mesh(geo.plane, new THREE.MeshBasicMaterial({
+          map: glowTexture, color:0x9c1f1f, transparent:true, opacity:0.4, depthWrite:false
+        }));
+        mark.rotation.x = -Math.PI/2;
+        mark.scale.set(1.3, 1.3, 1);
+        mark.position.set(mw.x, 0.015, mw.z);
+        boardGroup.add(mark);
+      }
+    }
     for(let y=0;y<ROWS;y++){
       tileMeshes.push(new Array(COLS).fill(null));
       for(let x=0;x<COLS;x++){

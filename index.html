@@ -704,7 +704,14 @@
     hexPoint: new THREE.CylinderGeometry(0, 0.5, 1, 6),
     cone: new THREE.CylinderGeometry(0, 0.5, 1, 10),
   };
+  // These geometries are shared/reused across every mesh built each frame
+  // (bombs, particles, enemies, treasures, ...). Tracked by identity (not a
+  // userData flag) so the per-frame cleanup below can tell a pooled
+  // geometry/material apart from a disposable one-off clone of it - THREE's
+  // .clone()/.copy() would otherwise copy a userData flag along with it.
+  const sharedGeometries = new WeakSet(Object.values(geo));
   const boxEdges = new THREE.EdgesGeometry(geo.box);
+  sharedGeometries.add(boxEdges);
   function addGlowEdges(mesh, colorHex, opacity){
     // a soft dark cel-shaded outline (rather than a neon glow) so shapes
     // stay crisp and readable against the bright daytime scene
@@ -755,6 +762,10 @@
     debrisSpark: basicMat(0xa5682f),
     deathParticle: basicMat(0xffffff, {transparent:true}),
   };
+  // A few meshes reuse one of these pooled materials directly (no .clone()),
+  // most rebuilt fresh every frame. Track the pool by identity so cleanup
+  // never disposes the shared instance itself, only one-off clones/copies.
+  const sharedMaterials = new WeakSet(Object.values(mat));
 
   // static board (floor + walls + blocks); rebuilt whenever the grid layout
   // changes (new game, or a boss clears all blocks) and individual tiles are
@@ -3498,18 +3509,99 @@
     blockDebris = blockDebris.filter(fx=>fx.timer>0);
   }
 
+  // ---- reusable mesh pools for particle effects (block debris & death fx) ----
+  // These used to create a brand-new THREE.Mesh + cloned Material for every
+  // particle on every frame (dozens of times a second whenever something
+  // blows up). Each pool lazily grows to the peak particle count seen so
+  // far, then just repositions/restyles the same meshes - identical visuals,
+  // far less per-frame allocation/GC pressure. The persistent per-slot
+  // materials are registered in sharedMaterials so the per-frame dynamicGroup
+  // cleanup (see disposeDynamicChild) never disposes them.
+  const debrisParticlePool = [];
+  function getDebrisParticleMesh(i){
+    let m = debrisParticlePool[i];
+    if(!m){
+      const pmat = mat.debrisMetal.clone();
+      pmat.transparent = true;
+      sharedMaterials.add(pmat);
+      m = new THREE.Mesh(geo.box, pmat);
+      debrisParticlePool[i] = m;
+    }
+    return m;
+  }
+  const deathParticlePool = [];
+  function getDeathParticleMesh(i){
+    let m = deathParticlePool[i];
+    if(!m){
+      const pmat = mat.deathParticle.clone();
+      pmat.transparent = true;
+      sharedMaterials.add(pmat);
+      m = new THREE.Mesh(geo.sphere, pmat);
+      deathParticlePool[i] = m;
+    }
+    return m;
+  }
+
+  // Explosion cells: a wide blast can cover a dozen+ tiles, each drawn with
+  // 2 stacked meshes, for every frame the blast is visible. Pooled the same
+  // way as the particle effects above.
+  const explosionOuterPool = [];
+  function getExplosionOuterMesh(i){
+    let m = explosionOuterPool[i];
+    if(!m){
+      const pmat = mat.explosionOuter.clone();
+      sharedMaterials.add(pmat);
+      m = new THREE.Mesh(geo.box, pmat);
+      explosionOuterPool[i] = m;
+    }
+    return m;
+  }
+  const explosionInnerPool = [];
+  function getExplosionInnerMesh(i){
+    let m = explosionInnerPool[i];
+    if(!m){
+      const pmat = mat.explosionInner.clone();
+      sharedMaterials.add(pmat);
+      m = new THREE.Mesh(geo.box, pmat);
+      explosionInnerPool[i] = m;
+    }
+    return m;
+  }
+  const explosionCoreOuterPool = [];
+  function getExplosionCoreOuterMesh(i){
+    let m = explosionCoreOuterPool[i];
+    if(!m){
+      const pmat = basicMat(0x9dff5a, {transparent:true});
+      sharedMaterials.add(pmat);
+      m = new THREE.Mesh(geo.box, pmat);
+      explosionCoreOuterPool[i] = m;
+    }
+    return m;
+  }
+  const explosionCoreInnerPool = [];
+  function getExplosionCoreInnerMesh(i){
+    let m = explosionCoreInnerPool[i];
+    if(!m){
+      const pmat = basicMat(0x8a3ad0, {transparent:true});
+      sharedMaterials.add(pmat);
+      m = new THREE.Mesh(geo.box, pmat);
+      explosionCoreInnerPool[i] = m;
+    }
+    return m;
+  }
+
   function syncBlockDebris3D(){
+    let idx = 0;
     for(const fx of blockDebris){
       const life = Math.max(0, fx.timer/fx.maxTimer);
       for(const p of fx.particles){
         const w = pixelToWorld(p.x, p.y);
-        const mesh = new THREE.Mesh(geo.box, p.color==='#ffaa28' ? mat.debrisMetal : mat.debrisSpark);
+        const mesh = getDebrisParticleMesh(idx++);
+        mesh.material.color.set(p.color==='#ffaa28' ? 0xffaa28 : 0xa5682f);
         const s = (p.size/TILE)*1.4;
         mesh.scale.set(s,s,s);
         mesh.position.set(w.x, 0.15+life*0.5, w.z);
         mesh.rotation.set(p.rot, p.rot*0.7, 0);
-        mesh.material = mesh.material.clone();
-        mesh.material.transparent = true;
         mesh.material.opacity = life;
         dynamicGroup.add(mesh);
       }
@@ -3517,21 +3609,22 @@
   }
 
   function syncDeathEffects3D(){
+    let idx = 0;
     for(const fx of deathEffects){
       const life = Math.max(0, fx.timer/fx.maxTimer);
       for(const p of fx.particles){
         const w = pixelToWorld(p.x, p.y);
-        const mesh = new THREE.Mesh(geo.sphere, mat.deathParticle.clone());
+        const mesh = getDeathParticleMesh(idx++);
         const s = (p.size*life/TILE)*1.6;
         mesh.scale.set(s,s,s);
         mesh.position.set(w.x, 0.3, w.z);
         mesh.material.color.set(fx.color);
-        mesh.material.transparent = true;
         mesh.material.opacity = life;
         dynamicGroup.add(mesh);
       }
     }
   }
+
 
   // ---- classic grid-locked movement for the player ----
   // The player always occupies a grid cell, or is smoothly interpolating
@@ -4624,99 +4717,6 @@
     return g;
   }
 
-  // Extra otherworldly detailing added only to the FPS finale boss - a
-  // slow ring of orbiting eye-motes and a crackling energy band around
-  // its torso - layered onto the same jellyfish-alien base model used for
-  // the true/hidden bosses elsewhere, so it's unmistakably the same being.
-  function detailFPSBoss(mesh){
-    const motes = new THREE.Group();
-    for(let i=0;i<5;i++){
-      const mote = new THREE.Mesh(geo.sphere, basicMat(0xff3b3b));
-      mote.scale.set(0.045,0.045,0.045);
-      mote.userData.orbitAngle = (i/5)*Math.PI*2;
-      mote.userData.orbitR = 0.62+Math.random()*0.15;
-      mote.userData.orbitY = 1.1+Math.random()*1.2;
-      mote.userData.orbitSpeed = 0.6+Math.random()*0.4;
-      motes.add(mote);
-    }
-    mesh.add(motes);
-    mesh.userData.orbitMotes = motes;
-    const energyRing = new THREE.Mesh(geo.torus, basicMat(0xaa4dff, {transparent:true, opacity:0.5}));
-    energyRing.scale.set(0.62,0.62,0.62);
-    energyRing.position.y = 0.62;
-    mesh.add(energyRing);
-    mesh.userData.energyRing = energyRing;
-    // a pulsing core crystal embedded in its chest - the source of its
-    // power, and a clear visual "this thing is not a normal enemy" tell
-    const coreCrystal = new THREE.Mesh(geo.icosa, basicMat(0xff3b3b, {transparent:true, opacity:0.85}));
-    coreCrystal.scale.set(0.16, 0.22, 0.13);
-    coreCrystal.position.set(0, 0.95, 0.28);
-    mesh.add(coreCrystal);
-    mesh.userData.coreCrystal = coreCrystal;
-    const coreLight = new THREE.PointLight(0xff3b3b, 0.9, 2.4);
-    coreLight.position.copy(coreCrystal.position);
-    mesh.add(coreLight);
-    // a jagged, corrupted crown of dark spikes ringing the head - a
-    // shattered echo of the true crown, still clinging to its own claim
-    const spikeMat = basicMat(0x2a0a1a);
-    for(let i=0;i<7;i++){
-      const spike = new THREE.Mesh(geo.hexPoint, spikeMat);
-      const ang = (i/7)*Math.PI*2;
-      const spikeH = 0.16+Math.random()*0.14;
-      spike.scale.set(0.045, spikeH, 0.045);
-      spike.position.set(Math.cos(ang)*0.3, 1.75+spikeH*0.4, Math.sin(ang)*0.3);
-      spike.rotation.x = Math.cos(ang)*0.4;
-      spike.rotation.z = -Math.sin(ang)*0.4;
-      mesh.add(spike);
-    }
-    // trailing energy tendrils drifting off both arms
-    const tendrilTrio = new THREE.Group();
-    for(const side of [-1,1]){
-      for(let i=0;i<3;i++){
-        const seg = new THREE.Mesh(geo.cylinder, basicMat(0xaa4dff, {transparent:true, opacity:0.55-i*0.12}));
-        const segS = 0.028-i*0.006;
-        seg.scale.set(segS, 0.18, segS);
-        seg.position.set(side*(0.68+i*0.06), 0.9-i*0.22, -0.1-i*0.08);
-        seg.rotation.z = side*(0.5+i*0.15);
-        tendrilTrio.add(seg);
-      }
-    }
-    mesh.add(tendrilTrio);
-    // a cracked outer exoskeleton shell wrapping the torso - a second,
-    // larger, jagged membrane layer with visible fracture lines, so this
-    // specific variant reads as a distinctly hardened, built-up form
-    const shellMat = basicMat(0x2a0a3a, {transparent:true, opacity:0.4});
-    const shell = new THREE.Mesh(geo.icosa, shellMat);
-    shell.scale.set(0.62, 0.66, 0.62);
-    shell.position.y = 0.62;
-    mesh.add(shell);
-    const fractureMat = basicMat(0xff3b3b, {transparent:true, opacity:0.7});
-    for(let i=0;i<5;i++){
-      const ang = (i/5)*Math.PI*2 + 0.4;
-      const fracture = new THREE.Mesh(geo.box, fractureMat);
-      fracture.scale.set(0.02, 0.3+Math.random()*0.15, 0.015);
-      fracture.position.set(Math.cos(ang)*0.5, 0.45+Math.random()*0.3, Math.sin(ang)*0.5);
-      fracture.rotation.y = -ang;
-      fracture.rotation.z = (Math.random()-0.5)*0.6;
-      mesh.add(fracture);
-    }
-    // two extra-long primary tentacles reaching further down than the
-    // rest, thicker at the base, marking this as the same species but a
-    // heavier, more dangerous specimen
-    const primaryTentacleMat = basicMat(0x3a1050);
-    for(const side of [-1,1]){
-      const primary = new THREE.Mesh(geo.cylinder, primaryTentacleMat);
-      primary.scale.set(0.07, 0.72, 0.07);
-      primary.position.set(side*0.22, -0.02, 0.12);
-      primary.rotation.x = 0.18;
-      primary.rotation.z = side*0.22;
-      mesh.add(primary);
-      const primaryTip = new THREE.Mesh(geo.sphere, basicMat(0x39ffb0));
-      primaryTip.scale.set(0.075,0.075,0.075);
-      primaryTip.position.set(side*0.34, -0.36, 0.22);
-      mesh.add(primaryTip);
-    }
-  }
 
   // A proper grenade-style bomb for the hacked comrades to throw - a dark
   // riveted shell, metal collar, and a curved sparking fuse - instead of
@@ -6514,10 +6514,15 @@
     return triggered;
   }
 
-  // ---------- Main update ----------
-  function update(dt){
-    if(gameOver || gameWin) return;
-
+  // Runs once per frame before normal gameplay. First ticks down a handful
+  // of always-on timers/effects, then checks every “frozen cutscene” or
+  // special full-screen mode a stage can be in right now (boss reveal
+  // intros, death/victory cutscenes, the shooter and FPS mini-games, ...).
+  // Each of these, when active, fully owns the frame - normal gameplay
+  // (player movement, bombs, enemy/boss AI) is skipped entirely for as long
+  // as one of them is in control. Returns true once it has consumed the
+  // frame this way; false means none applied and normal gameplay should run.
+  function handleFrameGatesAndCutscenes(dt){
     if(destroyRayBeam){
       destroyRayBeam.timer -= dt;
       if(destroyRayBeam.timer<=0) destroyRayBeam = null;
@@ -6537,11 +6542,11 @@
     }
     if(timeStopTimer>0){
       timeStopTimer -= dt;
-      return; // brief hitstop freeze - everything else pauses for the beat
+      return true; // brief hitstop freeze - everything else pauses for the beat
     }
     if(stage===21 && godIntroTimer>0){
       godIntroTimer -= dt;
-      return; // neither the player nor the god can act until the reveal banner clears
+      return true; // neither the player nor the god can act until the reveal banner clears
     }
     if(stage===21 && godDyingTimer>0){
       godDyingTimer -= dt;
@@ -6561,7 +6566,7 @@
         score += 5000;
         updateHUD();
       }
-      return; // the world holds still while the god slowly fades away
+      return true; // the world holds still while the god slowly fades away
     }
 
     // Let the death animation actually play before showing the end screen,
@@ -6578,7 +6583,7 @@
         else { gameOver = true; showOverlay(false); }
         pendingEnd = null;
       }
-      return;
+      return true;
     }
 
     // dying in the heaven stage doesn't end the run - after the death
@@ -6610,7 +6615,7 @@
         cutsceneFlashDone = false;
         updateHUD();
       }
-      return;
+      return true;
     }
 
     // stage 2 is a short frozen "boss incoming" intro - nothing moves
@@ -6622,7 +6627,7 @@
         stage = 3;
         updateHUD();
       }
-      return;
+      return true;
     }
 
     // stage 4 is the "true boss" reveal intro - also frozen
@@ -6636,7 +6641,7 @@
         stage4FX = null;
         updateHUD();
       }
-      return;
+      return true;
     }
 
     // stage 6: the true boss's death cutscene - a slow-motion burst that
@@ -6655,7 +6660,7 @@
         whiteFlash.style.opacity = '0';
         updateHUD();
       }
-      return;
+      return true;
     }
 
     // right after warping into the hidden boss's arena: a black hole
@@ -6673,7 +6678,7 @@
         bossBanner.classList.add('show');
         updateHUD();
       }
-      return;
+      return true;
     }
 
     // stage 8: the hidden final boss's reveal intro - the kick-broken
@@ -6694,7 +6699,7 @@
         stage = 9;
         updateHUD();
       }
-      return;
+      return true;
     }
 
     // stage 10: the hidden boss's death cutscene - same burst-then-flash
@@ -6716,7 +6721,7 @@
         stage = 11;
         updateHUD();
       }
-      return;
+      return true;
     }
 
     // stage 12: not-invincible black hole death - the player visibly
@@ -6780,7 +6785,7 @@
           if(!pendingEnd) pendingEnd = { isWin:false, timer:0.8 };
         }
       }
-      return;
+      return true;
     }
 
     // stage 13: the crown-claimed victory pose - walk to the arena's
@@ -6811,7 +6816,7 @@
         endingMessage = crownCracked ? '割れた王冠を手にした…完全クリア！' : '綺麗な王冠を手にした…完全クリア！';
         if(!pendingEnd) pendingEnd = { isWin:true, timer:0.6 };
       }
-      return;
+      return true;
     }
 
     // stage 14: having already beaten the god this run, taking the crown
@@ -6847,7 +6852,7 @@
           + (sneakyTreasureTaken ? '。宝物もこっそりくすねちゃった' : '');
         if(!pendingEnd) pendingEnd = { isWin:true, timer:0.6 };
       }
-      return;
+      return true;
     }
 
     // stage 20: the flash into the secret heaven stage - ramps to full
@@ -6887,7 +6892,7 @@
         setTimeout(()=>bossBanner.classList.remove('show'), 2400);
         updateHUD();
       }
-      return;
+      return true;
     }
 
     // stage 22: the flash carrying the player through the mystery gate -
@@ -6916,12 +6921,12 @@
       if(stageTimer<=0){
         enterShooterStage();
       }
-      return;
+      return true;
     }
 
     if(stage===23){
       updateShooter(dt);
-      return;
+      return true;
     }
 
     // stage 24: the flash out of the shooter once its miniboss falls -
@@ -6957,7 +6962,7 @@
         wakeMessageShown = false;
         updateHUD();
       }
-      return;
+      return true;
     }
 
     // stage 25: arriving back on Earth - a banner announcing the return,
@@ -6982,14 +6987,27 @@
       if(stageTimer<=0){
         enterFPSStage();
       }
-      return;
+      return true;
     }
 
     if(stage===26){
       updateFPS(dt);
-      return;
+      return true;
     }
+    return false;
+  }
 
+  // ---------- Main update: entry point called once per frame ----------
+  function update(dt){
+    if(gameOver || gameWin) return;
+    if(handleFrameGatesAndCutscenes(dt)) return;
+    updateNormalGameplay(dt);
+  }
+
+  // ---- normal per-frame gameplay (only reached when the block above didn't
+  // already handle/consume the frame): player input & movement, bombs,
+  // explosions, items, and enemy/boss AI ----
+  function updateNormalGameplay(dt){
     let rawDx=0, rawDy=0;
     if(joyActive && (Math.abs(joyVec.x)>0.15 || Math.abs(joyVec.y)>0.15)){
       rawDx = joyVec.x; rawDy = joyVec.y;
@@ -7965,6 +7983,19 @@
     updateHUD();
   }
 
+  // ================================================================
+  // ---- Enemy / boss AI helpers ----
+  // Shared movement/pathing/decision helpers used by the regular enemy AI
+  // and by the various bosses' AI (see the boss branches in
+  // updateNormalGameplay above). Grouped together here since they're all
+  // "given an entity, decide/perform its next move" logic; entity-specific
+  // behavior (attack patterns, phase transitions, etc.) still lives inline
+  // where each boss is updated.
+  // ================================================================
+
+  // Attempts to move a regular enemy by its current direction*speed*dt;
+  // returns whether it actually moved (false means it was blocked and
+  // should probably pick a new direction - see pickNewDirection below).
   function tryEnemyStep(en, dt, speed){
     const before = {x:en.x, y:en.y};
     const mx = en.dir.dx*speed*dt;
@@ -7973,6 +8004,10 @@
     return en.x!==before.x || en.y!==before.y;
   }
 
+  // Regular enemy's simple wandering AI: picks a uniformly random direction
+  // among whichever of the 4 cardinal directions are open (no wall, no
+  // bomb) right now, falling back to any direction at all if fully boxed
+  // in. No danger-avoidance or target-seeking - that's reserved for bosses.
   function pickNewDirection(en){
     const options = [[1,0],[-1,0],[0,1],[0,-1]];
     const {gx,gy} = centerTile(en);
@@ -8124,6 +8159,13 @@
     if(!candidates.length) return { gx:Math.floor(COLS/2), gy:Math.floor(ROWS/2) };
     return candidates[Math.floor(Math.random()*candidates.length)];
   }
+  // ---- end of enemy/boss AI helpers ----
+
+  // ================================================================
+  // ---- Stage/room setup & spawning helpers ----
+  // Board prep and entity-spawning for boss fights and stage transitions
+  // (clearing blocks, spawning bosses/relics, swapping in a stage's theme).
+  // ================================================================
 
   // Clears a boss room but only removes destructible blocks - the
   // indestructible pillar walls that give the maze its structure must stay.
@@ -8223,6 +8265,12 @@
     trueBoss.periodicRayCharging = false;
     trueBoss.periodicRayChargeTimer = 0;
   }
+
+  // ---- theme & scenery builders ----
+  // Everything below swaps the arena between the game's different visual
+  // "themes" (space warp-zone, primitive/dino era, heaven) - clearing and
+  // rebuilding decor, sky domes, ground textures, etc. Doesn't touch
+  // gameplay state (grid/entities) beyond what a theme swap requires.
 
   // Clears the arena for the white-hole/black-hole warp-zone stage and
   // places the two portals at the far left and right sides.
@@ -8789,87 +8837,6 @@
     fpsNightStars = null;
   }
 
-  // A single dinosaur, built from simple tapered segments (tail, torso,
-  // neck, head with jaw/teeth/eyes, legs, small arms) rather than a bare
-  // box - `t` drives a gentle walking bob.
-  function makeDinoMesh(t){
-    const g = new THREE.Group();
-    const skinMat = basicMat(0x4a6b3a);
-    const bellyMat = basicMat(0x9fc07a);
-    const darkMat = basicMat(0x2e4322);
-    const bob = Math.sin(t*6)*0.03;
-
-    const torso = new THREE.Mesh(geo.box, skinMat);
-    torso.scale.set(0.7,0.75,1.4);
-    torso.position.set(0,0.82+bob,0.15);
-    addGlowEdges(torso,0,0.4);
-    g.add(torso);
-
-    const belly = new THREE.Mesh(geo.box, bellyMat);
-    belly.scale.set(0.5,0.32,1.2);
-    belly.position.set(0,0.58+bob,0.15);
-    g.add(belly);
-
-    // tail: three tapering segments trailing toward +Z
-    for(let i=0;i<3;i++){
-      const s = 0.36*(1-i*0.24);
-      const seg = new THREE.Mesh(geo.box, i%2===0?skinMat:darkMat);
-      seg.scale.set(s, s*0.85, 0.5);
-      seg.position.set(0, 0.72+bob-i*0.07, 1.13+i*0.36);
-      seg.rotation.x = -0.18-i*0.08+Math.sin(t*4+i)*0.05;
-      g.add(seg);
-    }
-
-    // neck + head toward -Z
-    const neck = new THREE.Mesh(geo.box, skinMat);
-    neck.scale.set(0.36,0.36,0.46);
-    neck.position.set(0,1.08+bob,-0.68);
-    neck.rotation.x = 0.35;
-    g.add(neck);
-
-    const head = new THREE.Mesh(geo.box, skinMat);
-    head.scale.set(0.4,0.36,0.58);
-    head.position.set(0,1.3+bob,-0.98);
-    addGlowEdges(head,0,0.4);
-    g.add(head);
-
-    const jaw = new THREE.Mesh(geo.box, darkMat);
-    jaw.scale.set(0.3,0.1,0.46);
-    jaw.position.set(0,1.13+bob,-1.02);
-    g.add(jaw);
-
-    for(const side of [-1,1]){
-      const tooth = new THREE.Mesh(geo.box, basicMat(0xf5f0e0));
-      tooth.scale.set(0.03,0.05,0.03);
-      tooth.position.set(side*0.1,1.18+bob,-1.22);
-      g.add(tooth);
-
-      const eye = new THREE.Mesh(geo.sphere, basicMat(0xff3b3b));
-      eye.scale.set(0.06,0.06,0.06);
-      eye.position.set(side*0.15,1.38+bob,-1.08);
-      g.add(eye);
-
-      const thigh = new THREE.Mesh(geo.box, darkMat);
-      thigh.scale.set(0.22,0.5,0.28);
-      thigh.position.set(side*0.26,0.42+bob*0.4,0.2);
-      thigh.rotation.x = 0.15;
-      g.add(thigh);
-
-      const shin = new THREE.Mesh(geo.box, skinMat);
-      shin.scale.set(0.16,0.36,0.18);
-      shin.position.set(side*0.26,0.12,0.34);
-      shin.rotation.x = -0.2;
-      g.add(shin);
-
-      const arm = new THREE.Mesh(geo.box, skinMat);
-      arm.scale.set(0.09,0.2,0.09);
-      arm.position.set(side*0.3,0.9+bob,-0.5);
-      arm.rotation.x = 0.4;
-      g.add(arm);
-    }
-
-    return g;
-  }
 
   let heavenDecor = null; // persistent decorative backdrop (rays of light + halo) for the secret heaven stage
   function setupHeavenTheme(){
@@ -8929,6 +8896,10 @@
     hiddenBoss.dormant = true;
     hiddenBoss.laughTimer = 1.0;
   }
+
+  // ---- misc UI/utility helpers ----
+  // Small standalone helpers for the end-of-run overlay, HUD text
+  // formatting, and canvas text wrapping/screenshot capture.
 
   function formatClearTime(ms){
     const totalSec = ms/1000;
@@ -9370,7 +9341,7 @@
   }
 
   function renderGodBoss(b, yOffset){
-    if(!b.mesh3d) b.mesh3d = makeGodMesh();
+    if(!b.mesh3d){ b.mesh3d = makeGodMesh(); protectPersistentMesh(b.mesh3d); }
     const w = pixelToWorld(b.x+ENTITY_SIZE/2, b.y+ENTITY_SIZE/2);
     const t = performance.now()/1000;
     const hover = Math.sin(t*1.3)*0.08;
@@ -9614,10 +9585,55 @@
     dynamicGroup.add(emberLight);
   }
 
+  // draw() rebuilds bombs/particles/enemies/treasures/etc from scratch every
+  // frame, which means almost every geometry and material handed to
+  // dynamicGroup is a fresh, one-off object (only the geometries in `geo`
+  // and `boxEdges` are intentionally shared/reused - see sharedGeometry tag
+  // above). Previously none of that per-frame geometry/material was ever
+  // freed, so the GPU quietly accumulated garbage for as long as the game
+  // ran. This walks the whole subtree being discarded and frees anything
+  // that isn't explicitly marked shared.
+  // Several entities (player, enemies, bosses, asteroids, thrown bombs, ...)
+  // build their mesh ONCE and cache it on the entity ("if(!x.mesh3d) x.mesh3d
+  // = makeXMesh()"), then just reposition/re-add that same object every
+  // frame. Their geometries/materials must be marked shared too, or the
+  // per-frame dynamicGroup cleanup below would dispose them right after
+  // every single frame they're used - forcing a shader recompile each frame
+  // for exactly the meshes on screen the most.
+  function protectPersistentMesh(obj){
+    if(!obj) return;
+    if(obj.geometry) sharedGeometries.add(obj.geometry);
+    if(obj.material){
+      if(Array.isArray(obj.material)){ for(const m of obj.material) sharedMaterials.add(m); }
+      else sharedMaterials.add(obj.material);
+    }
+    if(obj.children && obj.children.length){
+      for(const c of obj.children) protectPersistentMesh(c);
+    }
+  }
+
+  function disposeDynamicChild(obj){
+    if(obj.material){
+      if(Array.isArray(obj.material)){
+        for(const m of obj.material){ if(!sharedMaterials.has(m)) m.dispose(); }
+      } else if(!sharedMaterials.has(obj.material)){
+        obj.material.dispose();
+      }
+    }
+    if(obj.geometry && !sharedGeometries.has(obj.geometry)){
+      obj.geometry.dispose();
+    }
+    if(obj.children && obj.children.length){
+      for(let i=0;i<obj.children.length;i++) disposeDynamicChild(obj.children[i]);
+    }
+  }
+
   function draw(){
-    // clear last frame's dynamic (per-frame-rebuilt) meshes
+    // clear last frame's dynamic (per-frame-rebuilt) meshes, freeing their
+    // one-off GPU resources as we go (see disposeDynamicChild above)
     while(dynamicGroup.children.length){
       const obj = dynamicGroup.children.pop();
+      disposeDynamicChild(obj);
       dynamicGroup.remove(obj);
     }
 
@@ -9629,40 +9645,52 @@
       const w = cellCenterToWorld(it.gx, it.gy);
       if(TREASURE_INFO[it.type]){
         // a small proper 3D model (ring/earring/necklace/gold bar), gently
-        // spinning and bobbing so it reads as a real treasure sitting there
-        const tmesh = makeTreasureMesh(it.type);
-        tmesh.position.set(w.x, 0.42+bob, w.z);
-        tmesh.rotation.y = performance.now()/900;
-        dynamicGroup.add(tmesh);
-        const tglow = makeGlowSprite(0xffe066, 0.9);
-        tglow.position.set(w.x, 0.42+bob, w.z);
-        dynamicGroup.add(tglow);
+        // spinning and bobbing so it reads as a real treasure sitting there.
+        // Built once per item and cached (same pattern as player/enemy
+        // mesh3d) instead of constructing a fresh model every frame.
+        if(!it.mesh3d){ it.mesh3d = makeTreasureMesh(it.type); protectPersistentMesh(it.mesh3d); }
+        it.mesh3d.position.set(w.x, 0.42+bob, w.z);
+        it.mesh3d.rotation.y = performance.now()/900;
+        dynamicGroup.add(it.mesh3d);
+        if(!it.glowSprite){ it.glowSprite = makeGlowSprite(0xffe066, 0.9); protectPersistentMesh(it.glowSprite); }
+        it.glowSprite.position.set(w.x, 0.42+bob, w.z);
+        dynamicGroup.add(it.glowSprite);
       } else if(RELIC_INFO[it.type]){
         // one of the seven relics - its own distinct gold model, spinning
         // and bobbing just like the other treasures
-        const rmesh = makeRelicMesh(it.type);
-        rmesh.position.set(w.x, 0.5+bob, w.z);
-        rmesh.rotation.y = performance.now()/900;
-        dynamicGroup.add(rmesh);
+        if(!it.mesh3d){ it.mesh3d = makeRelicMesh(it.type); protectPersistentMesh(it.mesh3d); }
+        it.mesh3d.position.set(w.x, 0.5+bob, w.z);
+        it.mesh3d.rotation.y = performance.now()/900;
+        dynamicGroup.add(it.mesh3d);
         if(it.type!=='relicHalo'){
-          const rglow = makeGlowSprite(0xffe066, 0.8);
-          rglow.position.set(w.x, 0.5+bob, w.z);
-          dynamicGroup.add(rglow);
+          if(!it.glowSprite){ it.glowSprite = makeGlowSprite(0xffe066, 0.8); protectPersistentMesh(it.glowSprite); }
+          it.glowSprite.position.set(w.x, 0.5+bob, w.z);
+          dynamicGroup.add(it.glowSprite);
         }
       } else {
-        const iconSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: itemTextures[it.type], transparent:true }));
-        iconSprite.scale.set(0.95,0.95,1);
-        iconSprite.position.set(w.x, 0.5+bob, w.z);
-        dynamicGroup.add(iconSprite);
+        if(!it.iconSprite){
+          it.iconSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: itemTextures[it.type], transparent:true }));
+          it.iconSprite.scale.set(0.95,0.95,1);
+          protectPersistentMesh(it.iconSprite);
+        }
+        it.iconSprite.position.set(w.x, 0.5+bob, w.z);
+        dynamicGroup.add(it.iconSprite);
       }
-      const shadow = new THREE.Mesh(geo.ring, basicMat(0x000000, {transparent:true, opacity:0.22, side:THREE.DoubleSide}));
-      shadow.rotation.x = -Math.PI/2;
-      shadow.scale.set(0.4,0.4,1);
-      shadow.position.set(w.x, 0.015, w.z);
-      dynamicGroup.add(shadow);
+      if(!it.shadowMesh){
+        it.shadowMesh = new THREE.Mesh(geo.ring, basicMat(0x000000, {transparent:true, opacity:0.22, side:THREE.DoubleSide}));
+        it.shadowMesh.rotation.x = -Math.PI/2;
+        it.shadowMesh.scale.set(0.4,0.4,1);
+        protectPersistentMesh(it.shadowMesh);
+      }
+      it.shadowMesh.position.set(w.x, 0.015, w.z);
+      dynamicGroup.add(it.shadowMesh);
     }
 
     // explosions - warm energy blast slabs, classic fire coloring
+    // explosion cell meshes - pooled the same way as the particle effects
+    // above: every explosion cell used to allocate 2 fresh meshes + 2
+    // cloned materials every single frame for as long as the blast lasted.
+    let explOuterIdx=0, explInnerIdx=0, explCoreOuterIdx=0, explCoreInnerIdx=0;
     for(const ex of explosions){
       const alpha = Math.max(0, ex.timer/EXPLOSION_DURATION);
       const coreSet = ex.core3x3 ? new Set(ex.core3x3.map(c=>c.gx+','+c.gy)) : null;
@@ -9673,22 +9701,24 @@
           // the Dangerous Bomb's 5x5 core - noticeably bigger and tinted
           // purple/green so it's unmistakably a different, heavier blast
           // than the thin cross reaching across the rest of the row/column
-          const outer = new THREE.Mesh(geo.box, basicMat(0x9dff5a, {transparent:true, opacity:0.5*alpha+0.15}));
+          const outer = getExplosionCoreOuterMesh(explCoreOuterIdx++);
+          outer.material.opacity = 0.5*alpha+0.15;
           outer.scale.set(1.0, 0.1+0.55*alpha, 1.0);
           outer.position.set(w.x, 0.06+0.24*alpha, w.z);
           dynamicGroup.add(outer);
-          const inner = new THREE.Mesh(geo.box, basicMat(0x8a3ad0, {transparent:true, opacity:0.75*alpha}));
+          const inner = getExplosionCoreInnerMesh(explCoreInnerIdx++);
+          inner.material.opacity = 0.75*alpha;
           inner.scale.set(0.72,0.55+0.55*alpha,0.72);
           inner.position.set(w.x, 0.24+0.28*alpha, w.z);
           dynamicGroup.add(inner);
           continue;
         }
-        const outer = new THREE.Mesh(geo.box, mat.explosionOuter.clone());
+        const outer = getExplosionOuterMesh(explOuterIdx++);
         outer.material.opacity = 0.45*alpha+0.1;
         outer.scale.set(0.9, 0.06+0.3*alpha, 0.9);
         outer.position.set(w.x, 0.05+0.15*alpha, w.z);
         dynamicGroup.add(outer);
-        const inner = new THREE.Mesh(geo.box, mat.explosionInner.clone());
+        const inner = getExplosionInnerMesh(explInnerIdx++);
         inner.material.opacity = 0.6*alpha;
         inner.scale.set(0.5,0.4+0.4*alpha,0.5);
         inner.position.set(w.x, 0.2+0.2*alpha, w.z);
@@ -9846,7 +9876,7 @@
     // enemies
     for(const en of enemies){
       if(!en.alive) continue;
-      if(!en.mesh3d) en.mesh3d = makeCharacterMesh(mat.enemyBody, mat.enemyVisor, 0xffb3b3, true);
+      if(!en.mesh3d){ en.mesh3d = makeCharacterMesh(mat.enemyBody, mat.enemyVisor, 0xffb3b3, true); protectPersistentMesh(en.mesh3d); }
       renderCharacter3D(en, en.mesh3d, false, Math.atan2(en.dir.dx, en.dir.dy));
     }
 
@@ -9967,7 +9997,7 @@
     // true boss - a space lifeform, deliberately unlike anything mechanical
     // seen so far, matching the player's size
     if(stage===5 && trueBoss && trueBoss.alive){
-      if(!trueBoss.mesh3d) trueBoss.mesh3d = makeAlienBossMesh(false, 'single');
+      if(!trueBoss.mesh3d){ trueBoss.mesh3d = makeAlienBossMesh(false, 'single'); protectPersistentMesh(trueBoss.mesh3d); }
       renderCharacter3D(trueBoss, trueBoss.mesh3d, false, Math.atan2(trueBoss.faceDx||0, trueBoss.faceDy||1));
       const w = pixelToWorld(trueBoss.x+ENTITY_SIZE/2, trueBoss.y+ENTITY_SIZE/2);
       const barTex = makeHpBarTexture(trueBoss.hp, TRUEBOSS_HP);
@@ -9983,6 +10013,7 @@
     if(stage===9 && hiddenBoss && hiddenBoss.alive){
       if(!hiddenBoss.mesh3d){
         hiddenBoss.mesh3d = makeAlienBossMesh(true, 'dual');
+        protectPersistentMesh(hiddenBoss.mesh3d);
         hiddenBoss.mesh3d.scale.set(1.2,1.2,1.2);
       }
       renderCharacter3D(hiddenBoss, hiddenBoss.mesh3d, false, Math.atan2(hiddenBoss.faceDx||0, hiddenBoss.faceDy||1));
@@ -10388,7 +10419,7 @@
         dynamicGroup.add(bglow);
       }
       for(const en of shooterEnemies){
-        if(!en.mesh3d) en.mesh3d = makeShooterEnemyMesh(en.type);
+        if(!en.mesh3d){ en.mesh3d = makeShooterEnemyMesh(en.type); protectPersistentMesh(en.mesh3d); }
         en.mesh3d.position.set(en.wx, 0.65, en.wz);
         en.mesh3d.rotation.y = Math.PI;
         en.mesh3d.rotation.z = Math.sin(en.wobble*1.6)*0.35;
@@ -10420,7 +10451,7 @@
           beamLight.position.set(a.wx, 0.85, a.wz);
           dynamicGroup.add(beamLight);
         } else {
-          if(!a.mesh3d) a.mesh3d = makeAsteroidMesh();
+          if(!a.mesh3d){ a.mesh3d = makeAsteroidMesh(); protectPersistentMesh(a.mesh3d); }
           a.mesh3d.position.set(a.wx, 0.65, a.wz);
           a.mesh3d.rotation.set(a.spin, a.spin*0.6, a.spin*0.3);
           dynamicGroup.add(a.mesh3d);
@@ -10439,6 +10470,7 @@
         const mb = shooterMiniboss;
         if(!mb.mesh3d){
           mb.mesh3d = makeAlienBossMesh(false, 'dual');
+          protectPersistentMesh(mb.mesh3d);
           mb.mesh3d.scale.set(1.3,1.3,1.3);
         }
         const pMb = worldToPixel(mb.wx, mb.wz);
@@ -10482,6 +10514,7 @@
         const dz = fpCamPos.z - Math.cos(d.yaw)*d.dist;
         if(!d.mesh3d){
           d.mesh3d = makeFPSComradeMesh();
+          protectPersistentMesh(d.mesh3d);
           d.mesh3d.scale.set(1.35,1.35,1.35);
         }
         const pD = worldToPixel(dx, dz);
@@ -10538,6 +10571,7 @@
         const bz = fpCamPos.z - Math.cos(b.yaw)*b.dist;
         if(!b.mesh3d){
           b.mesh3d = makeFPSBossMesh();
+          protectPersistentMesh(b.mesh3d);
           b.mesh3d.scale.set(1.9,1.9,1.9);
         }
         const pB = worldToPixel(bx, bz);
@@ -10685,7 +10719,7 @@
           }
         } else {
           const arcH = Math.sin(travel*Math.PI)*1.1;
-          if(!bm.mesh3d) bm.mesh3d = makeThrownBombMesh();
+          if(!bm.mesh3d){ bm.mesh3d = makeThrownBombMesh(); protectPersistentMesh(bm.mesh3d); }
           bm.mesh3d.position.set(bx, 1.0+arcH, bz);
           bm.mesh3d.rotation.set(travel*6, travel*4, travel*3);
           bm.mesh3d.scale.set(1.6,1.6,1.6);
@@ -11451,7 +11485,7 @@
 
     // player
     if(player.alive){
-      if(!player.mesh3d) player.mesh3d = makeCharacterMesh(mat.playerBody, mat.playerVisor, 0xaee0ff);
+      if(!player.mesh3d){ player.mesh3d = makeCharacterMesh(mat.playerBody, mat.playerVisor, 0xaee0ff); protectPersistentMesh(player.mesh3d); }
       if(!playerSuckedInVisual && !playerAscending && !fpsActive){
       renderCharacter3D(player, player.mesh3d, player.invincibleTimer>0, facingStringToAngle(player.facing));
       if(playerDizzyTimer>0){

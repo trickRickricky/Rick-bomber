@@ -2810,7 +2810,12 @@
 
   function bgmKeyForStage(){
     if(stage===30) return 'trueBoss';
-    if(stage===26 && fpsActive) return 'primitive';
+    if(stage===26 && fpsActive){
+      // silence during the creator god's own appearance/speech - it should
+      // land as a quiet, weighty moment, not compete with the normal BGM
+      if(fpsPhase==='god_appear') return null;
+      return 'primitive';
+    }
     if(stage===23 && shooterActive) return 'shooter';
     if(stage===22 || stage===23 || stage===24 || stage===25) return 'mystery';
     if(stage>=20) return 'heaven';

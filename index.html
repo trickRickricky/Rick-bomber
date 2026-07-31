@@ -664,7 +664,7 @@
   renderer.setSize(canvas.width, canvas.height, false);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap; // was PCFSoftShadowMap - the soft variant samples several extra times per shadowed fragment; switched to the cheaper standard filter for a real per-frame cost reduction at a small softness/visual trade-off
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x8fd0ea, 0.018);
@@ -726,6 +726,60 @@
   const sharedGeometries = new WeakSet(Object.values(geo));
   const boxEdges = new THREE.EdgesGeometry(geo.box);
   sharedGeometries.add(boxEdges);
+
+  // Merges N copies of a base geometry (already scaled as needed - all
+  // instances share one uniform scale) at different world offsets into a
+  // single BufferGeometry, so they render as one draw call instead of N.
+  // Used for the level's hard walls, which are static and never destroyed -
+  // unlike the soft blocks, which still need to be removable one at a time
+  // and so keep their own individual meshes.
+  function mergeInstancedGeometry(baseGeo, offsets){
+    const basePos = baseGeo.attributes.position.array;
+    const baseNorm = baseGeo.attributes.normal ? baseGeo.attributes.normal.array : null;
+    const baseUv = baseGeo.attributes.uv ? baseGeo.attributes.uv.array : null;
+    const baseIndex = baseGeo.index ? baseGeo.index.array : null;
+    const vertCount = basePos.length/3;
+    const n = offsets.length;
+    const mergedPos = new Float32Array(vertCount*3*n);
+    const mergedNorm = baseNorm ? new Float32Array(vertCount*3*n) : null;
+    const mergedUv = baseUv ? new Float32Array(vertCount*2*n) : null;
+    const mergedIndex = baseIndex ? new Uint32Array(baseIndex.length*n) : null;
+    for(let inst=0; inst<n; inst++){
+      const off = offsets[inst];
+      const posBase = inst*vertCount*3;
+      for(let v=0; v<vertCount; v++){
+        mergedPos[posBase+v*3] = basePos[v*3]+off.x;
+        mergedPos[posBase+v*3+1] = basePos[v*3+1]+off.y;
+        mergedPos[posBase+v*3+2] = basePos[v*3+2]+off.z;
+      }
+      if(mergedNorm) mergedNorm.set(baseNorm, inst*vertCount*3);
+      if(mergedUv) mergedUv.set(baseUv, inst*vertCount*2);
+      if(mergedIndex){
+        const idxBase = inst*baseIndex.length;
+        const vertOffset = inst*vertCount;
+        for(let ii=0; ii<baseIndex.length; ii++) mergedIndex[idxBase+ii] = baseIndex[ii]+vertOffset;
+      }
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(mergedPos, 3));
+    if(mergedNorm) geometry.setAttribute('normal', new THREE.BufferAttribute(mergedNorm, 3));
+    if(mergedUv) geometry.setAttribute('uv', new THREE.BufferAttribute(mergedUv, 2));
+    if(mergedIndex) geometry.setIndex(new THREE.BufferAttribute(mergedIndex, 1));
+    // box geometry defines one group per face (so the 6-entry side/top
+    // material array can paint each face differently) - replicate those
+    // same groups for every merged instance, offset into its own slice of
+    // the combined index buffer, or a multi-material mesh built on top of
+    // this would have no groups to route each face to the right material
+    if(baseGeo.groups && baseGeo.groups.length && baseIndex){
+      for(let inst=0; inst<n; inst++){
+        const idxBase = inst*baseIndex.length;
+        for(const grp of baseGeo.groups){
+          geometry.addGroup(idxBase+grp.start, grp.count, grp.materialIndex);
+        }
+      }
+    }
+    return geometry;
+  }
   function addGlowEdges(mesh, colorHex, opacity){
     // a soft dark cel-shaded outline (rather than a neon glow) so shapes
     // stay crisp and readable against the bright daytime scene
@@ -1626,21 +1680,65 @@
         addTileMesh(x,y);
       }
     }
+    // hard walls never move or get destroyed, so batch every one of them
+    // into a single merged mesh (plus one for their edge outlines) instead
+    // of a separate body+outline pair per tile - in a wall-heavy level this
+    // can turn well over a hundred draw calls into just two.
+    const wallOffsets = [];
+    for(let y=0;y<ROWS;y++){
+      for(let x=0;x<COLS;x++){
+        if(grid[y][x]===1){
+          const w = cellCenterToWorld(x,y);
+          wallOffsets.push({x:w.x, y:0.5, z:w.z});
+        }
+      }
+    }
+    if(wallOffsets.length){
+      const wallMat = heavenMode ? mat.heavenWall : (spaceMode ? ((stage>=8 && stage!==30) ? mat.hiddenWall : mat.spaceWall) : mat.wall);
+      const mergedBody = mergeInstancedGeometry(getWallBoxScaled(), wallOffsets);
+      const wallMesh = new THREE.Mesh(mergedBody, wallMat);
+      wallMesh.userData.ownGeometry = true;
+      boardGroup.add(wallMesh);
+      const mergedEdges = mergeInstancedGeometry(getWallEdgesScaled(), wallOffsets);
+      const wallEdgeLines = new THREE.LineSegments(mergedEdges, new THREE.LineBasicMaterial({ color: 0x1a1a1a, transparent: true, opacity: 0.45*0.55 }));
+      wallEdgeLines.userData.ownGeometry = true;
+      boardGroup.add(wallEdgeLines);
+    }
     enableShadowsOn(boardGroup, true, false);
+  }
+
+  // Cached, pre-scaled (0.92 x/z, matching every wall tile's fixed size)
+  // clones of the shared box/edge geometries, used as the per-instance
+  // template for the merged wall batch above. Built once and reused across
+  // every level rebuild.
+  let wallBoxScaled = null, wallEdgesScaled = null;
+  function getWallBoxScaled(){
+    if(!wallBoxScaled){
+      wallBoxScaled = geo.box.clone();
+      wallBoxScaled.scale(0.92, 1.0, 0.92);
+      sharedGeometries.add(wallBoxScaled);
+    }
+    return wallBoxScaled;
+  }
+  function getWallEdgesScaled(){
+    if(!wallEdgesScaled){
+      wallEdgesScaled = boxEdges.clone();
+      wallEdgesScaled.scale(0.92, 1.0, 0.92);
+      sharedGeometries.add(wallEdgesScaled);
+    }
+    return wallEdgesScaled;
   }
 
   function addTileMesh(gx,gy){
     const cell = grid[gy][gx];
-    if(cell!==1 && cell!==2 && cell!==3) return;
+    if(cell!==2 && cell!==3) return;
     const w = cellCenterToWorld(gx,gy);
-    const isWall = cell===1;
     const isTreasure = cell===3;
-    const h = isWall ? 1.0 : 0.55;
+    const h = 0.55;
     const g = new THREE.Group();
 
-    const wallMat = heavenMode ? mat.heavenWall : (spaceMode ? ((stage>=8 && stage!==30) ? mat.hiddenWall : mat.spaceWall) : mat.wall);
     const blockMat = heavenMode ? mat.heavenBlock : (spaceMode ? ((stage>=8 && stage!==30) ? mat.hiddenBlock : mat.spaceBlock) : mat.block);
-    const bodyMat = isTreasure ? null : (isWall ? wallMat : blockMat);
+    const bodyMat = isTreasure ? null : blockMat;
     if(isTreasure){
       // a large, solid hexagonal quartz-style crystal (prism body + a
       // sharp pointed tip, like a natural crystal spike) - cloudy, milky
@@ -1679,7 +1777,7 @@
       g.add(light);
     } else {
       const body = new THREE.Mesh(geo.box, bodyMat);
-      body.scale.set(isWall ? 0.92 : 0.86, h, isWall ? 0.92 : 0.86);
+      body.scale.set(0.86, h, 0.86);
       body.position.set(w.x, h/2, w.z);
       addGlowEdges(body, 0, 0.45);
       g.add(body);
@@ -2772,6 +2870,11 @@
   });
 
   const ENTITY_SIZE = 26;
+  // shared, read-only direction lists - these get checked every frame by
+  // several AI/danger-check functions, which previously each recreated the
+  // same array-of-arrays literal from scratch on every single call
+  const CARDINAL_DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
+  const DIAGONAL_DIRS = [[1,1],[1,-1],[-1,1],[-1,-1]];
   const PAD = 2;
   const BASE_SPEED = 195;
   const SPEED_STEP = 28;
@@ -3340,27 +3443,51 @@
     return `${min}:${sec.toFixed(1).padStart(4,'0')}`;
   }
 
+  let lastHudTimeUpdate = -1;
+  let lastHudBombText = null, lastHudFire = null, lastHudSpeed = null, lastHudKick = null, lastHudEnemyText = null;
   function updateHUD(){
-    elapsedTimeEl.textContent = formatShortTime(performance.now() - gameStartTime);
-    if(stage===26 && fpsBoss) enemyCountEl.textContent = `HP${fpsBoss.hp}`;
-    else if(stage===26) enemyCountEl.textContent = fpsDinos.length + fpsSpawnQueue.length;
-    else if(stage===23 && shooterMiniboss) enemyCountEl.textContent = `HP${shooterMiniboss.hp}`;
-    else if(stage===23) enemyCountEl.textContent = shooterEnemies.length;
-    else if(stage===21 && godBoss) enemyCountEl.textContent = `HP${godBoss.hp}`;
-    else if(stage===9 && hiddenBoss) enemyCountEl.textContent = `HP${hiddenBoss.hp}`;
-    else if(stage===5 && trueBoss) enemyCountEl.textContent = `HP${trueBoss.hp}`;
-    else if(stage===3 && boss) enemyCountEl.textContent = `HP${boss.hp}`;
-    else enemyCountEl.textContent = enemies.filter(e=>e.alive).length;
+    // the elapsed-time readout only shows one decimal place, so updating it
+    // every single frame (reformatting a string and writing to the DOM 60
+    // times a second) was pure waste - throttling to 10x/sec is visually
+    // identical and cuts out most of that cost
+    const nowMs = performance.now();
+    if(nowMs - lastHudTimeUpdate >= 95){
+      lastHudTimeUpdate = nowMs;
+      elapsedTimeEl.textContent = formatShortTime(nowMs - gameStartTime);
+    }
+    let enemyCountText;
+    if(stage===26 && fpsBoss) enemyCountText = `HP${fpsBoss.hp}`;
+    else if(stage===26) enemyCountText = fpsDinos.length + fpsSpawnQueue.length;
+    else if(stage===23 && shooterMiniboss) enemyCountText = `HP${shooterMiniboss.hp}`;
+    else if(stage===23) enemyCountText = shooterEnemies.length;
+    else if(stage===21 && godBoss) enemyCountText = `HP${godBoss.hp}`;
+    else if(stage===9 && hiddenBoss) enemyCountText = `HP${hiddenBoss.hp}`;
+    else if(stage===5 && trueBoss) enemyCountText = `HP${trueBoss.hp}`;
+    else if(stage===3 && boss) enemyCountText = `HP${boss.hp}`;
+    else {
+      // was enemies.filter(e=>e.alive).length - allocated a whole throwaway
+      // array every frame just to read off its length
+      let aliveCount = 0;
+      for(const e of enemies) if(e.alive) aliveCount++;
+      enemyCountText = aliveCount;
+    }
+    if(lastHudEnemyText !== enemyCountText){ lastHudEnemyText = enemyCountText; enemyCountEl.textContent = enemyCountText; }
     if(fpsBoss){
       fpsBossBarWrap.classList.add('show');
       fpsBossBarFill.style.width = Math.max(0, Math.min(100, (fpsBoss.hp/fpsBoss.maxHp)*100)) + '%';
     } else {
       fpsBossBarWrap.classList.remove('show');
     }
-    bombCountEl.textContent = player.bombsAvailable + '/' + player.maxBombs;
-    fireStatEl.textContent = player.fireRange;
-    speedStatEl.textContent = player.speedLevel;
-    kickStatEl.textContent = player.canKick ? '○' : '✕';
+    // these only actually change on specific events (item pickup, bomb
+    // place/explode, kick unlock, ...) which already call updateHUD() on
+    // their own - this function also runs once every frame regardless as a
+    // safety net, so guard each write behind a last-value check to avoid
+    // rewriting the same unchanged text to the DOM 60 times a second
+    const bombText = player.bombsAvailable + '/' + player.maxBombs;
+    if(lastHudBombText !== bombText){ lastHudBombText = bombText; bombCountEl.textContent = bombText; }
+    if(lastHudFire !== player.fireRange){ lastHudFire = player.fireRange; fireStatEl.textContent = player.fireRange; }
+    if(lastHudSpeed !== player.speedLevel){ lastHudSpeed = player.speedLevel; speedStatEl.textContent = player.speedLevel; }
+    if(lastHudKick !== player.canKick){ lastHudKick = player.canKick; kickStatEl.textContent = player.canKick ? '○' : '✕'; }
   }
 
   function isSolidTile(gx,gy){
@@ -3386,7 +3513,7 @@
     for(const b of bombs){
       if(b.exploded) continue;
       if(b.gx===gx && b.gy===gy) return true;
-      const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+      const dirs = CARDINAL_DIRS;
       for(const [dx,dy] of dirs){
         const range = (b.owner===hiddenBoss) ? (dy===0 ? COLS : ROWS) : ((b.owner && b.owner.fireRange) || 2);
         for(let r=1; r<=range; r++){
@@ -3399,7 +3526,7 @@
         }
       }
       if(b.dangerous){
-        const diagDirs = [[1,1],[1,-1],[-1,1],[-1,-1]];
+        const diagDirs = DIAGONAL_DIRS;
         for(const [dx,dy] of diagDirs){
           const cx = b.gx+dx, cy = b.gy+dy;
           if(cx<0||cy<0||cx>=COLS||cy>=ROWS) continue;
@@ -6666,7 +6793,7 @@
     // through" grace to the bomb's own tile if the player has already left it.
     const playerCell = occupiedCell(player);
     const playerOnBombOrigin = playerCell.gx===bomb.gx && playerCell.gy===bomb.gy;
-    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    const dirs = CARDINAL_DIRS;
     for(const [dx,dy] of dirs){
       // the hidden final boss's bombs blast clean across the entire row
       // and column (blocked only by walls/blocks, same as normal), rather
@@ -7668,7 +7795,7 @@
         const inDanger = isCellDangerous(trueBoss.gx, trueBoss.gy);
         trueBoss.changeTimer -= dt;
         if(stalled){
-          const cardinal = [[1,0],[-1,0],[0,1],[0,-1]];
+          const cardinal = CARDINAL_DIRS;
           const openDirs = cardinal.filter(([dx,dy])=>{
             const ngx=trueBoss.gx+dx, ngy=trueBoss.gy+dy;
             return !isSolidTile(ngx,ngy) && !bombAtCell(ngx,ngy);
@@ -7699,7 +7826,7 @@
         // never drop a bomb unless at least 2 escape routes remain open -
         // this is what stops it from slowly bricking itself into a corner
         // with a wall of its own bombs over several placements
-        const openEscapeRoutes = [[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy])=>{
+        const openEscapeRoutes = CARDINAL_DIRS.filter(([dx,dy])=>{
           const ngx=trueBoss.gx+dx, ngy=trueBoss.gy+dy;
           return !isSolidTile(ngx,ngy) && !bombAtCell(ngx,ngy);
         }).length;
@@ -7817,7 +7944,7 @@
       const hInDanger = isCellDangerous(hiddenBoss.gx, hiddenBoss.gy);
       hiddenBoss.changeTimer -= dt;
       if(hStalled){
-        const cardinal = [[1,0],[-1,0],[0,1],[0,-1]];
+        const cardinal = CARDINAL_DIRS;
         const openDirs = cardinal.filter(([dx,dy])=>{
           const ngx=hiddenBoss.gx+dx, ngy=hiddenBoss.gy+dy;
           return !isSolidTile(ngx,ngy) && !bombAtCell(ngx,ngy);
@@ -8345,7 +8472,7 @@
   // bomb) right now, falling back to any direction at all if fully boxed
   // in. No danger-avoidance or target-seeking - that's reserved for bosses.
   function pickNewDirection(en){
-    const options = [[1,0],[-1,0],[0,1],[0,-1]];
+    const options = CARDINAL_DIRS;
     const {gx,gy} = centerTile(en);
     const valid = options.filter(([dx,dy])=>{
       const ngx = gx+dx, ngy = gy+dy;
@@ -8362,7 +8489,7 @@
   // adjacent is both open and safe, it stands still rather than wander into
   // danger - this is the "learn to stop" behavior that was missing before.
   function chooseTrueBossDirection(entity){
-    const options = [[1,0],[-1,0],[0,1],[0,-1]];
+    const options = CARDINAL_DIRS;
     const openOptions = options.filter(([dx,dy])=>{
       const ngx = entity.gx+dx, ngy = entity.gy+dy;
       return !isSolidTile(ngx,ngy) && !bombAtCell(ngx,ngy);
@@ -8425,7 +8552,7 @@
     const key = (x,y)=>x+','+y;
     const visited = new Set([key(fromGx,fromGy)]);
     let frontier = [{gx:fromGx, gy:fromGy, first:null}];
-    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    const dirs = CARDINAL_DIRS;
     let guard = 0;
     while(frontier.length && guard<400){
       const next = [];

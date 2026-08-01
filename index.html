@@ -746,7 +746,13 @@
   const keyLight = new THREE.DirectionalLight(0xfff4d6, 0.85);
   keyLight.position.set(5, 12, 6);
   keyLight.castShadow = true;
-  keyLight.shadow.mapSize.set(1024, 1024);
+  // PERF: was 1024x1024 - the shadow pass renders the whole shadow-casting
+  // scene a second time at this resolution every frame. The game's actual
+  // canvas is only 480x352 (see canvas.width/height above), so shadow
+  // detail well beyond that resolution is invisible; halving it cuts the
+  // shadow pass's fragment/fill cost to roughly a quarter for a softness
+  // difference that isn't perceptible at this render size.
+  keyLight.shadow.mapSize.set(512, 512);
   keyLight.shadow.camera.left = -22;
   keyLight.shadow.camera.right = 22;
   keyLight.shadow.camera.top = 22;
@@ -857,6 +863,12 @@
     mesh.add(line);
     return line;
   }
+  // NOTE: originally swapped this to MeshPhongMaterial for a cheaper
+  // per-fragment shader (see perf notes elsewhere in this file), but Phong
+  // doesn't do PBR-style energy-conserving lighting the way Standard does,
+  // so the exact same light rig came out visibly brighter/blown-out.
+  // Reverted to MeshStandardMaterial - correct look wins over the
+  // (unconfirmed in practice) shader-cost saving.
   function stdMat(color, emissive, opts){
     opts = opts || {};
     return new THREE.MeshStandardMaterial(Object.assign({
@@ -897,6 +909,18 @@
     debrisMetal: basicMat(0xffaa28),
     debrisSpark: basicMat(0xa5682f),
     deathParticle: basicMat(0xffffff, {transparent:true}),
+    // PERF/leak fix: these two used to be created fresh inside addTileMesh()
+    // for every single treasure-block tile, every time the board rebuilds
+    // (new game, or a boss clearing all blocks). removeTileMesh() only ever
+    // removed the tile's Group from the scene - it never called
+    // material.dispose() on them, so every destroyed/rebuilt treasure block
+    // left its crystal material and wireframe material orphaned (still
+    // holding a compiled GPU program) with nothing left pointing to them to
+    // clean up. Hoisted to shared, permanent materials (like every other
+    // entry in this object) - same visual result, zero leak, and one
+    // allocation total instead of one per tile per rebuild.
+    treasureCrystal: stdMat(0x7fa8b3, 0x0a1216, {metalness:0.15, roughness:0.55, transparent:true, opacity:0.88}),
+    treasureCrystalWire: new THREE.MeshBasicMaterial({ color:0x2a4550, wireframe:true, transparent:true, opacity:0.25 }),
   };
   // A few meshes reuse one of these pooled materials directly (no .clone()),
   // most rebuilt fresh every frame. Track the pool by identity so cleanup
@@ -1811,7 +1835,7 @@
       // a large, solid hexagonal quartz-style crystal (prism body + a
       // sharp pointed tip, like a natural crystal spike) - cloudy, milky
       // pale blue, with just a faint golden point deep inside it
-      const crystalMat = stdMat(0x7fa8b3, 0x0a1216, {metalness:0.15, roughness:0.55, transparent:true, opacity:0.88});
+      const crystalMat = mat.treasureCrystal;
       const prismH = 1.85, prismR = 0.42, tipH = 1.05;
       const prism = new THREE.Mesh(geo.hexPrism, crystalMat);
       prism.scale.set(prismR*2, prismH, prismR*2);
@@ -1825,7 +1849,7 @@
       g.add(tip);
       // faint dark facet lines instead of a bright wireframe - reads the
       // hard edges without making it look fragile or shiny
-      const prismWire = new THREE.Mesh(geo.hexPrism, new THREE.MeshBasicMaterial({ color:0x2a4550, wireframe:true, transparent:true, opacity:0.25 }));
+      const prismWire = new THREE.Mesh(geo.hexPrism, mat.treasureCrystalWire);
       prismWire.scale.copy(prism.scale);
       prismWire.position.copy(prism.position);
       prismWire.rotation.y = prism.rotation.y;
@@ -3324,6 +3348,25 @@
   const screenshotBtn = document.getElementById('screenshotBtn');
 
   function clearCell(gx,gy){ if(grid[gy] && grid[gy][gx]!==undefined) grid[gy][gx]=0; }
+  // PERF: `arr = arr.filter(pred)` allocates a brand-new array every single
+  // call, even when nothing was actually removed. Several of these run
+  // unconditionally every frame for the entire game (bombs/explosions/
+  // projectiles/safeCells/death effects/debris, plus the shooter and FPS
+  // minigame arrays) - at 60fps that's a fresh array (and a fresh backing
+  // store) created and thrown away every frame regardless of whether the
+  // list changed at all. This compacts the array in place and truncates
+  // its length instead, so a frame with no removals allocates nothing.
+  function filterInPlace(arr, keep){
+    let w = 0;
+    for(let r=0;r<arr.length;r++){
+      if(keep(arr[r])){
+        if(w!==r) arr[w] = arr[r];
+        w++;
+      }
+    }
+    arr.length = w;
+    return arr;
+  }
 
   function buildGrid(){
     grid = [];
@@ -3750,7 +3793,7 @@
         p.dy *= 0.94;
       }
     }
-    deathEffects = deathEffects.filter(fx=>fx.timer>0);
+    filterInPlace(deathEffects, fx=>fx.timer>0);
     if(shakeTimer>0) shakeTimer -= dt;
   }
 
@@ -3785,7 +3828,7 @@
         p.rot += p.rotSpeed*dt;
       }
     }
-    blockDebris = blockDebris.filter(fx=>fx.timer>0);
+    filterInPlace(blockDebris, fx=>fx.timer>0);
   }
 
   // ---- reusable mesh pools for particle effects (block debris & death fx) ----
@@ -5578,11 +5621,11 @@
         }
       }
     }
-    shooterAsteroids = shooterAsteroids.filter(a=>a.wz < SHOOTER_ENEMY_DESPAWN_Z);
+    filterInPlace(shooterAsteroids, a=>a.wz < SHOOTER_ENEMY_DESPAWN_Z);
 
     // player bullets
     for(const b of shooterBullets) b.wz -= SHOOTER_BULLET_SPEED*dt;
-    shooterBullets = shooterBullets.filter(b=>b.wz > -8 && !b._used);
+    filterInPlace(shooterBullets, b=>b.wz > -8 && !b._used);
 
     // grunt enemies: drift toward the player, each type wobbling its own
     // way - homers additionally steer toward wherever the player actually
@@ -5605,7 +5648,7 @@
         }
       }
     }
-    shooterEnemies = shooterEnemies.filter(en=>en.wz < SHOOTER_ENEMY_DESPAWN_Z);
+    filterInPlace(shooterEnemies, en=>en.wz < SHOOTER_ENEMY_DESPAWN_Z);
 
     // player bullets vs grunt enemies
     for(const en of shooterEnemies){
@@ -5627,7 +5670,7 @@
       }
     }
     shooterBullets = shooterBullets.filter(b=>!b._used);
-    shooterEnemies = shooterEnemies.filter(en=>en.hp>0);
+    filterInPlace(shooterEnemies, en=>en.hp>0);
 
     // the miniboss - phase 2 (below half HP) picks up the pace: faster
     // patrol, a 3-way spread shot instead of a single aimed bolt, and an
@@ -5715,7 +5758,7 @@
           break;
         }
       }
-      shooterBullets = shooterBullets.filter(b=>!b._used);
+      filterInPlace(shooterBullets, b=>!b._used);
       if(shooterMiniboss && player.alive && player.invincibleTimer<=0){
         if(Math.abs(mb.wx-shooterShip.wx)<0.75 && Math.abs(mb.wz-shooterShip.wz)<0.7) killShooterPlayer();
       }
@@ -5731,7 +5774,7 @@
         }
       }
     }
-    shooterEnemyBullets = shooterEnemyBullets.filter(eb=>!eb._used && eb.wz<7 && Math.abs(eb.wx)<9);
+    filterInPlace(shooterEnemyBullets, eb=>!eb._used && eb.wz<7 && Math.abs(eb.wx)<9);
 
     if(shooterPhase==='cleared'){
       shooterClearTimer -= dt;
@@ -5863,16 +5906,20 @@
     const t1 = FPS_GOD_DESCEND_DURATION*1000+1800;
     const t2 = t1+3200;
     const t3 = t2+3200;
-    const t4 = t3+2900;
+    const t4 = t3+2800;
+    const t5 = t4+2900;
     setTimeout(()=>{
-      if(fpsEpoch===epoch) showItemToast('「あなたは創造神である<br>私を倒した。」', 3.2);
+      if(fpsEpoch===epoch) showItemToast('「あなたは創造神である<br>私を倒しました」', 3.2);
     }, t1);
     setTimeout(()=>{
-      if(fpsEpoch===epoch) showItemToast('「もう気付いてるはず。<br>使いなさい。」', 3.2);
+      if(fpsEpoch===epoch) showItemToast('「もう気付いているの<br>でしょう？」', 3.2);
     }, t2);
     setTimeout(()=>{
-      if(fpsEpoch===epoch) showItemToast('「…破壊神よ。」', 2.8);
+      if(fpsEpoch===epoch) showItemToast('「使いなさい、その力を…」', 2.6);
     }, t3);
+    setTimeout(()=>{
+      if(fpsEpoch===epoch) showItemToast('「破壊神よ」', 2.8);
+    }, t4);
     setTimeout(()=>{
       if(fpsEpoch===epoch && fpsPhase==='god_appear'){
         fpsPhase = 'rick_ready';
@@ -5884,7 +5931,7 @@
         showItemToast('Rickボンバーが<br>使えるようになった', 2.6);
         fpsRickReadyMessageTimer = 2.6;
       }
-    }, t4);
+    }, t5);
   }
 
   // The finale: the player turns the god beam's power on the whole planet
@@ -6277,7 +6324,7 @@
         }
       }
     }
-    fpsThrownBombs = fpsThrownBombs.filter(b=>!b._resolved);
+    filterInPlace(fpsThrownBombs, b=>!b._resolved);
 
     if(fpsPhase==='rick_bomb'){
       fpsRickBombTimer -= dt;
@@ -7004,7 +7051,10 @@
     // explosion burns any *pre-existing* item caught in the blast (not the ones it just dropped)
     items = items.filter(it=>RELIC_INFO[it.type] || !cells.some(c=>c.gx===it.gx && c.gy===it.gy));
     items.push(...newItems);
-    explosions.push({cells, timer:EXPLOSION_DURATION, owner, core3x3, golden: !!bomb.golden});
+    // coreKeySet built once here (core3x3 never changes after this point)
+    // instead of every draw() frame - see draw()'s use of it below.
+    const coreKeySet = core3x3 ? new Set(core3x3.map(c=>c.gx+','+c.gy)) : null;
+    explosions.push({cells, timer:EXPLOSION_DURATION, owner, core3x3, coreKeySet, golden: !!bomb.golden});
     sfx.explosion();
     if(bomb.golden && stage===21 && godBoss){
       // the golden judgement bomb going off is what actually ends the god
@@ -7064,6 +7114,7 @@
         spawnSlowBurst(godBoss.x+ENTITY_SIZE/2, godBoss.y+ENTITY_SIZE/2, '#ffe066', 22, 1.8);
         sfx.trueBossDeath();
         sfx.win();
+        showItemToast('神の力を<br>解放するのです', 2.8);
         // no ending here - a white hole opens up instead, leading back
         // to the crown room to decide how this really ends
         heavenReturnGatePos = { gx: Math.floor(COLS/2), gy: Math.floor(ROWS/2) };
@@ -7663,7 +7714,7 @@
         detonating = next;
       }
     }
-    bombs = bombs.filter(b=>!b.exploded);
+    filterInPlace(bombs, b=>!b.exploded);
 
     // enemies AI + movement
     for(const en of enemies){
@@ -7994,7 +8045,7 @@
         hiddenBoss.cageTriggered = true;
         hiddenBoss.phase = 'cagemoving';
         hiddenBoss.invuln = 999;
-        bombs = bombs.filter(b=>b.owner!==hiddenBoss);
+        filterInPlace(bombs, b=>b.owner!==hiddenBoss);
       }
 
       if(hiddenBoss.phase==='cagemoving'){
@@ -8129,7 +8180,7 @@
         }
       }
     }
-    projectiles = projectiles.filter(p=>!p.dead);
+    filterInPlace(projectiles, p=>!p.dead);
 
     // direct collision with an enemy (or a boss) ends the game
     if(player.alive && player.invincibleTimer<=0){
@@ -8151,7 +8202,7 @@
 
     // age out the "just cleared a block" grace period
     for(const s of safeCells) s.timer -= dt;
-    safeCells = safeCells.filter(s=>s.timer>0);
+    filterInPlace(safeCells, s=>s.timer>0);
     const isSafeCell = (gx,gy)=>safeCells.some(s=>s.gx===gx && s.gy===gy);
 
     // explosions countdown + collision
@@ -8288,7 +8339,7 @@
         }
       }
     }
-    explosions = explosions.filter(ex=>ex.timer>0);
+    filterInPlace(explosions, ex=>ex.timer>0);
 
     if(!player.alive){
       if(stage===21){
@@ -8434,7 +8485,7 @@
               spawnSlowBurst(hw.x, hw.y, '#ffffff', 20, 1.4);
               triggerShake(0.3, 5);
               setTimeout(()=>{
-                if(heavenGateActive) showItemToast('私のもとへ来なさい、<br>○○神よ', 2.6);
+                if(heavenGateActive) showItemToast('私のもとへ来なさい、<br>選ばれし神よ', 2.6);
               }, 1600);
             }
           }
@@ -10286,6 +10337,36 @@
     }
   }
 
+  // LEAK FIX: an item's mesh3d/glowSprite/shadowMesh/iconSprite are built
+  // once and cached on the item object itself (see the items loop in
+  // draw() below), then marked via protectPersistentMesh() so the
+  // per-frame dynamicGroup cleanup above (disposeDynamicChild) skips them
+  // while the item is still alive and being re-added every frame. But
+  // every material on them is a fresh, item-only instance (never the
+  // shared geo/mat pool) - so once an item is picked up, blown up, or
+  // wiped out by a stage reset, that protection had no expiry: nothing
+  // ever disposed the actual material, leaving its compiled GPU program
+  // orphaned. There isn't one single removal site to patch - items can
+  // leave the `items` array from picking it up, an explosion consuming
+  // it, or any of the ~20 places that reset the array wholesale on a
+  // stage/level change - so this disposes an item's cached visuals
+  // directly, and is reconciled once per frame against the live list
+  // (see knownItemRefs below) rather than needing to be called from every
+  // one of those sites individually.
+  let knownItemRefs = new Set();
+  function disposeItemVisual(it){
+    for(const obj of [it.mesh3d, it.glowSprite, it.shadowMesh, it.iconSprite]){
+      if(!obj) continue;
+      obj.traverse(child=>{
+        if(child.material){
+          if(Array.isArray(child.material)) for(const m of child.material) m.dispose();
+          else child.material.dispose();
+        }
+        if(child.geometry && child.userData && child.userData.ownGeometry) child.geometry.dispose();
+      });
+    }
+  }
+
   function draw(){
     // clear last frame's dynamic (per-frame-rebuilt) meshes, freeing their
     // one-off GPU resources as we go (see disposeDynamicChild above)
@@ -10294,6 +10375,17 @@
       disposeDynamicChild(obj);
       dynamicGroup.remove(obj);
     }
+
+    // reconcile against last frame's known items: anything that dropped
+    // out of the live `items` array since then gets its cached visuals
+    // disposed for real here (see disposeItemVisual above)
+    const currentItemSet = new Set(items);
+    if(knownItemRefs.size){
+      for(const oldIt of knownItemRefs){
+        if(!currentItemSet.has(oldIt)) disposeItemVisual(oldIt);
+      }
+    }
+    knownItemRefs = currentItemSet;
 
     // items - a clear emoji icon (fire/roller-skate/bomb) gently floating,
     // with a soft ground shadow - no extra glow/rings so it stays simple
@@ -10351,7 +10443,7 @@
     let explOuterIdx=0, explInnerIdx=0, explCoreOuterIdx=0, explCoreInnerIdx=0;
     for(const ex of explosions){
       const alpha = Math.max(0, ex.timer/EXPLOSION_DURATION);
-      const coreSet = ex.core3x3 ? new Set(ex.core3x3.map(c=>c.gx+','+c.gy)) : null;
+      const coreSet = ex.coreKeySet || null;
       for(const c of ex.cells){
         const w = cellCenterToWorld(c.gx, c.gy);
         const isCore = coreSet && coreSet.has(c.gx+','+c.gy);

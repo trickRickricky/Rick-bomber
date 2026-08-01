@@ -203,6 +203,26 @@
     box-shadow: 0 4px 10px rgba(0,0,0,.4);
     touch-action: none;
   }
+  .colorPicker {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 0 0 10px;
+  }
+  button.colorSwatch {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.35);
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  button.colorSwatch.selected {
+    border-color: #fff;
+    box-shadow: 0 0 0 2px rgba(255,255,255,.55), 0 0 8px rgba(255,255,255,.7);
+  }
   #overlaySecondaryRow {
     display: flex;
     gap: 8px;
@@ -217,6 +237,10 @@
     color: #eee;
     font-weight: bold;
     touch-action: none;
+  }
+  #openColorPickerTitleBtn {
+    display: block;
+    margin: 10px auto 0;
   }
   #godRestartBtn {
     background: linear-gradient(180deg,#fff6d8,#ffb347);
@@ -548,6 +572,21 @@
   .endingEntry.locked .endingTitle { color: #888; }
   .endingEntry .endingDesc { font-size: 11.5px; line-height: 1.5; opacity: .8; }
   .endingEntry.locked .endingDesc { opacity: .5; }
+  #colorPickerScreen {
+    position: fixed;
+    inset: 0;
+    z-index: 220;
+    background: radial-gradient(circle at 50% 28%, #1b2a4a, #05070f 78%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  #colorPickerPanel {
+    max-width: 380px; max-height: 80vh; overflow-y: auto;
+    text-align: center; color: #eee;
+  }
+  #colorPickerPanelTitle { font-size: 19px; margin: 0 0 16px; letter-spacing: .5px; }
   #titleLogo {
     font-size: 25px;
     font-weight: bold;
@@ -608,6 +647,7 @@
     <h1 id="titleLogo">🤖 Rickボンバー</h1>
     <p id="titleTagline">主人公は地球を守るロボット。<br>ハッキングされ暴走した仲間を倒し、諸悪の根源である地球外生命体と戦う——。</p>
     <button class="bigbtn" id="startGameBtn">はじめる</button>
+    <button class="smallbtn" id="openColorPickerTitleBtn">🎨 機体カラー</button>
   </div>
   <div id="storyPanel" style="display:none;">
     <p class="storyLine">仲間たちが、暴走している…!?</p>
@@ -621,6 +661,21 @@
     <h2 id="endingsPanelTitle">エンディング一覧</h2>
     <div id="endingsList"></div>
     <button class="bigbtn" id="endingsBackBtn">もどる</button>
+  </div>
+</div>
+<div id="colorPickerScreen" style="display:none;">
+  <div id="colorPickerPanel">
+    <h2 id="colorPickerPanelTitle">機体カラー</h2>
+    <div class="colorPicker" id="sharedColorPicker">
+      <button class="colorSwatch selected" data-color="blue" style="background:#3d7bff;" title="青"></button>
+      <button class="colorSwatch" data-color="green" style="background:#35b565;" title="緑"></button>
+      <button class="colorSwatch" data-color="orange" style="background:#ff8c33;" title="オレンジ"></button>
+      <button class="colorSwatch" data-color="purple" style="background:#9b4dff;" title="紫"></button>
+      <button class="colorSwatch" data-color="white" style="background:#e8e8ec;" title="白"></button>
+      <button class="colorSwatch" data-color="black" style="background:#2b2b30;" title="黒"></button>
+      <button class="colorSwatch" data-color="gold" style="background:#ffd75e;" title="金"></button>
+    </div>
+    <button class="bigbtn" id="colorPickerBackBtn">もどる</button>
   </div>
 </div>
 <div id="epilogueScreen">
@@ -673,6 +728,7 @@
       <div id="overlaySecondaryRow">
         <button class="smallbtn" id="screenshotBtn">📸 スクリーンショット</button>
         <button class="smallbtn" id="showEndingsBtnOverlay">🏆 エンディング一覧</button>
+        <button class="smallbtn" id="openColorPickerOverlayBtn">🎨 カラー変更</button>
       </div>
       <p id="restartHint">PC: スペースキーでもリスタートできます</p>
     </div>
@@ -1591,6 +1647,52 @@
   mat.enemyBody.map = enemyArmorTex; mat.enemyBody.needsUpdate = true;
   mat.bossBody.map = bossArmorTex; mat.bossBody.needsUpdate = true;
   mat.trueBossBody.map = trueBossArmorTex; mat.trueBossBody.needsUpdate = true;
+
+  // ---- player color customization (chosen on the title screen / restart
+  // overlay - see the .colorSwatch buttons and their click handler below) ----
+  // Each preset drives three things: the shared player body/armor material
+  // (color + a freshly baked texture - a texture with the color already
+  // baked into its pixels can't be cleanly retinted just by changing
+  // material.color, since color multiplies with the map and a very
+  // different hue would just come out muddy), the small glow-accent parts
+  // built into the player mesh (core/status-light), and the death/black-
+  // hole particle bursts, which used to be hardcoded to the default blue.
+  const PLAYER_COLOR_PRESETS = {
+    blue:   { label:'青',       hex:'#3d7bff', emissive:0x0a1a44, glow:0xaee0ff },
+    green:  { label:'緑',       hex:'#35b565', emissive:0x0a2a14, glow:0xaef2c8 },
+    orange: { label:'オレンジ', hex:'#ff8c33', emissive:0x3a1a05, glow:0xffd9ae },
+    gold:   { label:'金',       hex:'#ffd75e', emissive:0x332200, glow:0xfff3c0 },
+    purple: { label:'紫',       hex:'#9b4dff', emissive:0x1a0a33, glow:0xdcc2ff },
+    white:  { label:'白',       hex:'#e8e8ec', emissive:0x141416, glow:0xffffff },
+    black:  { label:'黒',       hex:'#2b2b30', emissive:0x050506, glow:0xcfd6dc },
+  };
+  let playerColorId = 'blue';
+  function playerParticleColor(){
+    return PLAYER_COLOR_PRESETS[playerColorId].hex;
+  }
+  function applyPlayerColor(id){
+    const preset = PLAYER_COLOR_PRESETS[id];
+    if(!preset) return;
+    playerColorId = id;
+    mat.playerBody.color.set(preset.hex);
+    mat.playerBody.emissive.setHex(preset.emissive);
+    // mat.playerBody is shared and never disposed, but its old baked
+    // texture is a one-off we're replacing, so free it before swapping in
+    // the new one
+    if(mat.playerBody.map) mat.playerBody.map.dispose();
+    mat.playerBody.map = createArmorTexture(preset.hex);
+    mat.playerBody.needsUpdate = true;
+    // player.mesh3d's body/visor parts reference mat.playerBody/playerVisor
+    // directly, so they update immediately even mid-overlay; the mesh's
+    // glow-accent parts are unique materials baked in at construction time
+    // and only pick up the new glow color the next time the mesh is
+    // (re)built - which happens naturally on the next start/restart, since
+    // resetGame() always hands the player a fresh entity object with no
+    // cached mesh3d yet
+    document.querySelectorAll('.colorSwatch').forEach(el=>{
+      el.classList.toggle('selected', el.dataset.color===id);
+    });
+  }
 
   const wallSideMat = stdMat(0xffffff, 0x000000, {map:wallTexture, roughness:0.6, metalness:0.35});
   const wallTopMat = stdMat(0xffffff, 0x000000, {map:wallTopTexture, roughness:0.55, metalness:0.4});
@@ -6623,6 +6725,27 @@
   const storyPanel = document.getElementById('storyPanel');
   const endingsScreen = document.getElementById('endingsScreen');
   const endingsListEl = document.getElementById('endingsList');
+  const colorPickerScreen = document.getElementById('colorPickerScreen');
+  let colorPickerReturnTo = null; // 'title' or 'overlay' - which screen to restore on "もどる"
+  document.querySelectorAll('.colorSwatch').forEach(btn=>{
+    btn.addEventListener('pointerdown', e=>{ e.preventDefault(); applyPlayerColor(btn.dataset.color); });
+  });
+  document.getElementById('openColorPickerTitleBtn').addEventListener('click', ()=>{
+    colorPickerReturnTo = 'title';
+    titleScreen.style.display = 'none';
+    colorPickerScreen.style.display = 'flex';
+  });
+  document.getElementById('openColorPickerOverlayBtn').addEventListener('click', ()=>{
+    colorPickerReturnTo = 'overlay';
+    overlay.classList.remove('show');
+    colorPickerScreen.style.display = 'flex';
+  });
+  document.getElementById('colorPickerBackBtn').addEventListener('click', ()=>{
+    colorPickerScreen.style.display = 'none';
+    if(colorPickerReturnTo==='title') titleScreen.style.display = '';
+    else overlay.classList.add('show');
+    colorPickerReturnTo = null;
+  });
   document.getElementById('startGameBtn').addEventListener('click', ()=>{
     titlePanel.style.display = 'none';
     storyPanel.style.display = 'block';
@@ -7377,7 +7500,7 @@
           sfx.trueBossWarning();
         } else {
           player.alive = false;
-          spawnSlowBurst(blackHoleDeathTarget.x, blackHoleDeathTarget.y, '#3d7bff', 28, 0.9);
+          spawnSlowBurst(blackHoleDeathTarget.x, blackHoleDeathTarget.y, playerParticleColor(), 28, 0.9);
           spawnSlowBurst(blackHoleDeathTarget.x, blackHoleDeathTarget.y, '#8a3ad0', 20, 0.7);
           spawnSlowBurst(blackHoleDeathTarget.x, blackHoleDeathTarget.y, '#111111', 16, 0.6);
           sfx.playerDeath();
@@ -8198,7 +8321,7 @@
         if(p.x+half>player.x && p.x-half<player.x+ENTITY_SIZE &&
            p.y+half>player.y && p.y-half<player.y+ENTITY_SIZE){
           player.alive = false;
-          spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, '#3d7bff', 1.6);
+          spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, playerParticleColor(), 1.6);
           sfx.playerDeath();
           p.dead = true;
         }
@@ -8211,14 +8334,14 @@
       for(const en of enemies){
         if(en.alive && overlaps(player, en)){
           player.alive = false;
-          spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, '#3d7bff', 1.6);
+          spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, playerParticleColor(), 1.6);
           sfx.playerDeath();
           break;
         }
       }
       if(player.alive && stage===3 && boss && boss.alive && boss.invuln<=0 && overlaps(player, boss)){
         player.alive = false;
-        spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, '#3d7bff', 1.6);
+        spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, playerParticleColor(), 1.6);
         sfx.playerDeath();
       }
       // the true boss only threatens through its bombs - touching it directly is safe
@@ -8235,7 +8358,7 @@
       const et = occupiedCell(player);
       if(player.alive && player.invincibleTimer<=0 && !isSafeCell(et.gx,et.gy) && ex.cells.some(c=>c.gx===et.gx && c.gy===et.gy)){
         player.alive = false;
-        spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, '#3d7bff', 1.6);
+        spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, playerParticleColor(), 1.6);
         sfx.playerDeath();
       }
       for(const en of enemies){
@@ -12144,7 +12267,7 @@
             if(!stage4FX.ejectLanded){
               stage4FX.ejectLanded = true;
               triggerShake(0.25, 5);
-              spawnDeathEffect(landW.x, landW.z, '#3d7bff', 1.3);
+              spawnDeathEffect(landW.x, landW.z, playerParticleColor(), 1.3);
             }
             playerSuckedInVisual = false;
           }
@@ -12199,7 +12322,7 @@
             if(!warpFX.ejectLanded){
               warpFX.ejectLanded = true;
               triggerShake(0.25, 5);
-              spawnDeathEffect(landW.x, landW.z, '#3d7bff', 1.3);
+              spawnDeathEffect(landW.x, landW.z, playerParticleColor(), 1.3);
             }
             playerSuckedInVisual = false;
           }
@@ -12418,7 +12541,7 @@
 
     // player
     if(player.alive){
-      if(!player.mesh3d){ player.mesh3d = makeCharacterMesh(mat.playerBody, mat.playerVisor, 0xaee0ff); protectPersistentMesh(player.mesh3d); }
+      if(!player.mesh3d){ player.mesh3d = makeCharacterMesh(mat.playerBody, mat.playerVisor, PLAYER_COLOR_PRESETS[playerColorId].glow); protectPersistentMesh(player.mesh3d); }
       if(!playerSuckedInVisual && !playerAscending && !fpsActive){
       renderCharacter3D(player, player.mesh3d, player.invincibleTimer>0, facingStringToAngle(player.facing));
       if(playerDizzyTimer>0){
@@ -12545,6 +12668,7 @@
   }
   initTreasureIconImages();
   updateTreasureIcons();
+  applyPlayerColor(playerColorId); // syncs the selected-swatch highlight in both color pickers
 })();
 </script>
 </body>

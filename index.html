@@ -7279,7 +7279,18 @@
           saveTreasuresEverCollected();
           updateTreasureIcons();
         }
-        else { gameOver = true; showOverlay(false); }
+        else {
+          gameOver = true;
+          showOverlay(false);
+          // any treasure icon still showing at this point was only kept
+          // visible because of an invincible black-hole warp (see above) -
+          // now that the run has genuinely ended without a clean White
+          // Hole finish, it disappears for real
+          if(collectedTreasureTypesThisRun.size){
+            collectedTreasureTypesThisRun = new Set();
+            updateTreasureIcons();
+          }
+        }
         pendingEnd = null;
       }
       return true;
@@ -8573,9 +8584,13 @@
         clearTreasureBlocks();
         sfx.blackHoleEnter();
         // going through the Black Hole never makes this run's pickups
-        // permanent, even if all 4 were found
-        collectedTreasureTypesThisRun = new Set();
-    updateTreasureIcons();
+        // permanent, even if all 4 were found. If invincible, this is a
+        // warp (the player survives), not a death - keep showing the
+        // icon(s) in the title bar for now; they only actually disappear
+        // once the player really dies later (see the pendingEnd handling
+        // below, which clears this for any real game-over).
+        if(!blackHoleWarpMode) collectedTreasureTypesThisRun = new Set();
+        updateTreasureIcons();
       }
     }
 

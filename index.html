@@ -3156,14 +3156,33 @@
   const DEBUG_MODE = false;
   let gameOver = false, gameWin = false;
   // NOT reset by resetGame() - counts how many times stage 1 has been
-  // cleared this browser session; once it reaches 3, the "仲間爆破装置起動"
-  // skip button becomes available on every subsequent restart
+  // cleared; once it reaches 3, the "仲間爆破装置起動" skip button becomes
+  // available on every subsequent restart. Persists across browser
+  // sessions via localStorage, same as the ending tracker above.
   let stage1ClearCount = 0;
-  let boss1ClearCount = 0; // times the first boss has been defeated this session - unlocks the space-warp button once it hits 3
+  let boss1ClearCount = 0; // times the first boss has been defeated - unlocks the space-warp button once it hits 3; also persists across sessions
+  try {
+    stage1ClearCount = parseInt(localStorage.getItem('rickBomberStage1Clears')||'0', 10) || 0;
+    boss1ClearCount = parseInt(localStorage.getItem('rickBomberBoss1Clears')||'0', 10) || 0;
+  } catch(err){ /* corrupt/blocked storage - just start fresh */ }
+  function saveStage1ClearCount(){
+    try { localStorage.setItem('rickBomberStage1Clears', String(stage1ClearCount)); } catch(err){ /* storage unavailable - unlock still applies for this session */ }
+  }
+  function saveBoss1ClearCount(){
+    try { localStorage.setItem('rickBomberBoss1Clears', String(boss1ClearCount)); } catch(err){ /* storage unavailable - unlock still applies for this session */ }
+  }
   // NOT reset by resetGame() - which treasure types have ever been
-  // collected across past runs this session (only one is obtainable per
-  // run, so this tracks progress toward the secret heaven stage)
+  // collected across past runs (only one is obtainable per run, so this
+  // tracks progress toward the secret heaven stage). Persists across
+  // browser sessions via localStorage, same as the ending tracker above.
   let treasuresEverCollected = new Set();
+  try {
+    const savedTreasures = JSON.parse(localStorage.getItem('rickBomberTreasures')||'[]');
+    if(Array.isArray(savedTreasures)) treasuresEverCollected = new Set(savedTreasures);
+  } catch(err){ /* corrupt/blocked storage - just start fresh */ }
+  function saveTreasuresEverCollected(){
+    try { localStorage.setItem('rickBomberTreasures', JSON.stringify([...treasuresEverCollected])); } catch(err){ /* storage unavailable - unlock still applies for this session */ }
+  }
   // per-run heaven-stage state (all reset by resetGame())
   let heavenGateActive = false; // true once a clean-crown hidden-boss kill unlocks the white hole, if all 4 treasures have ever been found
   let heavenGatePos = null; // {gx,gy} where that white hole sits
@@ -7134,6 +7153,7 @@
           gameWin = true;
           showOverlay(true);
           collectedTreasureTypesThisRun.forEach(t=>treasuresEverCollected.add(t));
+          saveTreasuresEverCollected();
           updateTreasureIcons();
         }
         else { gameOver = true; showOverlay(false); }
@@ -8235,6 +8255,7 @@
           if(boss.hp<=0){
             boss.alive = false;
             boss1ClearCount++;
+            saveBoss1ClearCount();
             bossDeathPixelPos = { x: boss.x+ENTITY_SIZE/2, y: boss.y+ENTITY_SIZE/2 };
             spawnDeathEffect(boss.x+ENTITY_SIZE/2, boss.y+ENTITY_SIZE/2, '#7a1fa2', 2.2);
             sfx.bossDeath();
@@ -8350,6 +8371,7 @@
     } else if(stage===1 && enemies.every(e=>!e.alive)){
       // regular enemies cleared - trigger the first boss's intro
       stage1ClearCount++;
+      saveStage1ClearCount();
       allyBombBtn.style.display = 'none';
       spaceWarpBtn.style.display = 'none';
       refreshHintText();
@@ -8405,9 +8427,10 @@
         portals = null;
         sfx.whiteHoleEnter();
         // a clean White Hole finish makes this run's treasure pickups
-        // permanent - shown as icons in the title bar from now on,
-        // across any future death or restart this session
+        // permanent - shown as icons in the title bar from now on, across
+        // any future death/restart, and now across browser sessions too
         collectedTreasureTypesThisRun.forEach(t=>treasuresEverCollected.add(t));
+        saveTreasuresEverCollected();
         updateTreasureIcons();
       } else if(pc.gx===portals.black.gx && pc.gy===portals.black.gy){
         // either way, the black hole swirls the player in first - only

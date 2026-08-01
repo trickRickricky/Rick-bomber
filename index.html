@@ -7823,7 +7823,11 @@
           trueBoss.phase = 'charging';
           trueBoss.phaseTimer = BOMBRAIN_CHARGE_DURATION;
           // pick the one tile that will be spared from the coming bomb rain
-          const safe = pickBombRainSafeCell();
+          // - excludes the boss's own tile (it stands fixed at board center
+          // for this whole attack) so the safe tile never lands directly
+          // under it, which used to make the spared tile invisible/unclear
+          // behind the boss model
+          const safe = pickBombRainSafeCell(trueBoss.gx, trueBoss.gy);
           trueBoss.rainSafeGx = safe.gx;
           trueBoss.rainSafeGy = safe.gy;
           sfx.desperationCharge();
@@ -8804,15 +8808,17 @@
   // carpet-bombing last-stand attack. Boss arenas always have their soft
   // blocks cleared out (see clearAllSoftBlocks), so any open (0) tile here
   // is guaranteed reachable, never sealed off behind rubble.
-  function pickBombRainSafeCell(){
+  function pickBombRainSafeCell(excludeGx, excludeGy){
     const candidates = [];
     for(let gy=0; gy<ROWS; gy++){
       for(let gx=0; gx<COLS; gx++){
-        if(grid[gy][gx]===0) candidates.push({gx,gy});
+        if(grid[gy][gx]===0 && !(gx===excludeGx && gy===excludeGy)) candidates.push({gx,gy});
       }
     }
-    if(!candidates.length) return { gx:Math.floor(COLS/2), gy:Math.floor(ROWS/2) };
-    return candidates[Math.floor(Math.random()*candidates.length)];
+    if(candidates.length) return candidates[Math.floor(Math.random()*candidates.length)];
+    // no open tile besides the excluded one (shouldn't happen on a normal
+    // board) - fall back to the board center rather than returning nothing
+    return { gx:Math.floor(COLS/2), gy:Math.floor(ROWS/2) };
   }
   // ---- end of enemy/boss AI helpers ----
 

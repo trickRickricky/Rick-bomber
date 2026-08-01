@@ -8478,7 +8478,7 @@
       let adjKey = null;
       for(const key of Object.keys(treasureBlocks)){
         const tb = treasureBlocks[key];
-        if(collectedTreasureTypesThisRun.has(tb.itemKey)) continue;
+        if(tb.broken || collectedTreasureTypesThisRun.has(tb.itemKey)) continue;
         if(Math.abs(pcT.gx-tb.gx)+Math.abs(pcT.gy-tb.gy)===1){ adjKey = key; break; }
       }
       if(adjKey) standHintText = '中に宝物がある…<br>爆弾で壊せそうもない…';
@@ -8987,9 +8987,16 @@
 
     // four corner blocks, breakable only by the destroy ray, each hiding a
     // different treasure item - open floor tiles near each corner of the
-    // arena, well clear of the portals and the ray gun's landing spot
+    // arena, well clear of the portals and the ray gun's landing spot.
+    // Skips spawning the crystal entirely for any treasure type already
+    // permanently owned from a past run (treasuresEverCollected) - no
+    // point showing/breaking a crystal for something already collected.
     treasureBlocks = {};
     for(const c of corners){
+      if(treasuresEverCollected.has(c.itemKey)){
+        treasureBlocks[c.key] = { gx:c.gx, gy:c.gy, itemKey:c.itemKey, broken:true };
+        continue;
+      }
       grid[c.gy][c.gx] = 3;
       removeTileMesh(c.gx, c.gy);
       addTileMesh(c.gx, c.gy);

@@ -640,6 +640,20 @@
   #epiloguePanel { max-width: 340px; text-align: center; color: #eee; }
   #epilogueContinueBtn { margin-top: 12px; opacity: 0; animation: storyFadeIn 0.7s ease forwards; animation-delay: 5.6s; }
 </style>
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+<script defer src="/_vercel/speed-insights/script.js"></script>
+
+<!-- PostHog -->
+<script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog && window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init('019fc025-5950-0000-1c81-009f2145b429', {
+        api_host: 'https://us.i.posthog.com',
+        defaults: '2026-01-30',
+    })
+</script>
 </head>
 <body>
 <div id="titleScreen">
@@ -3257,6 +3271,9 @@
   // button be reused freely for testing instead of locking after one use
   const DEBUG_MODE = false;
   let gameOver = false, gameWin = false;
+  let deathCause = null; // analytics: what killed the player this run
+  let totalPlayCount = 0; // analytics: how many times resetGame() has run this session (1 = first start)
+  let lastTrackedStage = null; // analytics: last stage value sent to posthog
   // NOT reset by resetGame() - counts how many times stage 1 has been
   // cleared; once it reaches 3, the "仲間爆破装置起動" skip button becomes
   // available on every subsequent restart. Persists across browser
@@ -3578,6 +3595,7 @@
     shakeTimer = 0;
     shakeMagnitude = 0;
     stage = 1;
+    deathCause = null;
     stageTimer = 0;
     boss = null;
     trueBoss = null;
@@ -3689,6 +3707,15 @@
     gameWin = false;
     gameStartTime = performance.now();
     clearElapsedMs = 0;
+    totalPlayCount++;
+    lastTrackedStage = null;
+    try{
+      if(totalPlayCount === 1){
+        posthog.capture('game_start');
+      } else {
+        posthog.capture('game_retry', { retry_count: totalPlayCount - 1 });
+      }
+    }catch(e){}
     overlay.classList.remove('show');
     invincibleBtn.disabled = false;
     invincibleBtn.innerHTML = DEBUG_MODE ? '無敵<br>ON' : '無敵<br>5秒';
@@ -5643,6 +5670,7 @@
   function killShooterPlayer(){
     if(!player.alive) return;
     player.alive = false;
+    deathCause = 'shooter_minigame';
     spawnShooterBurst(shooterShip.wx, shooterShip.wz, '#ffd75e', 2.0);
     triggerShake(0.3, 6);
     sfx.playerDeath();
@@ -6128,6 +6156,7 @@
   function killFPSPlayer(){
     if(!player.alive) return;
     player.alive = false;
+    deathCause = 'fps_minigame';
     setShielding(false);
     spawnShooterBurst(0, 0, '#ff6b4a', 2.0);
     triggerShake(0.3, 6);
@@ -6496,7 +6525,8 @@
     score = 0;
     gameStartTime = performance.now();
     clearElapsedMs = 0;
-
+    lastTrackedStage = null;
+    try{ posthog.capture('retry_from_god_checkpoint'); }catch(e){}
     // tear down whichever downstream section might have been active -
     // forcibly, since we can't be sure which one it was
     teardownHeavenTheme();
@@ -7048,6 +7078,7 @@
       collectedTreasures.push(name);
       collectedTreasureTypesThisRun.add(type);
       updateTreasureIcons();
+      try{ posthog.capture('treasure_collected', { treasure: type }); }catch(e){}
       if(altarsReplaced) sneakyTreasureTaken = true;
       showItemToast(`${name}を手に入れた`, 1.6);
       return;
@@ -7251,6 +7282,7 @@
         godDyingTimer = 0;
         godBoss.alive = false;
         godDefeated = true;
+        try{ posthog.capture('boss_defeated', { boss: 'god_boss' }); }catch(e){}
         spawnDeathEffect(godBoss.x+ENTITY_SIZE/2, godBoss.y+ENTITY_SIZE/2, '#fff2c0', 2.6);
         spawnSlowBurst(godBoss.x+ENTITY_SIZE/2, godBoss.y+ENTITY_SIZE/2, '#fff2c0', 32, 2.2);
         spawnSlowBurst(godBoss.x+ENTITY_SIZE/2, godBoss.y+ENTITY_SIZE/2, '#ffe066', 22, 1.8);
@@ -7511,6 +7543,7 @@
           sfx.trueBossWarning();
         } else {
           player.alive = false;
+          deathCause = 'black_hole';
           spawnSlowBurst(blackHoleDeathTarget.x, blackHoleDeathTarget.y, playerParticleColor(), 28, 0.9);
           spawnSlowBurst(blackHoleDeathTarget.x, blackHoleDeathTarget.y, '#8a3ad0', 20, 0.7);
           spawnSlowBurst(blackHoleDeathTarget.x, blackHoleDeathTarget.y, '#111111', 16, 0.6);
@@ -8233,6 +8266,7 @@
           const relAngle = Math.atan2(pcx-bcx, pcy-bcy); // 0 = straight ahead of the boss
           if(Math.abs(relAngle) >= hiddenBoss.cageHalfAngle){
             player.alive = false;
+            deathCause = 'hidden_boss_cage';
             spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, '#8a3ad0', 1.8);
             sfx.playerDeath();
           }
@@ -8240,6 +8274,7 @@
         if(hiddenBoss.cageTimer<=0 && hiddenBoss.alive && player.alive){
           // the mouth fully closed - nowhere left to stand
           player.alive = false;
+          deathCause = 'hidden_boss_cage';
           spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, '#8a3ad0', 1.8);
           sfx.playerDeath();
         }
@@ -8332,6 +8367,7 @@
         if(p.x+half>player.x && p.x-half<player.x+ENTITY_SIZE &&
            p.y+half>player.y && p.y-half<player.y+ENTITY_SIZE){
           player.alive = false;
+          deathCause = 'projectile';
           spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, playerParticleColor(), 1.6);
           sfx.playerDeath();
           p.dead = true;
@@ -8345,6 +8381,7 @@
       for(const en of enemies){
         if(en.alive && overlaps(player, en)){
           player.alive = false;
+          deathCause = 'enemy';
           spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, playerParticleColor(), 1.6);
           sfx.playerDeath();
           break;
@@ -8352,6 +8389,7 @@
       }
       if(player.alive && stage===3 && boss && boss.alive && boss.invuln<=0 && overlaps(player, boss)){
         player.alive = false;
+        deathCause = 'boss';
         spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, playerParticleColor(), 1.6);
         sfx.playerDeath();
       }
@@ -8369,6 +8407,7 @@
       const et = occupiedCell(player);
       if(player.alive && player.invincibleTimer<=0 && !isSafeCell(et.gx,et.gy) && ex.cells.some(c=>c.gx===et.gx && c.gy===et.gy)){
         player.alive = false;
+        deathCause = 'explosion';
         spawnDeathEffect(player.x+ENTITY_SIZE/2, player.y+ENTITY_SIZE/2, playerParticleColor(), 1.6);
         sfx.playerDeath();
       }
@@ -8394,6 +8433,7 @@
             boss.alive = false;
             boss1ClearCount++;
             saveBoss1ClearCount();
+            try{ posthog.capture('boss_defeated', { boss: 'first_boss' }); }catch(e){}
             bossDeathPixelPos = { x: boss.x+ENTITY_SIZE/2, y: boss.y+ENTITY_SIZE/2 };
             spawnDeathEffect(boss.x+ENTITY_SIZE/2, boss.y+ENTITY_SIZE/2, '#7a1fa2', 2.2);
             sfx.bossDeath();
@@ -8410,6 +8450,7 @@
           trueBoss.invuln = 1.0;
           if(trueBoss.hp<=0){
             trueBoss.alive = false;
+            try{ posthog.capture('boss_defeated', { boss: 'true_boss' }); }catch(e){}
             // an immediate small pop, then a much bigger slow-motion burst
             // that carries the whole cutscene leading into the white flash
             spawnDeathEffect(trueBoss.x+ENTITY_SIZE/2, trueBoss.y+ENTITY_SIZE/2, '#ff3b3b', 2.2);
@@ -8439,6 +8480,7 @@
           hiddenBoss.invuln = 1.0;
           if(hiddenBoss.hp<=0){
             hiddenBoss.alive = false;
+            try{ posthog.capture('boss_defeated', { boss: 'hidden_boss' }); }catch(e){}
             spawnDeathEffect(hiddenBoss.x+ENTITY_SIZE/2, hiddenBoss.y+ENTITY_SIZE/2, '#ffd75e', 2.4);
             spawnSlowBurst(hiddenBoss.x+ENTITY_SIZE/2, hiddenBoss.y+ENTITY_SIZE/2, '#ffd75e', 28, HIDDENBOSS_CROWN_DURATION-0.6);
             spawnSlowBurst(hiddenBoss.x+ENTITY_SIZE/2, hiddenBoss.y+ENTITY_SIZE/2, '#8a3ad0', 20, HIDDENBOSS_CROWN_DURATION-0.8);
@@ -9731,13 +9773,23 @@
   function showOverlay(win){
     overlayTitle.textContent = win ? (epilogueEnding ? '真・完全クリア！ 🌍💥' : (godTranscended ? '神クリア！ 😇' : (trueEnding ? '完全クリア！ 👑' : 'YOU WIN! 🎉'))) : 'GAME OVER 💥';
     bgmPlaying = false;
+    const playDurationSec = (performance.now() - gameStartTime) / 1000;
     if(win){
       clearElapsedMs = performance.now() - gameStartTime;
       overlayText.innerHTML = epilogueEnding ? `${endingMessage || ''} クリアタイム: ${formatClearTime(clearElapsedMs)}` : `${endingMessage || '真のボスを倒した！'} クリアタイム: ${formatClearTime(clearElapsedMs)}`;
       if(godTranscended || (trueEnding && !crownCracked)) sfx.grandWin(); else sfx.win();
+      try{
+        posthog.capture('game_clear', {
+          play_duration_sec: Math.round(playDurationSec),
+          ending_type: epilogueEnding ? 'epilogue' : (godTranscended ? 'god' : (trueEnding ? 'true' : 'normal'))
+        });
+      }catch(e){}
     } else {
       overlayText.innerHTML = endingMessage || 'もう一度挑戦しよう！';
       sfx.gameOver();
+      try{
+        posthog.capture('game_over', { play_duration_sec: Math.round(playDurationSec), death_cause: deathCause || 'unknown' });
+      }catch(e){}
     }
     godRestartBtn.style.display = reachedShooterCheckpoint ? '' : 'none';
     overlay.classList.add('show');
@@ -12664,6 +12716,10 @@
       const dt = Math.min((now-lastTime)/1000, 0.05);
       lastTime = now;
       update(dt);
+      if(stage !== lastTrackedStage){
+        lastTrackedStage = stage;
+        try{ posthog.capture('stage_reached', { stage: stage }); }catch(e){}
+      }
       updateDeathEffects(dt);
       updateBlockDebris(dt);
       updateBGM();

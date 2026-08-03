@@ -3274,6 +3274,30 @@
   let deathCause = null; // analytics: what killed the player this run
   let totalPlayCount = 0; // analytics: how many times resetGame() has run this session (1 = first start)
   let lastTrackedStage = null; // analytics: last stage value sent to posthog
+  const STAGE_NAMES = { // analytics: human-readable labels for posthog's stage_reached event
+    1: '通常ステージ',
+    2: '最初のボス登場演出',
+    3: '最初のボス戦',
+    4: '真のボス登場演出',
+    5: '真のボス戦',
+    6: '真のボス撃破演出',
+    7: '宝物探索エリア',
+    8: '裏ボス登場演出',
+    9: '裏ボス戦',
+    10: '裏ボス撃破演出',
+    11: '王冠の間',
+    12: 'ブラックホール演出',
+    13: '王冠勝利ポーズ',
+    14: '神エンディング昇天演出',
+    20: '天界突入演出',
+    21: '神ボス戦',
+    22: '謎の門演出',
+    23: 'シューティングパート',
+    24: 'シューティングクリア演出',
+    25: '地球帰還バナー',
+    26: 'FPSパート',
+    30: '宇宙ワープ演出'
+  };
   // NOT reset by resetGame() - counts how many times stage 1 has been
   // cleared; once it reaches 3, the "仲間爆破装置起動" skip button becomes
   // available on every subsequent restart. Persists across browser
@@ -12718,7 +12742,7 @@
       update(dt);
       if(stage !== lastTrackedStage){
         lastTrackedStage = stage;
-        try{ posthog.capture('stage_reached', { stage: stage }); }catch(e){}
+        try{ posthog.capture('stage_reached', { stage: stage, stage_name: STAGE_NAMES[stage] || ('未分類ステージ'+stage) }); }catch(e){}
       }
       updateDeathEffects(dt);
       updateBlockDebris(dt);

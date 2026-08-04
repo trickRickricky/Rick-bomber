@@ -8537,12 +8537,11 @@
           const dmg = ex.golden ? 20 : 1;
           godBoss.hp = Math.max(0, godBoss.hp - dmg);
           godBoss.hasBeenHit = true; // the god boss holds its fire until the player lands the first hit
-          godBoss.invuln = ex.golden ? 1.4 : 0.5;
-          if(!ex.golden){
-            // a normal bomb briefly staggers it, holding off the next
-            // barrage for a moment as a small reward for landing a hit
-            godBoss.attackTimer = Math.max(godBoss.attackTimer, 1.0);
-          }
+          godBoss.invuln = 0.5;
+          // any bomb hit (normal or golden) briefly staggers it, holding
+          // off the next barrage for a moment as a small reward for
+          // landing a hit
+          godBoss.attackTimer = Math.max(godBoss.attackTimer, 1.0);
           if(ex.golden){
             triggerShake(0.4, 9);
             spawnDeathEffect(godBoss.x+ENTITY_SIZE/2, godBoss.y+ENTITY_SIZE/2, '#fff2c0', 2.4);

@@ -6119,6 +6119,10 @@
     refreshHintText();
     showItemToast('「Rickボンバー！」', 2.2);
     sfx.trueBossWarning();
+    try{
+      const rickBombVoice = new Audio('rick_bomber_sound.mp3');
+      rickBombVoice.play().catch(()=>{}); // autoplay can be blocked before any user gesture; ignore if so
+    }catch(e){}
   }
 
   function enterFPSStage(){
